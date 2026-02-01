@@ -1,0 +1,134 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>OpenClaw Setup</title>
+  <link rel="stylesheet" href="/setup/styles.css" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="brand">
+      <div class="brand-title">OpenClaw Setup</div>
+      <div class="brand-sub">Configure and manage the wrapper without the CLI.</div>
+    </div>
+    <div class="status">
+      <div id="status" class="status-text">Loading...</div>
+      <div id="statusMeta" class="status-meta"></div>
+    </div>
+    <div class="header-actions">
+      <a class="btn ghost" href="/openclaw" target="_blank">Open OpenClaw UI</a>
+      <button id="exportRun" class="btn">Download backup</button>
+      <button id="refreshStatus" class="btn subtle">Refresh</button>
+      <button id="authReset" class="btn subtle">Re-auth</button>
+    </div>
+  </header>
+
+  <main class="content">
+    <section class="card">
+      <h2>Onboarding</h2>
+      <p class="muted">Runs the same onboarding flow as the CLI, but from the browser.</p>
+
+      <div class="field-grid">
+        <label for="authGroup">Provider group</label>
+        <select id="authGroup"></select>
+
+        <label for="authChoice">Auth method</label>
+        <select id="authChoice"></select>
+
+        <label for="authSecret">Key / Token (if required)</label>
+        <input id="authSecret" type="password" placeholder="Paste API key or token" />
+
+        <label for="flow">Wizard flow</label>
+        <select id="flow">
+          <option value="quickstart">quickstart</option>
+          <option value="advanced">advanced</option>
+          <option value="manual">manual</option>
+        </select>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Channels (optional)</h2>
+      <p class="muted">You can add these later inside OpenClaw, but this helps you get messaging working immediately.</p>
+
+      <div class="field-grid">
+        <label for="telegramToken">Telegram bot token</label>
+        <input id="telegramToken" type="password" placeholder="123456:ABC..." />
+        <div class="hint">BotFather: message <code>@BotFather</code>, run <code>/newbot</code>, then copy the token.</div>
+
+        <label for="discordToken">Discord bot token</label>
+        <input id="discordToken" type="password" placeholder="Bot token" />
+        <div class="hint">Enable MESSAGE CONTENT INTENT in Bot > Privileged Gateway Intents.</div>
+
+        <label for="slackBotToken">Slack bot token</label>
+        <input id="slackBotToken" type="password" placeholder="xoxb-..." />
+
+        <label for="slackAppToken">Slack app token</label>
+        <input id="slackAppToken" type="password" placeholder="xapp-..." />
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Run onboarding</h2>
+      <div class="action-row">
+        <button id="run" class="btn primary">Run setup</button>
+        <button id="pairingApprove" class="btn ghost">Approve pairing</button>
+        <button id="reset" class="btn danger">Reset setup</button>
+      </div>
+      <pre id="log" class="log"></pre>
+      <p class="muted">Reset deletes the OpenClaw config file so you can rerun onboarding.</p>
+    </section>
+
+    <details class="card">
+      <summary>Advanced tools</summary>
+      <div class="stack">
+        <div class="subcard">
+          <h3>Import backup</h3>
+          <p class="muted">Restores into <code>/data</code> and restarts the gateway.</p>
+          <div class="action-row">
+            <input id="importFile" type="file" accept=".tar.gz,application/gzip" />
+            <button id="importRun" class="btn danger">Import</button>
+          </div>
+          <pre id="importOut" class="log"></pre>
+        </div>
+
+        <div class="subcard">
+          <h3>Config editor</h3>
+          <p class="muted">Edits the full config file (JSON5). Saving creates a timestamped backup and restarts the gateway.</p>
+          <div id="configPath" class="muted"></div>
+          <textarea id="configText" class="code"></textarea>
+          <div class="action-row">
+            <button id="configReload" class="btn subtle">Reload</button>
+            <button id="configSave" class="btn primary">Save</button>
+          </div>
+          <pre id="configOut" class="log"></pre>
+        </div>
+
+        <div class="subcard">
+          <h3>Debug console</h3>
+          <p class="muted">Run a small allowlist of safe commands (no shell).</p>
+          <div class="action-row">
+            <select id="consoleCmd" class="grow">
+              <option value="gateway.restart">gateway.restart (wrapper-managed)</option>
+              <option value="gateway.stop">gateway.stop (wrapper-managed)</option>
+              <option value="gateway.start">gateway.start (wrapper-managed)</option>
+              <option value="openclaw.status">openclaw status</option>
+              <option value="openclaw.health">openclaw health</option>
+              <option value="openclaw.doctor">openclaw doctor</option>
+              <option value="openclaw.logs.tail">openclaw logs --tail N</option>
+              <option value="openclaw.config.get">openclaw config get &lt;path&gt;</option>
+              <option value="openclaw.version">openclaw --version</option>
+            </select>
+            <input id="consoleArg" class="grow" placeholder="Optional arg (e.g. 200, gateway.port)" />
+            <button id="consoleRun" class="btn">Run</button>
+          </div>
+          <pre id="consoleOut" class="log"></pre>
+        </div>
+      </div>
+    </details>
+  </main>
+
+  <script src="/setup/app.js"></script>
+</body>
+</html>

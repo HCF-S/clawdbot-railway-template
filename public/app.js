@@ -3,9 +3,12 @@
 
 (function () {
   var statusEl = document.getElementById('status');
+  var statusMetaEl = document.getElementById('statusMeta');
   var authGroupEl = document.getElementById('authGroup');
   var authChoiceEl = document.getElementById('authChoice');
   var logEl = document.getElementById('log');
+  var refreshBtn = document.getElementById('refreshStatus');
+  var authResetBtn = document.getElementById('authReset');
 
   // Debug console
   var consoleCmdEl = document.getElementById('consoleCmd');
@@ -25,11 +28,88 @@
   var importRunEl = document.getElementById('importRun');
   var importOutEl = document.getElementById('importOut');
 
+  // Export
+  var exportRunEl = document.getElementById('exportRun');
+
+  var tokenKey = 'openclaw_setup_api_token';
+  var apiToken = '';
+
   function setStatus(s) {
-    statusEl.textContent = s;
+    if (statusEl) statusEl.textContent = s;
+  }
+
+  function setStatusMeta(s) {
+    if (statusMetaEl) statusMetaEl.textContent = s || '';
+  }
+
+  function loadToken() {
+    try {
+      apiToken = localStorage.getItem(tokenKey) || '';
+    } catch (_e) {
+      apiToken = '';
+    }
+    return apiToken;
+  }
+
+  function saveToken(t) {
+    apiToken = t || '';
+    try {
+      if (apiToken) localStorage.setItem(tokenKey, apiToken);
+      else localStorage.removeItem(tokenKey);
+    } catch (_e) {
+      // ignore
+    }
+  }
+
+  function promptForToken() {
+    var t = window.prompt('Enter API token (SETUP_PASSWORD):', apiToken || '');
+    if (t && String(t).trim()) {
+      saveToken(String(t).trim());
+      return apiToken;
+    }
+    return '';
+  }
+
+  function ensureToken() {
+    if (apiToken) return Promise.resolve(apiToken);
+    loadToken();
+    if (apiToken) return Promise.resolve(apiToken);
+    var t = promptForToken();
+    if (!t) return Promise.reject(new Error('Missing API token'));
+    return Promise.resolve(t);
+  }
+
+  function authorizedFetch(url, opts, retried) {
+    opts = opts || {};
+    opts.credentials = 'same-origin';
+    opts.headers = opts.headers || {};
+    return ensureToken().then(function () {
+      opts.headers['x-api-token'] = apiToken;
+      return fetch(url, opts);
+    }).then(function (res) {
+      if (res.status === 401 && !retried) {
+        saveToken('');
+        promptForToken();
+        return authorizedFetch(url, opts, true);
+      }
+      return res;
+    });
+  }
+
+  function httpJson(url, opts) {
+    opts = opts || {};
+    return authorizedFetch(url, opts).then(function (res) {
+      if (!res.ok) {
+        return res.text().then(function (t) {
+          throw new Error('HTTP ' + res.status + ': ' + (t || res.statusText));
+        });
+      }
+      return res.json();
+    });
   }
 
   function renderAuth(groups) {
+    if (!authGroupEl || !authChoiceEl) return;
     authGroupEl.innerHTML = '';
     for (var i = 0; i < groups.length; i++) {
       var g = groups[i];
@@ -58,69 +138,58 @@
     authGroupEl.onchange();
   }
 
-  function httpJson(url, opts) {
-    opts = opts || {};
-    opts.credentials = 'same-origin';
-    return fetch(url, opts).then(function (res) {
-      if (!res.ok) {
-        return res.text().then(function (t) {
-          throw new Error('HTTP ' + res.status + ': ' + (t || res.statusText));
-        });
-      }
-      return res.json();
-    });
-  }
-
   function refreshStatus() {
     setStatus('Loading...');
+    setStatusMeta(apiToken ? 'API auth saved' : 'API auth missing');
     return httpJson('/setup/api/status').then(function (j) {
       var ver = j.openclawVersion ? (' | ' + j.openclawVersion) : '';
       setStatus((j.configured ? 'Configured - open /openclaw' : 'Not configured - run setup below') + ver);
+      setStatusMeta(apiToken ? 'API auth saved' : 'API auth missing');
       renderAuth(j.authGroups || []);
-      // If channels are unsupported, surface it for debugging.
       if (j.channelsAddHelp && j.channelsAddHelp.indexOf('telegram') === -1) {
-        logEl.textContent += '\nNote: this openclaw build does not list telegram in `channels add --help`. Telegram auto-add will be skipped.\n';
+        if (logEl) logEl.textContent += '\nNote: this openclaw build does not list telegram in `channels add --help`. Telegram auto-add will be skipped.\n';
       }
 
-      // Attempt to load config editor content if present.
       if (configReloadEl && configTextEl) {
         loadConfigRaw();
       }
-
     }).catch(function (e) {
       setStatus('Error: ' + String(e));
     });
   }
 
-  document.getElementById('run').onclick = function () {
-    var payload = {
-      flow: document.getElementById('flow').value,
-      authChoice: authChoiceEl.value,
-      authSecret: document.getElementById('authSecret').value,
-      telegramToken: document.getElementById('telegramToken').value,
-      discordToken: document.getElementById('discordToken').value,
-      slackBotToken: document.getElementById('slackBotToken').value,
-      slackAppToken: document.getElementById('slackAppToken').value
+  // Run onboarding
+  var runBtn = document.getElementById('run');
+  if (runBtn) {
+    runBtn.onclick = function () {
+      var payload = {
+        flow: document.getElementById('flow').value,
+        authChoice: authChoiceEl.value,
+        authSecret: document.getElementById('authSecret').value,
+        telegramToken: document.getElementById('telegramToken').value,
+        discordToken: document.getElementById('discordToken').value,
+        slackBotToken: document.getElementById('slackBotToken').value,
+        slackAppToken: document.getElementById('slackAppToken').value
+      };
+
+      if (logEl) logEl.textContent = 'Running...\n';
+
+      authorizedFetch('/setup/api/run', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(payload)
+      }).then(function (res) {
+        return res.text();
+      }).then(function (text) {
+        var j;
+        try { j = JSON.parse(text); } catch (_e) { j = { ok: false, output: text }; }
+        if (logEl) logEl.textContent += (j.output || JSON.stringify(j, null, 2));
+        return refreshStatus();
+      }).catch(function (e) {
+        if (logEl) logEl.textContent += '\nError: ' + String(e) + '\n';
+      });
     };
-
-    logEl.textContent = 'Running...\n';
-
-    fetch('/setup/api/run', {
-      method: 'POST',
-      credentials: 'same-origin',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(payload)
-    }).then(function (res) {
-      return res.text();
-    }).then(function (text) {
-      var j;
-      try { j = JSON.parse(text); } catch (_e) { j = { ok: false, output: text }; }
-      logEl.textContent += (j.output || JSON.stringify(j, null, 2));
-      return refreshStatus();
-    }).catch(function (e) {
-      logEl.textContent += '\nError: ' + String(e) + '\n';
-    });
-  };
+  }
 
   // Debug console runner
   function runConsole() {
@@ -191,9 +260,8 @@
     if (importOutEl) importOutEl.textContent = 'Uploading ' + f.name + ' (' + f.size + ' bytes)...\n';
 
     return f.arrayBuffer().then(function (buf) {
-      return fetch('/setup/import', {
+      return authorizedFetch('/setup/import', {
         method: 'POST',
-        credentials: 'same-origin',
         headers: { 'content-type': 'application/gzip' },
         body: buf
       });
@@ -223,26 +291,75 @@
       }
       var code = prompt('Enter pairing code (e.g. 3EY4PUYS):');
       if (!code) return;
-      logEl.textContent += '\nApproving pairing for ' + channel + '...\n';
-      fetch('/setup/api/pairing/approve', {
+      if (logEl) logEl.textContent += '\nApproving pairing for ' + channel + '...\n';
+      authorizedFetch('/setup/api/pairing/approve', {
         method: 'POST',
-        credentials: 'same-origin',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ channel: channel, code: code.trim() })
       }).then(function (r) { return r.text(); })
-        .then(function (t) { logEl.textContent += t + '\n'; })
-        .catch(function (e) { logEl.textContent += 'Error: ' + String(e) + '\n'; });
+        .then(function (t) { if (logEl) logEl.textContent += t + '\n'; })
+        .catch(function (e) { if (logEl) logEl.textContent += 'Error: ' + String(e) + '\n'; });
     };
   }
 
-  document.getElementById('reset').onclick = function () {
-    if (!confirm('Reset setup? This deletes the config file so onboarding can run again.')) return;
-    logEl.textContent = 'Resetting...\n';
-    fetch('/setup/api/reset', { method: 'POST', credentials: 'same-origin' })
-      .then(function (res) { return res.text(); })
-      .then(function (t) { logEl.textContent += t + '\n'; return refreshStatus(); })
-      .catch(function (e) { logEl.textContent += 'Error: ' + String(e) + '\n'; });
-  };
+  var resetBtn = document.getElementById('reset');
+  if (resetBtn) {
+    resetBtn.onclick = function () {
+      if (!confirm('Reset setup? This deletes the config file so onboarding can run again.')) return;
+      if (logEl) logEl.textContent = 'Resetting...\n';
+      authorizedFetch('/setup/api/reset', { method: 'POST' })
+        .then(function (res) { return res.text(); })
+        .then(function (t) { if (logEl) logEl.textContent += t + '\n'; return refreshStatus(); })
+        .catch(function (e) { if (logEl) logEl.textContent += 'Error: ' + String(e) + '\n'; });
+    };
+  }
 
+  // Export backup
+  function runExport() {
+    if (!exportRunEl) return;
+    exportRunEl.disabled = true;
+    exportRunEl.textContent = 'Preparing...';
+    return authorizedFetch('/setup/export', { method: 'GET' }).then(function (res) {
+      if (!res.ok) {
+        return res.text().then(function (t) {
+          throw new Error('HTTP ' + res.status + ': ' + (t || res.statusText));
+        });
+      }
+      var filename = 'openclaw-backup.tar.gz';
+      var dispo = res.headers.get('content-disposition') || '';
+      var match = /filename="([^"]+)"/.exec(dispo);
+      if (match && match[1]) filename = match[1];
+      return res.blob().then(function (blob) {
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(function () {
+          URL.revokeObjectURL(url);
+          a.remove();
+        }, 0);
+      });
+    }).catch(function (e) {
+      alert('Export failed: ' + String(e));
+    }).finally(function () {
+      exportRunEl.disabled = false;
+      exportRunEl.textContent = 'Download backup';
+    });
+  }
+
+  if (exportRunEl) exportRunEl.onclick = runExport;
+
+  if (refreshBtn) refreshBtn.onclick = refreshStatus;
+  if (authResetBtn) {
+    authResetBtn.onclick = function () {
+      saveToken('');
+      promptForToken();
+      refreshStatus();
+    };
+  }
+
+  loadToken();
   refreshStatus();
 })();
