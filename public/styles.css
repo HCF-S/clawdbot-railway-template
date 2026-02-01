@@ -80,10 +80,8 @@ code {
 }
 
 .content {
-  display: grid;
-  gap: 1.5rem;
-  padding: 1.5rem 6vw 3rem;
-  max-width: 1100px;
+  padding: 1.5rem 4vw 3rem;
+  max-width: 1400px;
   margin: 0 auto;
 }
 
@@ -93,6 +91,44 @@ code {
   border-radius: var(--radius);
   padding: 1.5rem;
   box-shadow: var(--shadow);
+}
+
+.layout {
+  display: grid;
+  gap: 1.5rem;
+  grid-template-columns: minmax(160px, 220px) 1fr;
+  align-items: start;
+}
+
+.menu {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  position: sticky;
+  top: 1.5rem;
+}
+
+.menu-item {
+  border: 1px solid transparent;
+  border-radius: 14px;
+  padding: 0.7rem 0.9rem;
+  background: rgba(255, 250, 244, 0.9);
+  color: var(--ink);
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgba(27, 21, 13, 0.08);
+}
+
+.menu-item.is-active {
+  background: var(--primary);
+  color: var(--primary-ink);
+  border-color: var(--primary);
+}
+
+.panels {
+  display: grid;
+  gap: 1.5rem;
 }
 
 .card h2 {
@@ -243,5 +279,19 @@ details.card > summary::-webkit-details-marker {
   }
   .field-grid .hint {
     margin-top: -0.6rem;
+  }
+}
+
+@media (max-width: 860px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+  .menu {
+    position: static;
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+  .menu-item {
+    flex: 1 1 140px;
   }
 }

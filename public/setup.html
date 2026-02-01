@@ -18,83 +18,141 @@
     </div>
     <div class="header-actions">
       <a class="btn ghost" href="/openclaw" target="_blank">Open OpenClaw UI</a>
-      <button id="exportRun" class="btn">Download backup</button>
+      <button id="restartGateway" class="btn danger">Restart gateway</button>
       <button id="refreshStatus" class="btn subtle">Refresh</button>
-      <button id="authReset" class="btn subtle">Re-auth</button>
+      <button id="authReset" class="btn subtle">Logout</button>
     </div>
   </header>
 
   <main class="content">
-    <section class="card">
-      <h2>Onboarding</h2>
-      <p class="muted">Runs the same onboarding flow as the CLI, but from the browser.</p>
+    <div class="layout">
+      <nav class="menu">
+        <button id="menuOnboarding" class="menu-item is-active" data-target="onboarding">Onboarding</button>
+        <button class="menu-item" data-target="models">Switch model</button>
+        <button class="menu-item" data-target="channels">Channels</button>
+        <button class="menu-item" data-target="pairing">Pairing</button>
+        <button class="menu-item" data-target="advanced-import">Import backup</button>
+        <button class="menu-item" data-target="advanced-config">Config editor</button>
+        <button class="menu-item" data-target="advanced-console">Debug console</button>
+      </nav>
 
-      <div class="field-grid">
-        <label for="authGroup">Provider group</label>
-        <select id="authGroup"></select>
+      <div class="panels">
+        <section class="card panel" data-section="onboarding">
+          <h2 id="onboardingHeading">Onboarding</h2>
+          <p class="muted">Runs the same onboarding flow as the CLI, but from the browser.</p>
 
-        <label for="authChoice">Auth method</label>
-        <select id="authChoice"></select>
+          <div class="field-grid">
+            <label for="authGroup">Provider group</label>
+            <select id="authGroup"></select>
 
-        <label for="authSecret">Key / Token (if required)</label>
-        <input id="authSecret" type="password" placeholder="Paste API key or token" />
+            <label for="authChoice">Auth method</label>
+            <select id="authChoice"></select>
 
-        <label for="flow">Wizard flow</label>
-        <select id="flow">
-          <option value="quickstart">quickstart</option>
-          <option value="advanced">advanced</option>
-          <option value="manual">manual</option>
-        </select>
-      </div>
-    </section>
+            <label for="authSecret">Key / Token (if required)</label>
+            <input id="authSecret" type="password" placeholder="Paste API key or token" />
 
-    <section class="card">
-      <h2>Channels (optional)</h2>
-      <p class="muted">You can add these later inside OpenClaw, but this helps you get messaging working immediately.</p>
+            <label for="flow">Wizard flow</label>
+            <select id="flow">
+              <option value="quickstart">quickstart</option>
+              <option value="advanced">advanced</option>
+              <option value="manual">manual</option>
+            </select>
+          </div>
 
-      <div class="field-grid">
-        <label for="telegramToken">Telegram bot token</label>
-        <input id="telegramToken" type="password" placeholder="123456:ABC..." />
-        <div class="hint">BotFather: message <code>@BotFather</code>, run <code>/newbot</code>, then copy the token.</div>
+          <div class="action-row">
+            <button id="run" class="btn primary">Run setup</button>
+            <button id="reset" class="btn danger">Reset setup</button>
+          </div>
+          <pre id="log" class="log" hidden></pre>
+        </section>
 
-        <label for="discordToken">Discord bot token</label>
-        <input id="discordToken" type="password" placeholder="Bot token" />
-        <div class="hint">Enable MESSAGE CONTENT INTENT in Bot > Privileged Gateway Intents.</div>
+        <section class="card panel" data-section="channels" hidden>
+          <h2>Channels (optional)</h2>
+          <p class="muted">You can add these later inside OpenClaw, but this helps you get messaging working immediately.</p>
 
-        <label for="slackBotToken">Slack bot token</label>
-        <input id="slackBotToken" type="password" placeholder="xoxb-..." />
+          <div class="field-grid">
+            <label for="telegramToken">Telegram bot token</label>
+            <input id="telegramToken" type="password" placeholder="123456:ABC..." />
+            <div class="hint">BotFather: message <code>@BotFather</code>, run <code>/newbot</code>, then copy the token.</div>
 
-        <label for="slackAppToken">Slack app token</label>
-        <input id="slackAppToken" type="password" placeholder="xapp-..." />
-      </div>
-    </section>
+            <label for="discordToken">Discord bot token</label>
+            <input id="discordToken" type="password" placeholder="Bot token" />
+            <div class="hint">Enable MESSAGE CONTENT INTENT in Bot > Privileged Gateway Intents.</div>
 
-    <section class="card">
-      <h2>Run onboarding</h2>
-      <div class="action-row">
-        <button id="run" class="btn primary">Run setup</button>
-        <button id="pairingApprove" class="btn ghost">Approve pairing</button>
-        <button id="reset" class="btn danger">Reset setup</button>
-      </div>
-      <pre id="log" class="log"></pre>
-      <p class="muted">Reset deletes the OpenClaw config file so you can rerun onboarding.</p>
-    </section>
+            <label for="slackBotToken">Slack bot token</label>
+            <input id="slackBotToken" type="password" placeholder="xoxb-..." />
 
-    <details class="card">
-      <summary>Advanced tools</summary>
-      <div class="stack">
-        <div class="subcard">
-          <h3>Import backup</h3>
+            <label for="slackAppToken">Slack app token</label>
+            <input id="slackAppToken" type="password" placeholder="xapp-..." />
+          </div>
+
+          <div class="action-row">
+            <button id="channelsSave" class="btn primary">Save channels</button>
+          </div>
+          <pre id="channelsOut" class="log"></pre>
+        </section>
+
+        <section class="card panel" data-section="pairing" hidden>
+          <h2>Pairing</h2>
+          <p class="muted">Review pending pairing requests and approve them.</p>
+
+          <div class="action-row">
+            <button id="pairingFetch" class="btn subtle">Fetch pending pairings</button>
+            <button id="pairingApprove" class="btn primary">Approve pairing</button>
+          </div>
+
+          <div class="field-grid">
+            <label for="pairingChannel">Channel</label>
+            <select id="pairingChannel">
+              <option value="telegram">telegram</option>
+              <option value="discord">discord</option>
+            </select>
+
+            <label for="pairingCode">Pairing code</label>
+            <input id="pairingCode" placeholder="e.g. 3EY4PUYS" />
+          </div>
+
+          <pre id="pairingOut" class="log"></pre>
+        </section>
+
+        <section class="card panel" data-section="models" hidden>
+          <h2>Switch model</h2>
+          <div id="modelsStatusText" class="muted" style="margin-bottom:0.5rem;"></div>
+          <p class="muted">Choose a model to use once your provider is configured.</p>
+
+          <div class="action-row">
+            <button id="modelsFetch" class="btn subtle">Fetch models</button>
+            <button id="modelsStatus" class="btn subtle">Current model</button>
+          </div>
+
+          <div class="field-grid">
+            <label for="modelSelect">Available models</label>
+            <select id="modelSelect"></select>
+
+            <label for="modelInput">Or set by ID</label>
+            <input id="modelInput" placeholder="e.g. openai/gpt-4.1" />
+          </div>
+
+          <div class="action-row">
+            <button id="modelSet" class="btn primary">Set model</button>
+          </div>
+
+          <pre id="modelOut" class="log"></pre>
+        </section>
+
+        <section class="card panel" data-section="advanced-import" hidden>
+          <h2>Backup</h2>
           <p class="muted">Restores into <code>/data</code> and restarts the gateway.</p>
           <div class="action-row">
             <input id="importFile" type="file" accept=".tar.gz,application/gzip" />
             <button id="importRun" class="btn danger">Import</button>
+            <button id="exportRun" class="btn subtle">Export backup</button>
           </div>
           <pre id="importOut" class="log"></pre>
-        </div>
+        </section>
 
-        <div class="subcard">
-          <h3>Config editor</h3>
+        <section class="card panel" data-section="advanced-config" hidden>
+          <h2>Config editor</h2>
           <p class="muted">Edits the full config file (JSON5). Saving creates a timestamped backup and restarts the gateway.</p>
           <div id="configPath" class="muted"></div>
           <textarea id="configText" class="code"></textarea>
@@ -103,10 +161,10 @@
             <button id="configSave" class="btn primary">Save</button>
           </div>
           <pre id="configOut" class="log"></pre>
-        </div>
+        </section>
 
-        <div class="subcard">
-          <h3>Debug console</h3>
+        <section class="card panel" data-section="advanced-console" hidden>
+          <h2>Debug console</h2>
           <p class="muted">Run a small allowlist of safe commands (no shell).</p>
           <div class="action-row">
             <select id="consoleCmd" class="grow">
@@ -124,9 +182,9 @@
             <button id="consoleRun" class="btn">Run</button>
           </div>
           <pre id="consoleOut" class="log"></pre>
-        </div>
+        </section>
       </div>
-    </details>
+    </div>
   </main>
 
   <script src="/setup/app.js"></script>

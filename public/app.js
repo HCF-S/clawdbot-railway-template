@@ -9,6 +9,7 @@
   var logEl = document.getElementById('log');
   var refreshBtn = document.getElementById('refreshStatus');
   var authResetBtn = document.getElementById('authReset');
+  var restartGatewayEl = document.getElementById('restartGateway');
 
   // Debug console
   var consoleCmdEl = document.getElementById('consoleCmd');
@@ -28,8 +29,31 @@
   var importRunEl = document.getElementById('importRun');
   var importOutEl = document.getElementById('importOut');
 
+  // Pairing
+  var pairingFetchEl = document.getElementById('pairingFetch');
+  var pairingApproveEl = document.getElementById('pairingApprove');
+  var pairingChannelEl = document.getElementById('pairingChannel');
+  var pairingCodeEl = document.getElementById('pairingCode');
+  var pairingOutEl = document.getElementById('pairingOut');
+
+  // Models
+  var modelsFetchEl = document.getElementById('modelsFetch');
+  var modelsStatusEl = document.getElementById('modelsStatus');
+  var modelSelectEl = document.getElementById('modelSelect');
+  var modelInputEl = document.getElementById('modelInput');
+  var modelSetEl = document.getElementById('modelSet');
+  var modelOutEl = document.getElementById('modelOut');
+  var modelsStatusTextEl = document.getElementById('modelsStatusText');
+  var channelsSaveEl = document.getElementById('channelsSave');
+  var channelsOutEl = document.getElementById('channelsOut');
+
   // Export
   var exportRunEl = document.getElementById('exportRun');
+  var menuItems = document.querySelectorAll('.menu-item');
+  var panels = document.querySelectorAll('.panel');
+  var sectionKey = 'openclaw_setup_section';
+  var menuOnboardingEl = document.getElementById('menuOnboarding');
+  var onboardingHeadingEl = document.getElementById('onboardingHeading');
 
   var tokenKey = 'openclaw_setup_api_token';
   var apiToken = '';
@@ -41,6 +65,27 @@
   function setStatusMeta(s) {
     if (statusMetaEl) statusMetaEl.textContent = s || '';
   }
+
+function showSection(id) {
+  for (var i = 0; i < panels.length; i++) {
+    var panel = panels[i];
+    var match = panel.getAttribute('data-section') === id;
+    if (match) panel.removeAttribute('hidden');
+    else panel.setAttribute('hidden', 'hidden');
+  }
+  for (var j = 0; j < menuItems.length; j++) {
+    var item = menuItems[j];
+    if (item.getAttribute('data-target') === id) {
+      item.classList.add('is-active');
+    } else {
+      item.classList.remove('is-active');
+    }
+  }
+  if (id === 'onboarding') {
+    prefillFromConfig();
+  }
+  try { localStorage.setItem(sectionKey, id); } catch (_e) {}
+}
 
   function loadToken() {
     try {
@@ -138,6 +183,34 @@
     authGroupEl.onchange();
   }
 
+  function setValue(el, value, force) {
+    if (!el) return;
+    if (!force && el.value && el.value.trim()) return;
+    el.value = value || '';
+  }
+
+  function prefillFromConfig(force) {
+    return httpJson('/setup/api/prefill', { method: 'GET' }).then(function (j) {
+      setValue(document.getElementById('telegramToken'), j.channels && j.channels.telegramToken, force);
+      setValue(document.getElementById('discordToken'), j.channels && j.channels.discordToken, force);
+      setValue(document.getElementById('slackBotToken'), j.channels && j.channels.slackBotToken, force);
+      setValue(document.getElementById('slackAppToken'), j.channels && j.channels.slackAppToken, force);
+
+      if (modelInputEl && j.modelPrimary) {
+        setValue(modelInputEl, j.modelPrimary, force);
+      }
+      if (modelSelectEl && j.modelPrimary) {
+        if (force || !modelSelectEl.value) modelSelectEl.value = j.modelPrimary;
+      }
+
+      if (j.authChoice && authChoiceEl) {
+        if (force || !authChoiceEl.value) authChoiceEl.value = j.authChoice;
+      }
+    }).catch(function (_e) {
+      // best effort
+    });
+  }
+
   function refreshStatus() {
     setStatus('Loading...');
     setStatusMeta(apiToken ? 'API auth saved' : 'API auth missing');
@@ -145,6 +218,9 @@
       var ver = j.openclawVersion ? (' | ' + j.openclawVersion) : '';
       setStatus((j.configured ? 'Configured - open /openclaw' : 'Not configured - run setup below') + ver);
       setStatusMeta(apiToken ? 'API auth saved' : 'API auth missing');
+      var label = j.configured ? 'Model provider' : 'Onboarding';
+      if (menuOnboardingEl) menuOnboardingEl.textContent = label;
+      if (onboardingHeadingEl) onboardingHeadingEl.textContent = label;
       renderAuth(j.authGroups || []);
       if (j.channelsAddHelp && j.channelsAddHelp.indexOf('telegram') === -1) {
         if (logEl) logEl.textContent += '\nNote: this openclaw build does not list telegram in `channels add --help`. Telegram auto-add will be skipped.\n';
@@ -153,6 +229,7 @@
       if (configReloadEl && configTextEl) {
         loadConfigRaw();
       }
+      prefillFromConfig();
     }).catch(function (e) {
       setStatus('Error: ' + String(e));
     });
@@ -172,7 +249,10 @@
         slackAppToken: document.getElementById('slackAppToken').value
       };
 
-      if (logEl) logEl.textContent = 'Running...\n';
+    if (logEl) {
+      logEl.removeAttribute('hidden');
+      logEl.textContent = 'Running...\n';
+    }
 
       authorizedFetch('/setup/api/run', {
         method: 'POST',
@@ -183,12 +263,12 @@
       }).then(function (text) {
         var j;
         try { j = JSON.parse(text); } catch (_e) { j = { ok: false, output: text }; }
-        if (logEl) logEl.textContent += (j.output || JSON.stringify(j, null, 2));
-        return refreshStatus();
-      }).catch(function (e) {
-        if (logEl) logEl.textContent += '\nError: ' + String(e) + '\n';
-      });
-    };
+      if (logEl) logEl.textContent += (j.output || JSON.stringify(j, null, 2));
+      return refreshStatus();
+    }).catch(function (e) {
+      if (logEl) logEl.textContent += '\nError: ' + String(e) + '\n';
+    });
+  };
   }
 
   // Debug console runner
@@ -278,27 +358,175 @@
 
   if (importRunEl) importRunEl.onclick = runImport;
 
-  // Pairing approve helper
-  var pairingBtn = document.getElementById('pairingApprove');
-  if (pairingBtn) {
-    pairingBtn.onclick = function () {
-      var channel = prompt('Enter channel (telegram or discord):');
-      if (!channel) return;
-      channel = channel.trim().toLowerCase();
-      if (channel !== 'telegram' && channel !== 'discord') {
-        alert('Channel must be "telegram" or "discord"');
+  if (pairingFetchEl) {
+    pairingFetchEl.onclick = function () {
+      if (pairingOutEl) pairingOutEl.textContent = 'Fetching pending pairings...\n';
+      httpJson('/setup/api/pairing/pending', { method: 'GET' }).then(function (j) {
+        if (pairingOutEl) pairingOutEl.textContent = (j.output || JSON.stringify(j, null, 2));
+      }).catch(function (e) {
+        if (pairingOutEl) pairingOutEl.textContent += '\nError: ' + String(e) + '\n';
+      });
+    };
+  }
+
+  if (pairingApproveEl) {
+    pairingApproveEl.onclick = function () {
+      var channel = pairingChannelEl ? pairingChannelEl.value : '';
+      var code = pairingCodeEl ? pairingCodeEl.value : '';
+      if (!channel || !code) {
+        alert('Channel and pairing code are required');
         return;
       }
-      var code = prompt('Enter pairing code (e.g. 3EY4PUYS):');
-      if (!code) return;
-      if (logEl) logEl.textContent += '\nApproving pairing for ' + channel + '...\n';
+      if (pairingOutEl) pairingOutEl.textContent = 'Approving pairing for ' + channel + '...\n';
       authorizedFetch('/setup/api/pairing/approve', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ channel: channel, code: code.trim() })
+        body: JSON.stringify({ channel: String(channel).trim(), code: String(code).trim() })
       }).then(function (r) { return r.text(); })
-        .then(function (t) { if (logEl) logEl.textContent += t + '\n'; })
-        .catch(function (e) { if (logEl) logEl.textContent += 'Error: ' + String(e) + '\n'; });
+        .then(function (t) { if (pairingOutEl) pairingOutEl.textContent += t + '\n'; })
+        .catch(function (e) { if (pairingOutEl) pairingOutEl.textContent += 'Error: ' + String(e) + '\n'; });
+    };
+  }
+
+  if (channelsSaveEl) {
+    channelsSaveEl.onclick = function () {
+      var payload = {
+        telegramToken: document.getElementById('telegramToken').value,
+        discordToken: document.getElementById('discordToken').value,
+        slackBotToken: document.getElementById('slackBotToken').value,
+        slackAppToken: document.getElementById('slackAppToken').value
+      };
+      if (channelsOutEl) channelsOutEl.textContent = 'Saving channels...\n';
+      authorizedFetch('/setup/api/channels/set', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(payload)
+      }).then(function (res) { return res.json(); })
+        .then(function (data) {
+          if (!channelsOutEl) return;
+          var lines = [];
+          lines.push('ok: ' + Boolean(data.ok));
+          if (data.output) {
+            lines.push('');
+            lines.push(data.output);
+          }
+          channelsOutEl.textContent = lines.join('\n');
+        })
+        .catch(function (e) { if (channelsOutEl) channelsOutEl.textContent += 'Error: ' + String(e) + '\n'; });
+    };
+  }
+
+  function parseJsonOutput(text) {
+    try {
+      return JSON.parse(text);
+    } catch (_e) {
+      return null;
+    }
+  }
+
+  function updateModelStatusDisplay(output, silent) {
+    var parsed = parseJsonOutput(output || "");
+    var summary = "";
+    if (parsed) {
+      if (parsed.resolved?.model) summary = parsed.resolved.model;
+      else if (parsed.defaultModel) summary = parsed.defaultModel;
+      else if (parsed.primary) summary = parsed.primary;
+    }
+    if (!summary) summary = (output || "").trim();
+    if (modelsStatusTextEl) {
+      modelsStatusTextEl.textContent = summary ? "Current model: " + summary : "Current model: (unknown)";
+    }
+    if (!silent && modelOutEl) {
+      modelOutEl.textContent = output;
+    }
+  }
+
+  function loadModelStatus(silent) {
+    if (modelsStatusTextEl && !silent) {
+      modelsStatusTextEl.textContent = "Fetching current model…";
+    }
+    if (modelOutEl && !silent) {
+      modelOutEl.textContent = "Fetching current model…\n";
+    }
+    return httpJson("/setup/api/models/status", { method: "GET" })
+      .then(function (j) {
+        updateModelStatusDisplay(j.output, silent);
+      })
+      .catch(function (e) {
+        if (modelsStatusTextEl) {
+          modelsStatusTextEl.textContent = "Current model: (error)";
+        }
+        if (modelOutEl) {
+          modelOutEl.textContent += "\nError: " + String(e) + "\n";
+        }
+      });
+  }
+
+  function renderModels(list) {
+    if (!modelSelectEl) return;
+    modelSelectEl.innerHTML = '';
+    if (!list || !list.length) {
+      var opt = document.createElement('option');
+      opt.value = '';
+      opt.textContent = 'No models available';
+      modelSelectEl.appendChild(opt);
+      return;
+    }
+    for (var i = 0; i < list.length; i++) {
+      var m = list[i];
+      var id = m.id || m.model || m.name || '';
+      if (!id) continue;
+      var opt2 = document.createElement('option');
+      opt2.value = id;
+      opt2.textContent = id + (m.label ? ' — ' + m.label : '');
+      modelSelectEl.appendChild(opt2);
+    }
+  }
+
+  function fetchModelList() {
+    if (modelOutEl) modelOutEl.textContent = 'Fetching models...\n';
+    return httpJson('/setup/api/models/list', { method: 'GET' })
+      .then(function (j) {
+        var data = parseJsonOutput(j.output || '');
+        if (data && data.models) {
+          renderModels(data.models);
+          if (modelOutEl) modelOutEl.textContent = 'Loaded ' + data.models.length + ' models.\n';
+        } else if (modelOutEl) {
+          modelOutEl.textContent = (j.output || JSON.stringify(j, null, 2));
+        }
+      })
+      .catch(function (e) {
+        if (modelOutEl) modelOutEl.textContent += '\nError: ' + String(e) + '\n';
+      });
+  }
+
+  if (modelsFetchEl) {
+    modelsFetchEl.onclick = fetchModelList;
+  }
+
+  if (modelsStatusEl) {
+    modelsStatusEl.onclick = function () {
+      loadModelStatus();
+    };
+  }
+
+  if (modelSetEl) {
+    modelSetEl.onclick = function () {
+      var model = '';
+      if (modelInputEl && modelInputEl.value) model = modelInputEl.value.trim();
+      if (!model && modelSelectEl) model = modelSelectEl.value;
+      if (!model) {
+        alert('Select or enter a model ID');
+        return;
+      }
+      if (modelOutEl) modelOutEl.textContent = 'Setting model to ' + model + '...\n';
+      authorizedFetch('/setup/api/models/set', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ model: model })
+      }).then(function (r) { return r.text(); })
+        .then(function (t) { if (modelOutEl) modelOutEl.textContent += t + '\n'; })
+        .catch(function (e) { if (modelOutEl) modelOutEl.textContent += 'Error: ' + String(e) + '\n'; });
     };
   }
 
@@ -306,7 +534,10 @@
   if (resetBtn) {
     resetBtn.onclick = function () {
       if (!confirm('Reset setup? This deletes the config file so onboarding can run again.')) return;
-      if (logEl) logEl.textContent = 'Resetting...\n';
+      if (logEl) {
+        logEl.removeAttribute('hidden');
+        logEl.textContent = 'Resetting...\n';
+      }
       authorizedFetch('/setup/api/reset', { method: 'POST' })
         .then(function (res) { return res.text(); })
         .then(function (t) { if (logEl) logEl.textContent += t + '\n'; return refreshStatus(); })
@@ -351,13 +582,54 @@
 
   if (exportRunEl) exportRunEl.onclick = runExport;
 
-  if (refreshBtn) refreshBtn.onclick = refreshStatus;
+  if (refreshBtn) {
+    refreshBtn.onclick = function () {
+      refreshStatus().then(function () {
+        prefillFromConfig(true);
+        loadModelStatus(true);
+        fetchModelList();
+      });
+    };
+  }
   if (authResetBtn) {
     authResetBtn.onclick = function () {
       saveToken('');
       promptForToken();
       refreshStatus();
     };
+  }
+
+  if (restartGatewayEl) {
+    restartGatewayEl.onclick = function () {
+      if (!confirm('Restart gateway?')) return;
+      restartGatewayEl.disabled = true;
+      restartGatewayEl.textContent = 'Restarting...';
+      authorizedFetch('/setup/api/gateway/restart', { method: 'POST' })
+        .then(function (r) { return r.json(); })
+        .then(function (j) {
+          alert(j.output || 'Gateway restart queued');
+        })
+        .catch(function (e) {
+          alert('Gateway restart failed: ' + String(e));
+        })
+        .finally(function () {
+          restartGatewayEl.disabled = false;
+          restartGatewayEl.textContent = 'Restart gateway';
+        });
+    };
+  }
+
+  if (menuItems && menuItems.length) {
+    for (var m = 0; m < menuItems.length; m++) {
+      menuItems[m].onclick = function (e) {
+        var target = e.currentTarget && e.currentTarget.getAttribute('data-target');
+        if (target) showSection(target);
+      };
+    }
+    var saved = '';
+    try { saved = localStorage.getItem(sectionKey) || ''; } catch (_e) {}
+    if (saved) showSection(saved);
+    else showSection(menuItems[0].getAttribute('data-target'));
   }
 
   loadToken();
