@@ -34,6 +34,8 @@ Recommended:
 
 Optional:
 - `OPENCLAW_GATEWAY_TOKEN` — if not set, the wrapper generates one (not ideal). In a template, set it using a generated secret.
+- `AMIKO_TWIN_ID` — your Amiko twin ID
+- `AMIKO_USER_TOKEN` — your Amiko user token
 
 Notes:
 - This template pins OpenClaw to a known-good version by default via Docker build arg `OPENCLAW_GIT_REF`.
@@ -69,12 +71,33 @@ docker build -t openclaw-railway-template .
 docker run --rm -p 8080:8080 \
   -e PORT=8080 \
   -e SETUP_PASSWORD=test \
+  -e OPENCLAW_GATEWAY_TOKEN=your-gateway-token \
   -e OPENCLAW_STATE_DIR=/data/.openclaw \
   -e OPENCLAW_WORKSPACE_DIR=/data/workspace \
+  -e AMIKO_TWIN_ID=your-twin-id \
+  -e AMIKO_USER_TOKEN=your-user-token \
   -v $(pwd)/.tmpdata:/data \
   openclaw-railway-template
 
 # open http://localhost:8080/setup (password: test)
+```
+
+## Local dev (auto-restart on file changes)
+
+This uses Node's built-in watcher and a bind mount so changes on your host restart the server inside the container.
+
+```bash
+docker run --rm -p 8080:8080 \
+  -e PORT=8080 \
+  -e SETUP_PASSWORD=test \
+  -e OPENCLAW_GATEWAY_TOKEN=your-gateway-token \
+  -e OPENCLAW_STATE_DIR=/data/.openclaw \
+  -e OPENCLAW_WORKSPACE_DIR=/data/workspace \
+  -v $(pwd):/app \
+  -v $(pwd)/.tmpdata:/data \
+  -w /app \
+  openclaw-railway-template \
+  npm run dev
 ```
 
 ---

@@ -6,7 +6,7 @@
     "node": ">=22"
   },
   "scripts": {
-    "dev": "node src/server.js",
+    "dev": "node --watch src/server.js",
     "start": "node src/server.js",
     "lint": "node -c src/server.js",
     "smoke": "node scripts/smoke.js"
