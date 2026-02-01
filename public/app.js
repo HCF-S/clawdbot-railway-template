@@ -35,6 +35,13 @@
   var pairingChannelEl = document.getElementById('pairingChannel');
   var pairingCodeEl = document.getElementById('pairingCode');
   var pairingOutEl = document.getElementById('pairingOut');
+  var pairingDeviceFetchEl = document.getElementById('pairingDeviceFetch');
+  var pairingDeviceApproveEl = document.getElementById('pairingDeviceApprove');
+  var deviceListEl = document.getElementById('deviceList');
+  var deviceRequestIdEl = document.getElementById('deviceRequestId');
+  var channelPairingSection = document.getElementById('channelPairingSection');
+  var devicePairingSection = document.getElementById('devicePairingSection');
+  var pairingModeButtons = document.querySelectorAll('[data-pairing-mode]');
 
   // Models
   var modelsFetchEl = document.getElementById('modelsFetch');
@@ -80,9 +87,6 @@ function showSection(id) {
     } else {
       item.classList.remove('is-active');
     }
-  }
-  if (id === 'onboarding') {
-    prefillFromConfig();
   }
   try { localStorage.setItem(sectionKey, id); } catch (_e) {}
 }
@@ -203,6 +207,10 @@ function showSection(id) {
         if (force || !modelSelectEl.value) modelSelectEl.value = j.modelPrimary;
       }
 
+      if (j.provider && authGroupEl) {
+        authGroupEl.value = j.provider;
+        authGroupEl.dispatchEvent(new Event('change', { bubbles: true }));
+      }
       if (j.authChoice && authChoiceEl) {
         if (force || !authChoiceEl.value) authChoiceEl.value = j.authChoice;
       }
@@ -215,8 +223,8 @@ function showSection(id) {
     setStatus('Loading...');
     setStatusMeta(apiToken ? 'API auth saved' : 'API auth missing');
     return httpJson('/setup/api/status').then(function (j) {
-      var ver = j.openclawVersion ? (' | ' + j.openclawVersion) : '';
-      setStatus((j.configured ? 'Configured - open /openclaw' : 'Not configured - run setup below') + ver);
+    var ver = j.openclawVersion ? (' - OpenClaw ' + j.openclawVersion) : '';
+    setStatus((j.configured ? 'Configured' : 'Not configured - run setup below') + ver);
       setStatusMeta(apiToken ? 'API auth saved' : 'API auth missing');
       var label = j.configured ? 'Model provider' : 'Onboarding';
       if (menuOnboardingEl) menuOnboardingEl.textContent = label;
@@ -229,7 +237,6 @@ function showSection(id) {
       if (configReloadEl && configTextEl) {
         loadConfigRaw();
       }
-      prefillFromConfig();
     }).catch(function (e) {
       setStatus('Error: ' + String(e));
     });
@@ -360,12 +367,89 @@ function showSection(id) {
 
   if (pairingFetchEl) {
     pairingFetchEl.onclick = function () {
-      if (pairingOutEl) pairingOutEl.textContent = 'Fetching pending pairings...\n';
-      httpJson('/setup/api/pairing/pending', { method: 'GET' }).then(function (j) {
+      var channel = pairingChannelEl ? pairingChannelEl.value : '';
+      if (!channel) {
+        alert('Select a channel before fetching pairings');
+        return;
+      }
+      if (pairingOutEl) pairingOutEl.textContent = 'Fetching pending pairings for ' + channel + '...\n';
+      httpJson('/setup/api/pairing/pending?channel=' + encodeURIComponent(channel), { method: 'GET' }).then(function (j) {
         if (pairingOutEl) pairingOutEl.textContent = (j.output || JSON.stringify(j, null, 2));
       }).catch(function (e) {
         if (pairingOutEl) pairingOutEl.textContent += '\nError: ' + String(e) + '\n';
       });
+    };
+  }
+
+  function switchPairingMode(mode) {
+    if (mode === 'device') {
+      pairingModeButtons.forEach(function (btn) {
+        btn.classList.toggle('is-active', btn.getAttribute('data-pairing-mode') === 'device');
+      });
+      if (channelPairingSection) channelPairingSection.setAttribute('hidden', 'hidden');
+      if (devicePairingSection) devicePairingSection.removeAttribute('hidden');
+    } else {
+      pairingModeButtons.forEach(function (btn) {
+        btn.classList.toggle('is-active', btn.getAttribute('data-pairing-mode') === 'channel');
+      });
+      if (channelPairingSection) channelPairingSection.removeAttribute('hidden');
+      if (devicePairingSection) devicePairingSection.setAttribute('hidden', 'hidden');
+    }
+  }
+
+  if (pairingModeButtons && pairingModeButtons.length) {
+    pairingModeButtons.forEach(function (btn) {
+      btn.onclick = function () {
+        var mode = btn.getAttribute('data-pairing-mode');
+        switchPairingMode(mode);
+      };
+    });
+    switchPairingMode('channel');
+  }
+
+  if (pairingDeviceFetchEl) {
+    pairingDeviceFetchEl.onclick = function () {
+      if (pairingOutEl) pairingOutEl.textContent = 'Fetching pending devices...\n';
+      httpJson('/setup/api/devices/list', { method: 'GET' }).then(function (j) {
+        var data = parseJsonOutput(j.output || '');
+        if (deviceListEl) {
+          deviceListEl.innerHTML = '';
+          if (data && data.pending && data.pending.length) {
+            data.pending.forEach(function (entry) {
+              var opt = document.createElement('option');
+              opt.value = entry.requestId || (entry.id || '');
+              opt.textContent = (entry.requestId || entry.id) + ' — ' + (entry.displayName || entry.deviceId || entry.provider || '');
+              deviceListEl.appendChild(opt);
+            });
+          } else {
+            var opt = document.createElement('option');
+            opt.value = '';
+            opt.textContent = 'No pending devices';
+            deviceListEl.appendChild(opt);
+          }
+        }
+        if (modelOutEl) {} // keep consistent
+      }).catch(function (e) {
+        if (pairingOutEl) pairingOutEl.textContent += '\nError: ' + String(e) + '\n';
+      });
+    };
+  }
+
+  if (pairingDeviceApproveEl) {
+    pairingDeviceApproveEl.onclick = function () {
+      var requestId = (deviceRequestIdEl && deviceRequestIdEl.value.trim()) || (deviceListEl && deviceListEl.value);
+      if (!requestId) {
+        alert('Pick or enter a device request ID');
+        return;
+      }
+      if (pairingOutEl) pairingOutEl.textContent = 'Approving device ' + requestId + '...\n';
+      authorizedFetch('/setup/api/devices/approve', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ requestId: requestId })
+      }).then(function (r) { return r.text(); })
+        .then(function (t) { if (pairingOutEl) pairingOutEl.textContent += t + '\n'; })
+        .catch(function (e) { if (pairingOutEl) pairingOutEl.textContent += 'Error: ' + String(e) + '\n'; });
     };
   }
 

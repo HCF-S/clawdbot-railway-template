@@ -31,7 +31,7 @@
         <button class="menu-item" data-target="models">Switch model</button>
         <button class="menu-item" data-target="channels">Channels</button>
         <button class="menu-item" data-target="pairing">Pairing</button>
-        <button class="menu-item" data-target="advanced-import">Import backup</button>
+        <button class="menu-item" data-target="advanced-import">Backup</button>
         <button class="menu-item" data-target="advanced-config">Config editor</button>
         <button class="menu-item" data-target="advanced-console">Debug console</button>
       </nav>
@@ -67,7 +67,7 @@
         </section>
 
         <section class="card panel" data-section="channels" hidden>
-          <h2>Channels (optional)</h2>
+          <h2>Channels</h2>
           <p class="muted">You can add these later inside OpenClaw, but this helps you get messaging working immediately.</p>
 
           <div class="field-grid">
@@ -94,22 +94,42 @@
 
         <section class="card panel" data-section="pairing" hidden>
           <h2>Pairing</h2>
-          <p class="muted">Review pending pairing requests and approve them.</p>
+          <p class="muted">Approve pairing codes or devices.</p>
 
-          <div class="action-row">
-            <button id="pairingFetch" class="btn subtle">Fetch pending pairings</button>
-            <button id="pairingApprove" class="btn primary">Approve pairing</button>
+          <div class="pairing-mode">
+            <button class="btn ghost is-active" data-pairing-mode="channel">Channel pairing</button>
+            <button class="btn ghost" data-pairing-mode="device">Device pairing</button>
           </div>
 
-          <div class="field-grid">
-            <label for="pairingChannel">Channel</label>
-            <select id="pairingChannel">
-              <option value="telegram">telegram</option>
-              <option value="discord">discord</option>
-            </select>
+          <div id="channelPairingSection">
+            <div class="action-row">
+              <button id="pairingFetch" class="btn subtle">Fetch pending pairings</button>
+              <button id="pairingApprove" class="btn primary">Approve pairing</button>
+            </div>
+            <div class="field-grid">
+              <label for="pairingChannel">Channel</label>
+              <select id="pairingChannel">
+                <option value="telegram">telegram</option>
+                <option value="discord">discord</option>
+              </select>
 
-            <label for="pairingCode">Pairing code</label>
-            <input id="pairingCode" placeholder="e.g. 3EY4PUYS" />
+              <label for="pairingCode">Pairing code</label>
+              <input id="pairingCode" placeholder="e.g. 3EY4PUYS" />
+            </div>
+          </div>
+
+          <div id="devicePairingSection" hidden>
+            <div class="action-row">
+              <button id="pairingDeviceFetch" class="btn subtle">Fetch pending devices</button>
+              <button id="pairingDeviceApprove" class="btn primary">Approve device</button>
+            </div>
+            <div class="field-grid">
+              <label for="deviceList">Pending devices</label>
+              <select id="deviceList" size="3"></select>
+
+              <label for="deviceRequestId">Request ID</label>
+              <input id="deviceRequestId" placeholder="Or type request ID manually" />
+            </div>
           </div>
 
           <pre id="pairingOut" class="log"></pre>

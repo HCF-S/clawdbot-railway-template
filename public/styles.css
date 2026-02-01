@@ -135,6 +135,23 @@ code {
   margin: 0 0 0.5rem;
 }
 
+.pairing-mode {
+  display: flex;
+  gap: 0.4rem;
+  margin-bottom: 1rem;
+}
+
+.pairing-mode .btn {
+  flex: 1;
+  border-radius: 999px;
+}
+
+.pairing-mode .btn.is-active {
+  background: var(--primary);
+  color: var(--primary-ink);
+  border-color: var(--primary);
+}
+
 .subcard {
   border: 1px solid var(--border);
   border-radius: 12px;
