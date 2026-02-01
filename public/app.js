@@ -386,14 +386,14 @@ function showSection(id) {
       pairingModeButtons.forEach(function (btn) {
         btn.classList.toggle('is-active', btn.getAttribute('data-pairing-mode') === 'device');
       });
-      if (channelPairingSection) channelPairingSection.setAttribute('hidden', 'hidden');
-      if (devicePairingSection) devicePairingSection.removeAttribute('hidden');
+      if (channelPairingSection) channelPairingSection.classList.add('hidden');
+      if (devicePairingSection) devicePairingSection.classList.remove('hidden');
     } else {
       pairingModeButtons.forEach(function (btn) {
         btn.classList.toggle('is-active', btn.getAttribute('data-pairing-mode') === 'channel');
       });
-      if (channelPairingSection) channelPairingSection.removeAttribute('hidden');
-      if (devicePairingSection) devicePairingSection.setAttribute('hidden', 'hidden');
+      if (channelPairingSection) channelPairingSection.classList.remove('hidden');
+      if (devicePairingSection) devicePairingSection.classList.add('hidden');
     }
   }
 
