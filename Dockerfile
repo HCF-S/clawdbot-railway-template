@@ -49,10 +49,6 @@ RUN apt-get update \
 
 WORKDIR /app
 
-# Wrapper deps
-COPY package.json ./
-RUN npm install --omit=dev && npm cache clean --force
-
 # Copy built openclaw
 COPY --from=openclaw-build /openclaw /openclaw
 
@@ -60,7 +56,11 @@ COPY --from=openclaw-build /openclaw /openclaw
 RUN printf '%s\n' '#!/usr/bin/env bash' 'exec node /openclaw/dist/entry.js "$@"' > /usr/local/bin/openclaw \
   && chmod +x /usr/local/bin/openclaw
 
-COPY src ./src
+# Copy application files
+COPY . .
+
+# Install wrapper dependencies
+RUN npm install --omit=dev && npm cache clean --force
 
 # The wrapper listens on this port.
 ENV OPENCLAW_PUBLIC_PORT=8080
