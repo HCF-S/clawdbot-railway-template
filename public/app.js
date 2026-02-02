@@ -648,7 +648,7 @@ function showSection(id) {
           return j;
         });
       }).then(function (j) {
-        if (amikoOutEl) amikoOutEl.textContent = 'Saved: ' + (j.path || 'AMIKO.MD') + '\n';
+        if (amikoOutEl) amikoOutEl.textContent = 'Saved: ' + (j.path || 'AMIKO.md') + '\n';
       }).catch(function (e) {
         if (amikoOutEl) amikoOutEl.textContent += '\nError: ' + String(e) + '\n';
       });

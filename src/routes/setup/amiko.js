@@ -174,7 +174,7 @@ function formatDocMarkdown(doc) {
 // ============================================================
 
 /**
- * Pull twin data from Amiko platform and save to AMIKO.MD
+ * Pull twin data from Amiko platform and save to AMIKO.md
  * @returns {{ ok: boolean, path?: string, error?: string, output?: string }}
  */
 export async function pullTwinData(handlers) {
@@ -223,10 +223,10 @@ export async function pullTwinData(handlers) {
       user = await userResponse.json();
     }
 
-    // Write AMIKO.MD
+    // Write AMIKO.md
     const markdown = formatTwinMarkdown(twin, user);
     fs.mkdirSync(WORKSPACE_DIR, { recursive: true });
-    const outPath = path.join(WORKSPACE_DIR, "AMIKO.MD");
+    const outPath = path.join(WORKSPACE_DIR, "AMIKO.md");
     fs.writeFileSync(outPath, markdown, "utf8");
     console.log("[pullTwinData] saved", { path: outPath });
 
@@ -354,9 +354,9 @@ export async function pullDocs(handlers, options = {}) {
       console.log("[pullDocs] saved doc", { id: docId, filename: doc.filename });
     }
 
-    // Append reference to amiko-docs in AMIKO.MD
+    // Append reference to amiko-docs in AMIKO.md
     if (savedDocs.length > 0) {
-      const amikoMdPath = path.join(WORKSPACE_DIR, "AMIKO.MD");
+      const amikoMdPath = path.join(WORKSPACE_DIR, "AMIKO.md");
       
       if (fs.existsSync(amikoMdPath)) {
         try {
@@ -381,10 +381,10 @@ export async function pullDocs(handlers, options = {}) {
             
             amikoContent = amikoContent.trimEnd() + "\n" + docsSection.join("\n");
             fs.writeFileSync(amikoMdPath, amikoContent, "utf8");
-            console.log("[pullDocs] appended docs section to AMIKO.MD");
+            console.log("[pullDocs] appended docs section to AMIKO.md");
           }
         } catch (err) {
-          console.warn("[pullDocs] failed to update AMIKO.MD:", err);
+          console.warn("[pullDocs] failed to update AMIKO.md:", err);
         }
       }
     }
