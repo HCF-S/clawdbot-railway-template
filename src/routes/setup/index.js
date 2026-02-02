@@ -12,7 +12,7 @@ import { createExportRouter } from "./export.js";
 import { createImportRouter } from "./import.js";
 import { createModelsRouter } from "./models.js";
 import { createGatewayRouter } from "./gateway.js";
-import { createTwinRouter } from "./twin.js";
+import { createTwinRouter } from "./amiko.js";
 
 export function createSetupRouter(handlers) {
   const router = express.Router();

@@ -54,6 +54,7 @@
   var channelsSaveEl = document.getElementById('channelsSave');
   var channelsOutEl = document.getElementById('channelsOut');
   var amikoPullEl = document.getElementById('amikoPull');
+  var amikoDocsPullEl = document.getElementById('amikoDocsPull');
   var amikoOutEl = document.getElementById('amikoOut');
 
   // Export
@@ -612,7 +613,7 @@ function showSection(id) {
   if (amikoPullEl) {
     amikoPullEl.onclick = function () {
       if (amikoOutEl) amikoOutEl.textContent = 'Pulling from Amiko...\n';
-      authorizedFetch('/setup/api/twin/pull', {
+      authorizedFetch('/setup/api/amiko/pull', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({})
@@ -627,6 +628,35 @@ function showSection(id) {
         });
       }).then(function (j) {
         if (amikoOutEl) amikoOutEl.textContent = 'Saved: ' + (j.path || 'AMIKO.MD') + '\n';
+      }).catch(function (e) {
+        if (amikoOutEl) amikoOutEl.textContent += '\nError: ' + String(e) + '\n';
+      });
+    };
+  }
+
+  if (amikoDocsPullEl) {
+    amikoDocsPullEl.onclick = function () {
+      if (amikoOutEl) amikoOutEl.textContent = 'Pulling docs from Amiko...\n';
+      authorizedFetch('/setup/api/amiko/docs', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ limit: 20, offset: 0 })
+      }).then(function (res) {
+        return res.text().then(function (t) {
+          var j;
+          try { j = JSON.parse(t); } catch (_e) { j = { ok: false, error: t }; }
+          if (!res.ok || !j.ok) {
+            throw new Error(j.error || ('HTTP ' + res.status));
+          }
+          return j;
+        });
+      }).then(function (j) {
+        if (amikoOutEl) {
+          amikoOutEl.textContent = 'Saved ' + j.count + ' docs to: ' + (j.docsDir || 'amiko-docs') + '\n';
+          if (j.total) {
+            amikoOutEl.textContent += 'Total available: ' + j.total + '\n';
+          }
+        }
       }).catch(function (e) {
         if (amikoOutEl) amikoOutEl.textContent += '\nError: ' + String(e) + '\n';
       });
