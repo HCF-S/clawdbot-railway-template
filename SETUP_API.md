@@ -44,7 +44,7 @@ All `/setup/*` endpoints require the `x-api-token` header (set to your `SETUP_PA
 
 | Method | Endpoint | Description |
 | --- | --- | --- |
-| `POST` | `/setup/api/console/run` | Runs a small allowlist of commands (`gateway.start`, `gateway.stop`, `gateway.restart`, plus a few CLI helpers such as `openclaw.version`, `openclaw.status`, `openclaw.health`, `openclaw.doctor`, `openclaw.logs.tail`, `openclaw.config.get`). The same CLI commands are used in the UI’s console panel. | Body `{ cmd, arg }` (arg optional for some commands). `gateway.*` commands restart/stop/start the local gateway process managed by the wrapper. |
+| `POST` | `/setup/api/console/run` | Runs a small allowlist of commands (`gateway.start`, `gateway.stop`, `gateway.restart`, plus CLI helpers such as `openclaw.version`, `openclaw.status`, `openclaw.health`, `openclaw.doctor`, `openclaw.logs.tail`, `openclaw.config.get`, and `print.envs` to dump wrapper env vars). The same commands back the UI console. | Body `{ cmd, arg }` (arg optional). `gateway.*` toggles the wrapper gateway process. |
 
 ## Model helpers
 

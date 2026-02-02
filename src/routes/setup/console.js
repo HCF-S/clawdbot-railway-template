@@ -70,6 +70,14 @@ export function createConsoleRouter(handlers) {
         return res.status(r.code === 0 ? 200 : 500).json({ ok: r.code === 0, output: redactSecrets(r.output) });
       }
 
+      if (cmd === "print.envs") {
+        const snapshot = {};
+        for (const [key, value] of Object.entries(process.env)) {
+          snapshot[key] = redactSecrets(value);
+        }
+        return res.json({ ok: true, output: JSON.stringify(snapshot, null, 2) });
+      }
+
       return res.status(400).json({ ok: false, error: "Unhandled command" });
     } catch (err) {
       return res.status(500).json({ ok: false, error: String(err) });
