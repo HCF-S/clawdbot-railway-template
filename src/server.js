@@ -30,6 +30,9 @@ const WORKSPACE_DIR =
   process.env.CLAWDBOT_WORKSPACE_DIR?.trim() ||
   path.join(STATE_DIR, "workspace");
 
+const AMIKO_TWIN_ID = process.env.AMIKO_TWIN_ID?.trim() || "";
+const AMIKO_USER_TOKEN = process.env.AMIKO_USER_TOKEN?.trim() || "";
+
 // Protect /setup + API with a user-provided token.
 const SETUP_PASSWORD = process.env.SETUP_PASSWORD?.trim();
 
@@ -352,7 +355,7 @@ const PUBLIC_DIR = path.join(process.cwd(), "public");
 // Minimal health endpoint for Railway.
 app.get("/setup/healthz", (_req, res) => res.json({ ok: true }));
 
-app.get("/setup", requireBasicSetupAuth, (_req, res) => {
+app.get("/setup", (_req, res) => {
   res.type("html").sendFile(path.join(PUBLIC_DIR, "setup.html"));
 });
 
@@ -379,11 +382,13 @@ app.use(
     INTERNAL_GATEWAY_PORT,
     OPENCLAW_ENTRY,
     PORT,
+    AMIKO_TWIN_ID,
+    AMIKO_USER_TOKEN,
   }),
 );
 
 // Static assets for the setup UI (HTML/JS/CSS).
-app.use("/setup", requireBasicSetupAuth, express.static(PUBLIC_DIR));
+app.use("/setup", express.static(PUBLIC_DIR));
 
 // Proxy everything else to the gateway.
 const proxy = httpProxy.createProxyServer({

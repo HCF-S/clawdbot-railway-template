@@ -31,6 +31,7 @@
         <button class="menu-item" data-target="models">Switch model</button>
         <button class="menu-item" data-target="channels">Channels</button>
         <button class="menu-item" data-target="pairing">Pairing</button>
+        <button class="menu-item" data-target="amiko">Amiko</button>
         <button class="menu-item" data-target="advanced-import">Backup</button>
         <button class="menu-item" data-target="advanced-config">Config editor</button>
         <button class="menu-item" data-target="advanced-console">Debug console</button>
@@ -158,6 +159,19 @@
           </div>
 
           <pre id="modelOut" class="log"></pre>
+        </section>
+
+        <section class="card panel" data-section="amiko" hidden>
+          <h2>Amiko</h2>
+          <p class="muted">
+            Pull twin data from Amiko and save it to <code>AMIKO.MD</code> in the workspace.
+            Uses <code>AMIKO_TWIN_ID</code> and <code>AMIKO_USER_TOKEN</code> from the container env.
+          </p>
+
+          <div class="action-row">
+            <button id="amikoPull" class="btn primary">Pull</button>
+          </div>
+          <pre id="amikoOut" class="log"></pre>
         </section>
 
         <section class="card panel" data-section="advanced-import" hidden>

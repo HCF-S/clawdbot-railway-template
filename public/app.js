@@ -53,6 +53,8 @@
   var modelsStatusTextEl = document.getElementById('modelsStatusText');
   var channelsSaveEl = document.getElementById('channelsSave');
   var channelsOutEl = document.getElementById('channelsOut');
+  var amikoPullEl = document.getElementById('amikoPull');
+  var amikoOutEl = document.getElementById('amikoOut');
 
   // Export
   var exportRunEl = document.getElementById('exportRun');
@@ -128,20 +130,13 @@ function showSection(id) {
     return Promise.resolve(t);
   }
 
-  function authorizedFetch(url, opts, retried) {
+  function authorizedFetch(url, opts) {
     opts = opts || {};
     opts.credentials = 'same-origin';
     opts.headers = opts.headers || {};
     return ensureToken().then(function () {
       opts.headers['x-api-token'] = apiToken;
       return fetch(url, opts);
-    }).then(function (res) {
-      if (res.status === 401 && !retried) {
-        saveToken('');
-        promptForToken();
-        return authorizedFetch(url, opts, true);
-      }
-      return res;
     });
   }
 
@@ -611,6 +606,30 @@ function showSection(id) {
       }).then(function (r) { return r.text(); })
         .then(function (t) { if (modelOutEl) modelOutEl.textContent += t + '\n'; })
         .catch(function (e) { if (modelOutEl) modelOutEl.textContent += 'Error: ' + String(e) + '\n'; });
+    };
+  }
+
+  if (amikoPullEl) {
+    amikoPullEl.onclick = function () {
+      if (amikoOutEl) amikoOutEl.textContent = 'Pulling from Amiko...\n';
+      authorizedFetch('/setup/api/twin/pull', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({})
+      }).then(function (res) {
+        return res.text().then(function (t) {
+          var j;
+          try { j = JSON.parse(t); } catch (_e) { j = { ok: false, error: t }; }
+          if (!res.ok || !j.ok) {
+            throw new Error(j.error || ('HTTP ' + res.status));
+          }
+          return j;
+        });
+      }).then(function (j) {
+        if (amikoOutEl) amikoOutEl.textContent = 'Saved: ' + (j.path || 'AMIKO.MD') + '\n';
+      }).catch(function (e) {
+        if (amikoOutEl) amikoOutEl.textContent += '\nError: ' + String(e) + '\n';
+      });
     };
   }
 

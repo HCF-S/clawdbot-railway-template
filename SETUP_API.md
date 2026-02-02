@@ -25,6 +25,12 @@ All `/setup/*` endpoints require the `x-api-token` header (set to your `SETUP_PA
 | `GET` | `/setup/api/config/raw` | Returns the raw `openclaw.json` so the UI can edit it. | Response `{ ok, path, exists, content }`. |
 | `POST` | `/setup/api/config/raw` | Overwrite the entire config. Creates a timestamped `.bak` of the previous file and restarts the gateway immediately. | Body `{ content: string }` (max `500000` chars). |
 
+## Twin pull
+
+| Method | Endpoint | Description | Request body / headers |
+| --- | --- | --- | --- |
+| `POST` | `/setup/api/twin/pull` | Fetches twin data from the platform API and writes a markdown snapshot to `AMIKO.MD` in the workspace. | Uses `AMIKO_TWIN_ID` + `AMIKO_USER_TOKEN` from the container env. |
+
 ## Channel helpers
 
 | Method | Endpoint | Description |
