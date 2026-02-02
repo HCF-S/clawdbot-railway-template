@@ -95,6 +95,27 @@ function showSection(id) {
 }
 
   function loadToken() {
+    // Check if token is in URL query parameter first
+    var urlParams = new URLSearchParams(window.location.search);
+    var tokenFromUrl = urlParams.get('token');
+    
+    if (tokenFromUrl) {
+      // Save token from URL to localStorage
+      apiToken = tokenFromUrl.trim();
+      try {
+        localStorage.setItem(tokenKey, apiToken);
+        console.log('[setup] Token loaded from URL and saved to localStorage');
+        
+        // Clean up URL to remove token from browser history
+        var cleanUrl = window.location.protocol + '//' + window.location.host + window.location.pathname;
+        window.history.replaceState({}, document.title, cleanUrl);
+      } catch (_e) {
+        // ignore storage errors
+      }
+      return apiToken;
+    }
+    
+    // Otherwise, try to load from localStorage
     try {
       apiToken = localStorage.getItem(tokenKey) || '';
     } catch (_e) {
