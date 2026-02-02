@@ -6,78 +6,85 @@ export function createChannelsRouter(handlers) {
 
   router.post("/channels/set", requireApiToken, async (req, res) => {
     const payload = req.body || {};
-    const out = [];
-
-    const channelsHelp = await runCmd(OPENCLAW_NODE, clawArgs(["channels", "add", "--help"]));
-    const helpText = channelsHelp.output || "";
-    const supports = (name) => helpText.includes(name);
-
-    if (payload.telegramToken?.trim()) {
-      if (!supports("telegram")) {
-        out.push("[telegram] skipped (this openclaw build does not list telegram in `channels add --help`)");
-      } else {
-        const token = payload.telegramToken.trim();
-        const cfgObj = {
-          enabled: true,
-          dmPolicy: "pairing",
-          botToken: token,
-          groupPolicy: "allowlist",
-          streamMode: "partial",
-        };
-        const set = await runCmd(
-          OPENCLAW_NODE,
-          clawArgs(["config", "set", "--json", "channels.telegram", JSON.stringify(cfgObj)]),
-        );
-        const get = await runCmd(OPENCLAW_NODE, clawArgs(["config", "get", "channels.telegram"]));
-        out.push(`[telegram config] exit=${set.code} (output ${set.output.length} chars)\n${set.output || "(no output)"}`);
-        out.push(`[telegram verify] exit=${get.code} (output ${get.output.length} chars)\n${get.output || "(no output)"}`);
-      }
-    }
-
-    if (payload.discordToken?.trim()) {
-      if (!supports("discord")) {
-        out.push("[discord] skipped (this openclaw build does not list discord in `channels add --help`)");
-      } else {
-        const token = payload.discordToken.trim();
-        const cfgObj = {
-          enabled: true,
-          token,
-          groupPolicy: "allowlist",
-          dm: {
-            policy: "pairing",
-          },
-        };
-        const set = await runCmd(
-          OPENCLAW_NODE,
-          clawArgs(["config", "set", "--json", "channels.discord", JSON.stringify(cfgObj)]),
-        );
-        const get = await runCmd(OPENCLAW_NODE, clawArgs(["config", "get", "channels.discord"]));
-        out.push(`[discord config] exit=${set.code} (output ${set.output.length} chars)\n${set.output || "(no output)"}`);
-        out.push(`[discord verify] exit=${get.code} (output ${get.output.length} chars)\n${get.output || "(no output)"}`);
-      }
-    }
-
-    if (payload.slackBotToken?.trim() || payload.slackAppToken?.trim()) {
-      if (!supports("slack")) {
-        out.push("[slack] skipped (this openclaw build does not list slack in `channels add --help`)");
-      } else {
-        const cfgObj = {
-          enabled: true,
-          botToken: payload.slackBotToken?.trim() || undefined,
-          appToken: payload.slackAppToken?.trim() || undefined,
-        };
-        const set = await runCmd(
-          OPENCLAW_NODE,
-          clawArgs(["config", "set", "--json", "channels.slack", JSON.stringify(cfgObj)]),
-        );
-        const get = await runCmd(OPENCLAW_NODE, clawArgs(["config", "get", "channels.slack"]));
-        out.push(`[slack config] exit=${set.code} (output ${set.output.length} chars)\n${set.output || "(no output)"}`);
-        out.push(`[slack verify] exit=${get.code} (output ${get.output.length} chars)\n${get.output || "(no output)"}`);
-      }
-    }
-
-    return res.json({ ok: true, output: out.join("\n\n") });
+    const output = await configureChannels(payload, handlers);
+    return res.json({ ok: true, output });
   });
 
   return router;
+}
+
+// Shared channel configuration logic
+export async function configureChannels(payload, handlers) {
+  const { runCmd, clawArgs, OPENCLAW_NODE } = handlers;
+  const out = [];
+
+  const channelsHelp = await runCmd(OPENCLAW_NODE, clawArgs(["channels", "add", "--help"]));
+  const helpText = channelsHelp.output || "";
+  const supports = (name) => helpText.includes(name);
+
+  if (payload.telegramToken?.trim()) {
+    if (!supports("telegram")) {
+      out.push("[telegram] skipped (this openclaw build does not list telegram in `channels add --help`)");
+    } else {
+      const token = payload.telegramToken.trim();
+      const cfgObj = {
+        enabled: true,
+        dmPolicy: "pairing",
+        botToken: token,
+        groupPolicy: "allowlist",
+        streamMode: "partial",
+      };
+      const set = await runCmd(
+        OPENCLAW_NODE,
+        clawArgs(["config", "set", "--json", "channels.telegram", JSON.stringify(cfgObj)]),
+      );
+      const get = await runCmd(OPENCLAW_NODE, clawArgs(["config", "get", "channels.telegram"]));
+      out.push(`[telegram config] exit=${set.code} (output ${set.output.length} chars)\n${set.output || "(no output)"}`);
+      out.push(`[telegram verify] exit=${get.code} (output ${get.output.length} chars)\n${get.output || "(no output)"}`);
+    }
+  }
+
+  if (payload.discordToken?.trim()) {
+    if (!supports("discord")) {
+      out.push("[discord] skipped (this openclaw build does not list discord in `channels add --help`)");
+    } else {
+      const token = payload.discordToken.trim();
+      const cfgObj = {
+        enabled: true,
+        token,
+        groupPolicy: "allowlist",
+        dm: {
+          policy: "pairing",
+        },
+      };
+      const set = await runCmd(
+        OPENCLAW_NODE,
+        clawArgs(["config", "set", "--json", "channels.discord", JSON.stringify(cfgObj)]),
+      );
+      const get = await runCmd(OPENCLAW_NODE, clawArgs(["config", "get", "channels.discord"]));
+      out.push(`[discord config] exit=${set.code} (output ${set.output.length} chars)\n${set.output || "(no output)"}`);
+      out.push(`[discord verify] exit=${get.code} (output ${get.output.length} chars)\n${get.output || "(no output)"}`);
+    }
+  }
+
+  if (payload.slackBotToken?.trim() || payload.slackAppToken?.trim()) {
+    if (!supports("slack")) {
+      out.push("[slack] skipped (this openclaw build does not list slack in `channels add --help`)");
+    } else {
+      const cfgObj = {
+        enabled: true,
+        botToken: payload.slackBotToken?.trim() || undefined,
+        appToken: payload.slackAppToken?.trim() || undefined,
+      };
+      const set = await runCmd(
+        OPENCLAW_NODE,
+        clawArgs(["config", "set", "--json", "channels.slack", JSON.stringify(cfgObj)]),
+      );
+      const get = await runCmd(OPENCLAW_NODE, clawArgs(["config", "get", "channels.slack"]));
+      out.push(`[slack config] exit=${set.code} (output ${set.output.length} chars)\n${set.output || "(no output)"}`);
+      out.push(`[slack verify] exit=${get.code} (output ${get.output.length} chars)\n${get.output || "(no output)"}`);
+    }
+  }
+
+  return out.join("\n\n");
 }

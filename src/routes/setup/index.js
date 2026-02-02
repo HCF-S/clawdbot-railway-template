@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import { createStatusRouter } from "./status.js";
 import { createRunRouter } from "./run.js";
+import { createInitRouter } from "./init.js";
 import { createDebugRouter } from "./debug.js";
 import { createConsoleRouter } from "./console.js";
 import { createConfigRouter } from "./config.js";
@@ -47,6 +48,7 @@ export function createSetupRouter(handlers) {
 
   router.use("/api", createStatusRouter(handlers));
   router.use("/api", createRunRouter(handlers));
+  router.use("/api", createInitRouter(handlers));
   router.use("/api", createDebugRouter(handlers));
   router.use("/api", createConsoleRouter(handlers));
   router.use("/api", createConfigRouter(handlers));
