@@ -14,7 +14,7 @@ import { createSetupRouter } from "./routes/setup/index.js";
 // Prefer OPENCLAW_PUBLIC_PORT (set in the Dockerfile / template) over PORT.
 // Keep CLAWDBOT_PUBLIC_PORT as a backward-compat alias for older templates.
 const PORT = Number.parseInt(
-  process.env.OPENCLAW_PUBLIC_PORT ?? process.env.CLAWDBOT_PUBLIC_PORT ?? process.env.PORT ?? "8080",
+  process.env.OPENCLAW_PUBLIC_PORT ?? process.env.CLAWDBOT_PUBLIC_PORT ?? process.env.PORT ?? "3000",
   10,
 );
 
