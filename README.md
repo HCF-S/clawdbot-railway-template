@@ -117,3 +117,5 @@ docker run --rm -p 8080:8080 \
 - **1800+ deploys on Railway and counting** [Link to template on Railway](https://railway.com/deploy/clawdbot-railway-template)
 
 ![Railway template deploy count](assets/railway-deploys.jpg)
+
+- use 3000 port now
