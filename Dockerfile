@@ -63,7 +63,7 @@ COPY . .
 RUN npm install --omit=dev && npm cache clean --force
 
 # The wrapper listens on this port.
-ENV OPENCLAW_PUBLIC_PORT=8080
-ENV PORT=8080
-EXPOSE 8080
+ENV OPENCLAW_PUBLIC_PORT=3000
+ENV PORT=3000
+EXPOSE 3000
 CMD ["node", "src/server.js"]
