@@ -21,7 +21,7 @@ RUN corepack enable
 WORKDIR /openclaw
 
 # Pin to a known ref (tag/branch). If it doesn't exist, fall back to main.
-ARG OPENCLAW_GIT_REF=main
+ARG OPENCLAW_GIT_REF=v2026.1.30
 RUN git clone --depth 1 --branch "${OPENCLAW_GIT_REF}" https://github.com/openclaw/openclaw.git .
 
 # Patch: relax version requirements for packages that may reference unpublished versions.
@@ -33,10 +33,9 @@ RUN set -eux; \
   done
 
 RUN pnpm install --no-frozen-lockfile
-RUN pnpm build
 ENV OPENCLAW_PREFER_PNPM=1
-RUN pnpm ui:install && pnpm ui:build
-
+RUN cd ui && pnpm install && pnpm build && cd ..
+RUN pnpm build
 
 # Runtime image
 FROM node:22-bookworm

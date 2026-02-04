@@ -63,32 +63,28 @@ Then:
 4) Copy the **Bot Token** and paste it into `/setup`
 5) Invite the bot to your server (OAuth2 URL Generator → scopes: `bot`, `applications.commands`; then choose permissions)
 
-## Local smoke test
-
-```bash
-docker build -t openclaw-railway-template .
-
-docker run --rm -p 8080:8080 \
-  -e PORT=8080 \
-  -e SETUP_PASSWORD=test \
-  -e OPENCLAW_GATEWAY_TOKEN=your-gateway-token \
-  -e OPENCLAW_STATE_DIR=/data/.openclaw \
-  -e OPENCLAW_WORKSPACE_DIR=/data/workspace \
-  -e AMIKO_TWIN_ID=your-twin-id \
-  -e AMIKO_USER_TOKEN=your-user-token \
-  -v $(pwd)/.tmpdata:/data \
-  openclaw-railway-template
-
-# open http://localhost:8080/setup (password: test)
-```
-
 ## Local dev (auto-restart on file changes)
 
 This uses Node's built-in watcher and a bind mount so changes on your host restart the server inside the container.
 
+Use the helper script:
+
 ```bash
-docker run --rm -p 8080:8080 \
-  -e PORT=8080 \
+# start (default)
+./start-dev.sh
+
+# stop
+./start-dev.sh stop
+
+# rebuild image
+./start-dev.sh build
+```
+
+Equivalent manual command:
+
+```bash
+docker run --rm -p 3000:3000 \
+  -e PORT=3000 \
   -e SETUP_PASSWORD=test \
   -e OPENCLAW_GATEWAY_TOKEN=your-gateway-token \
   -e OPENCLAW_STATE_DIR=/data/.openclaw \
@@ -100,22 +96,7 @@ docker run --rm -p 8080:8080 \
   npm run dev
 ```
 
----
-
-## Official template / endorsements
-
-- Officially recommended by OpenClaw: <https://docs.openclaw.ai/railway>
-- Railway announcement (official): [Railway tweet announcing 1‑click OpenClaw deploy](https://x.com/railway/status/2015534958925013438)
-
-  ![Railway official tweet screenshot](assets/railway-official-tweet.jpg)
-
-- Endorsement from Railway CEO: [Jake Cooper tweet endorsing the OpenClaw Railway template](https://x.com/justjake/status/2015536083514405182)
-
-  ![Jake Cooper endorsement tweet screenshot](assets/railway-ceo-endorsement.jpg)
-
-- Created and maintained by **Vignesh N (@vignesh07)**
-- **1800+ deploys on Railway and counting** [Link to template on Railway](https://railway.com/deploy/clawdbot-railway-template)
-
-![Railway template deploy count](assets/railway-deploys.jpg)
-
-- use 3000 port now
+## Thanks
+- [OpenClaw](https://github.com/openclaw/openclaw)
+- [Railway](https://railway.app/)
+- [Original Template](https://github.com/vignesh07/clawdbot-railway-template)

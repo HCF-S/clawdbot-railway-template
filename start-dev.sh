@@ -8,15 +8,36 @@ if [ -f ".env" ]; then
 fi
 
 IMAGE_NAME="${IMAGE_NAME:-openclaw-railway-template}"
-PORT="${PORT:-8080}"
+CONTAINER_NAME="${CONTAINER_NAME:-${IMAGE_NAME}-dev}"
+PORT="${PORT:-3000}"
 SETUP_PASSWORD="${SETUP_PASSWORD:-test}"
 OPENCLAW_GATEWAY_TOKEN="${OPENCLAW_GATEWAY_TOKEN:-your-gateway-token}"
 AMIKO_TWIN_ID="${AMIKO_TWIN_ID:-}"
 AMIKO_USER_TOKEN="${AMIKO_USER_TOKEN:-}"
 DATA_DIR="${DATA_DIR:-$(pwd)/.tmpdata}"
 
-docker run --rm -p "${PORT}:8080" \
-  -e PORT=8080 \
+cmd="${1:-start}"
+
+case "${cmd}" in
+  start)
+    ;;
+  stop)
+    docker stop "${CONTAINER_NAME}"
+    exit 0
+    ;;
+  build)
+    docker image rm -f "${IMAGE_NAME}" || true
+    docker build -t "${IMAGE_NAME}" .
+    exit 0
+    ;;
+  *)
+    echo "Usage: ./start-dev.sh [start|stop|build]"
+    exit 1
+    ;;
+esac
+
+docker run --rm --name "${CONTAINER_NAME}" -p "${PORT}:3000" \
+  -e PORT=3000 \
   -e SETUP_PASSWORD="${SETUP_PASSWORD}" \
   -e OPENCLAW_GATEWAY_TOKEN="${OPENCLAW_GATEWAY_TOKEN}" \
   -e AMIKO_TWIN_ID="${AMIKO_TWIN_ID}" \
