@@ -31,7 +31,7 @@ export async function installSysConfig(handlers) {
     
     // Create /data/sys directory structure
     const sysDir = "/data/sys";
-    const subDirs = ["bin", "lib", "config", "packages", "npm-global"];
+    const subDirs = ["bin", "mirror", "install-log", "npm-global"];
     
     for (const dir of [sysDir, ...subDirs.map(d => path.join(sysDir, d))]) {
       if (!fs.existsSync(dir)) {
@@ -46,14 +46,18 @@ export async function installSysConfig(handlers) {
       const manifestContent = `# System Persistence Manifest
 
 This file tracks all persistent installations and configurations.
+See SYS.md in workspace for the full persistence guide.
 
 ---
 
-## Initial Setup
+## [${new Date().toISOString()}] Initial Setup
 
-**Date**: ${new Date().toISOString()}
-**Type**: setup
+**Method**: setup
 **Notes**: Initial /data/sys directory structure created
+- /data/sys/bin/ - Portable executables
+- /data/sys/mirror/ - Mirror of system files
+- /data/sys/install-log/ - Detailed installation records
+- /data/sys/npm-global/ - npm global packages
 
 ---
 
@@ -68,37 +72,75 @@ This file tracks all persistent installations and configurations.
       const restoreContent = `#!/bin/bash
 # System Restoration Script
 # This script restores persistent configurations after container restart
+# 
+# Strategy: Copy mirrored files back to their original locations
 
 set -e
 
 echo "[restore.sh] Starting system restoration..."
 
-# Add persistent bin to PATH
-export PATH="/data/sys/bin:\$PATH"
+MIRROR_DIR="/data/sys/mirror"
+RESTORED_COUNT=0
 
-# Restore npm global packages path
-if [ -d "/data/sys/npm-global" ]; then
+# 1. Add persistent bin to PATH
+export PATH="/data/sys/bin:\$PATH"
+echo "[restore.sh] Added /data/sys/bin to PATH"
+
+# 2. Restore npm global packages path
+if [ -d "/data/sys/npm-global/bin" ]; then
     export PATH="/data/sys/npm-global/bin:\$PATH"
-    echo "[restore.sh] npm global path restored"
+    echo "[restore.sh] Added npm global bin to PATH"
 fi
 
-# Activate Python venv if exists
+# 3. Activate Python venv if exists
 if [ -f "/data/sys/python-venv/bin/activate" ]; then
     source /data/sys/python-venv/bin/activate
     echo "[restore.sh] Python venv activated"
 fi
 
-# Reinstall apt packages if needed
-if [ -f "/data/sys/packages/apt-packages.txt" ] && [ -s "/data/sys/packages/apt-packages.txt" ]; then
-    echo "[restore.sh] Reinstalling apt packages..."
-    apt-get update -qq 2>/dev/null || true
-    xargs -a /data/sys/packages/apt-packages.txt apt-get install -y -qq 2>/dev/null || true
+# 4. Restore mirrored files
+if [ -d "\$MIRROR_DIR" ]; then
+    echo "[restore.sh] Restoring mirrored files..."
+    
+    # Find all files in mirror and copy them back
+    cd "\$MIRROR_DIR"
+    find . -type f | while read -r file; do
+        # Remove leading ./
+        rel_path="\${file#./}"
+        src="\$MIRROR_DIR/\$rel_path"
+        dest="/\$rel_path"
+        
+        # Create destination directory if needed
+        dest_dir=\$(dirname "\$dest")
+        if [ ! -d "\$dest_dir" ]; then
+            mkdir -p "\$dest_dir" 2>/dev/null || true
+        fi
+        
+        # Copy file back
+        if cp "\$src" "\$dest" 2>/dev/null; then
+            # Preserve executable permission
+            if [ -x "\$src" ]; then
+                chmod +x "\$dest" 2>/dev/null || true
+            fi
+            echo "  Restored: \$dest"
+            RESTORED_COUNT=\$((RESTORED_COUNT + 1))
+        else
+            echo "  Failed to restore: \$dest (may need sudo)"
+        fi
+    done
+    cd - > /dev/null
+    
+    echo "[restore.sh] Restored \$RESTORED_COUNT file(s) from mirror"
+else
+    echo "[restore.sh] No mirror directory found, skipping file restoration"
 fi
 
-# Add custom restore commands below this line
-# ---
-
 echo "[restore.sh] System restoration complete!"
+echo ""
+echo "Note: If any files failed to restore, you may need to run with sudo:"
+echo "  sudo /data/sys/restore.sh"
+echo ""
+echo "For apt packages, check /data/sys/install-log/apt-packages.md"
 `;
       fs.writeFileSync(restorePath, restoreContent, "utf8");
       fs.chmodSync(restorePath, 0o755);
