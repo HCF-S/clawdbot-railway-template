@@ -2,6 +2,7 @@ import express from "express";
 import { installAmikoSkill } from "./skills.js";
 import { installSysConfig } from "./init.js";
 import { syncAmikoData } from "./amiko.js";
+import { CURRENT_SETUP_VERSION, setInstalledVersion } from "./version.js";
 
 /**
  * Deploy Router - APIs for platform to push updates to existing instances
@@ -127,10 +128,22 @@ export function createDeployRouter(handlers) {
 
       const allOk = results.amikoData?.ok && results.amikoSkill?.ok && results.sys?.ok;
 
+      // Update version after successful deployment
+      let versionUpdated = false;
+      if (allOk) {
+        output += "\n[deploy] Updating setup version...\n";
+        versionUpdated = setInstalledVersion(CURRENT_SETUP_VERSION);
+        output += versionUpdated 
+          ? `[deploy/version] Updated to ${CURRENT_SETUP_VERSION}\n`
+          : `[deploy/version] Warning: Failed to update version\n`;
+      }
+
       return res.json({
         ok: allOk,
         message: allOk ? "All updates deployed successfully" : "Some updates failed",
         results,
+        version: allOk ? CURRENT_SETUP_VERSION : undefined,
+        versionUpdated,
         output,
       });
     } catch (err) {

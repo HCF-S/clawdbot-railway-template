@@ -81,6 +81,29 @@ All `/setup/*` endpoints require the `x-api-token` header (set to your `SETUP_PA
 | --- | --- | --- |
 | `POST` | `/setup/api/skills/amiko/install` | Installs the Amiko skill to `skills/amiko/` in the workspace. The skill provides CLI tools for voice generation, twin info, and document listing. Automatically called during `/init`. |
 
+## Version Management
+
+| Method | Endpoint | Description |
+| --- | --- | --- |
+| `GET` | `/setup/api/version` | Get the current and installed setup versions. Returns `currentVersion` (code version), `installedVersion` (persisted in `/data/.setup-version`), and `needsUpgrade` flag. |
+| `POST` | `/setup/api/version/set` | Manually set the installed version. Body: `{ "version": "x.y.z" }` (optional, defaults to current). |
+
+### Version Response Format
+```json
+{
+  "ok": true,
+  "currentVersion": "1.0.0",
+  "installedVersion": "1.0.0",
+  "needsUpgrade": false
+}
+```
+
+The platform can use this to:
+1. Query all Clawd instances for their version
+2. Identify instances that need upgrades (`needsUpgrade: true`)
+3. Call appropriate deploy endpoints
+4. Version is automatically updated after `/init` or `/deploy/all`
+
 ## Deploy (Platform Push Updates)
 
 These endpoints allow the platform to push updates to existing instances without re-running full initialization. Useful for upgrading instances that were initialized before certain features existed.
@@ -90,7 +113,7 @@ These endpoints allow the platform to push updates to existing instances without
 | `POST` | `/setup/api/deploy/amiko-skill` | Deploy/update the Amiko skill to an existing instance. Copies the latest skill files to `skills/amiko/`. |
 | `POST` | `/setup/api/deploy/sys` | Deploy/update `SYS.md` and `/data/sys/` structure for system persistence. Creates the persistence directories and files if they don't exist. |
 | `POST` | `/setup/api/deploy/amiko-data` | Re-sync Amiko data (twin info + docs) to an existing instance. Same as calling `/amiko/pull` + `/amiko/docs`. |
-| `POST` | `/setup/api/deploy/all` | Deploy all updates at once: amiko-data + amiko-skill + sys config. Returns status for each component. |
+| `POST` | `/setup/api/deploy/all` | Deploy all updates at once: amiko-data + amiko-skill + sys config. **Automatically updates version** after successful deployment. |
 
 ### Deploy Response Format
 

@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { runOnboarding } from "./run.js";
 import { syncAmikoData } from "./amiko.js";
 import { installAmikoSkill } from "./skills.js";
+import { CURRENT_SETUP_VERSION, setInstalledVersion } from "./version.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -197,7 +198,16 @@ export function createInitRouter(handlers) {
         output += `[sys] Warning: ${sysResult.error}\n`;
       }
 
-      return res.json({ ok: true, output });
+      // Step 5: Set setup version
+      output += "\n[version] Setting setup version...\n";
+      const versionSet = setInstalledVersion(CURRENT_SETUP_VERSION);
+      if (versionSet) {
+        output += `[version] Set to ${CURRENT_SETUP_VERSION}\n`;
+      } else {
+        output += `[version] Warning: Failed to set version\n`;
+      }
+
+      return res.json({ ok: true, version: CURRENT_SETUP_VERSION, output });
     } catch (err) {
       console.error("[/setup/api/init] error:", err);
       return res.status(500).json({ ok: false, output: `Internal error: ${String(err)}` });
