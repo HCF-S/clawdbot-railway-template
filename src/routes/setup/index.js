@@ -15,6 +15,7 @@ import { createImportRouter } from "./import.js";
 import { createModelsRouter } from "./models.js";
 import { createGatewayRouter } from "./gateway.js";
 import { createTwinRouter } from "./amiko.js";
+import { createSkillsRouter } from "./skills.js";
 
 export function createSetupRouter(handlers) {
   const router = express.Router();
@@ -58,6 +59,7 @@ export function createSetupRouter(handlers) {
   router.use("/api", createModelsRouter(handlers));
   router.use("/api", createGatewayRouter(handlers));
   router.use("/api", createTwinRouter(handlers));
+  router.use("/api", createSkillsRouter(handlers));
   router.use("/api", createResetRouter(handlers));
   router.use(createExportRouter(handlers));
   router.use(createImportRouter(handlers));

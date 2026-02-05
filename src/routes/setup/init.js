@@ -1,6 +1,7 @@
 import express from "express";
 import { runOnboarding } from "./run.js";
 import { syncAmikoData } from "./amiko.js";
+import { installAmikoSkill } from "./skills.js";
 
 export function createInitRouter(handlers) {
   const { requireApiToken } = handlers;
@@ -23,6 +24,15 @@ export function createInitRouter(handlers) {
       output += "\n\n[amiko] Starting Amiko data sync...\n";
       const amikoOutput = await syncAmikoData(handlers);
       output += amikoOutput;
+
+      // Step 3: Install Amiko skill
+      output += "\n[amiko] Installing Amiko skill...\n";
+      const skillResult = await installAmikoSkill(handlers);
+      if (skillResult.ok) {
+        output += `[amiko/skill] ${skillResult.output}\n`;
+      } else {
+        output += `[amiko/skill] Warning: ${skillResult.error}\n`;
+      }
 
       return res.json({ ok: true, output });
     } catch (err) {

@@ -21,7 +21,7 @@ All `/setup/*` endpoints require the `x-api-token` header (set to your `SETUP_PA
 
 | Method | Endpoint | Description | Request body |
 | --- | --- | --- | --- |
-| `POST` | `/setup/api/init` | **Recommended.** Full initialization endpoint that combines onboarding + Amiko data sync. Runs the onboarding process and then automatically syncs twin data (`AMIKO.md`) and documents (`amiko-docs/`). | Same as `/run`: JSON body with keys `flow`, `authChoice`, `authSecret`, `telegramToken`, `discordToken`, `slackBotToken`, `slackAppToken`. |
+| `POST` | `/setup/api/init` | **Recommended.** Full initialization endpoint that combines onboarding + Amiko data sync + skill installation. Runs the onboarding process, syncs twin data (`AMIKO.md`) and documents (`amiko-docs/`), and installs the Amiko skill (`skills/amiko/`). | Same as `/run`: JSON body with keys `flow`, `authChoice`, `authSecret`, `telegramToken`, `discordToken`, `slackBotToken`, `slackAppToken`. |
 | `POST` | `/setup/api/run` | Core onboarding endpoint (without Amiko sync). Runs `openclaw onboard ...` with the selected `authChoice` + secret + flow, writes gateway auth (token, bind, port, trusted proxies), applies default model based on provider, and optionally writes Telegram/Discord/Slack config objects. | JSON body with keys `flow`, `authChoice`, `authSecret`, `telegramToken`, `discordToken`, `slackBotToken`, `slackAppToken`. |
 | `GET` | `/setup/api/config/raw` | Returns the raw `openclaw.json` so the UI can edit it. | Response `{ ok, path, exists, content }`. |
 | `POST` | `/setup/api/config/raw` | Overwrite the entire config. Creates a timestamped `.bak` of the previous file and restarts the gateway immediately. | Body `{ content: string }` (max `500000` chars). |
@@ -74,3 +74,32 @@ All `/setup/*` endpoints require the `x-api-token` header (set to your `SETUP_PA
 | Method | Endpoint | Description |
 | --- | --- | --- |
 | `POST` | `/setup/api/gateway/restart` | Restarts the gateway process managed by the wrapper. |
+
+## Skills
+
+| Method | Endpoint | Description |
+| --- | --- | --- |
+| `POST` | `/setup/api/skills/amiko/install` | Installs the Amiko skill to `skills/amiko/` in the workspace. The skill provides CLI tools for voice generation, twin info, and document listing. Automatically called during `/init`. |
+
+### Amiko Skill Features
+
+The Amiko skill (`skills/amiko/`) provides:
+
+- **Voice Generation** - Generate speech using your twin's cloned voice via ElevenLabs
+- **Twin Info** - Fetch your twin's profile from the Amiko platform
+- **Document Listing** - List training documents associated with your twin
+
+Example CLI usage (from workspace):
+```bash
+# Generate voice
+skills/amiko/cli.js voice "Hello, I am your digital twin!"
+
+# Save voice to file
+skills/amiko/cli.js voice "Hello world" --output hello.mp3
+
+# Get twin info
+skills/amiko/cli.js info
+
+# List documents
+skills/amiko/cli.js docs --limit 10
+```
