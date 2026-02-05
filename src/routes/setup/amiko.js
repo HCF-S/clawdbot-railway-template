@@ -99,12 +99,15 @@ export async function pullTwinData(handlers) {
           injectionText += "\nUpdate your identity/soul/memory if anything changed.\n";
         }
         
+        // Add SYS.md reference
+        injectionText += "\n## System Persistence\n\n**Read SYS.md for system persistence rules** — this container resets on every rebuild. Only `/data` persists. When installing tools, packages, or modifying configs, follow the persistence guide in SYS.md to ensure they survive restarts.\n\n- Use `/data/sys/` for persistent installations\n- Update `/data/sys/MANIFEST.md` to log changes\n- Add restore commands to `/data/sys/restore.sh`\n";
+        
         if (!content.includes("Read AMIKO.md to get information about yourself")) {
           const lines = content.split("\n");
           let injectIndex = -1;
           
           for (let i = 0; i < lines.length; i++) {
-            if (lines[i].startsWith("## ") && !lines[i].includes("First:")) {
+            if (lines[i].startsWith("## ") && !lines[i].includes("First:") && !lines[i].includes("System Persistence")) {
               injectIndex = i;
               break;
             }
@@ -118,7 +121,7 @@ export async function pullTwinData(handlers) {
           }
           
           fs.writeFileSync(targetFile, content, "utf8");
-          console.log("[pullTwinData] injected AMIKO.md reference into", path.basename(targetFile));
+          console.log("[pullTwinData] injected AMIKO.md and SYS.md references into", path.basename(targetFile));
         }
       } catch (err) {
         console.warn("[pullTwinData] failed to inject into bootstrap:", err);

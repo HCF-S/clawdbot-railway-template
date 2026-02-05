@@ -1,0 +1,182 @@
+# System Persistence Guide
+
+> **IMPORTANT**: This container resets on every rebuild. Only the `/data` folder persists across restarts.
+
+## Understanding Container Persistence
+
+When this container is rebuilt or restarted:
+- ❌ **Lost**: Everything outside `/data` (system packages, configs in `/etc`, tools in `/usr/local`, etc.)
+- ✅ **Kept**: Everything inside `/data` (workspace, skills, your files)
+
+## Persistence Directory
+
+Use `/data/sys` for all persistent system configurations and installations:
+
+```
+/data/sys/
+├── bin/           # Portable executables and scripts
+├── lib/           # Libraries and dependencies
+├── config/        # Configuration files (to be symlinked)
+├── packages/      # Package installation records
+├── restore.sh     # Auto-restore script (run on startup)
+└── MANIFEST.md    # Log of all installations and changes
+```
+
+## Rules for Installing Software/Tools
+
+### 1. Portable Tools (Preferred)
+If the tool can be installed locally, install it in `/data/sys/bin`:
+
+```bash
+# Example: Installing a binary tool
+mkdir -p /data/sys/bin
+curl -L https://example.com/tool -o /data/sys/bin/tool
+chmod +x /data/sys/bin/tool
+
+# Add to PATH in restore.sh
+echo 'export PATH="/data/sys/bin:$PATH"' >> /data/sys/restore.sh
+```
+
+### 2. npm Global Packages
+Install with a custom prefix:
+
+```bash
+# Set npm prefix to persistent location
+npm config set prefix /data/sys/npm-global
+
+# Install package
+npm install -g <package-name>
+
+# Add to restore.sh
+echo 'export PATH="/data/sys/npm-global/bin:$PATH"' >> /data/sys/restore.sh
+```
+
+### 3. Python Packages
+Use a persistent virtual environment:
+
+```bash
+# Create venv in /data/sys
+python3 -m venv /data/sys/python-venv
+
+# Activate and install
+source /data/sys/python-venv/bin/activate
+pip install <package-name>
+
+# Add to restore.sh
+echo 'source /data/sys/python-venv/bin/activate' >> /data/sys/restore.sh
+```
+
+### 4. System Packages (apt/apk)
+These CANNOT persist directly. Instead:
+
+1. **Record the installation** in `/data/sys/packages/apt-packages.txt`:
+   ```bash
+   echo "package-name" >> /data/sys/packages/apt-packages.txt
+   ```
+
+2. **Add reinstall command** to `/data/sys/restore.sh`:
+   ```bash
+   echo 'apt-get update && xargs -a /data/sys/packages/apt-packages.txt apt-get install -y' >> /data/sys/restore.sh
+   ```
+
+### 5. Configuration Files
+Use symlinks to persist configs:
+
+```bash
+# Backup original config
+cp /etc/some-config /data/sys/config/some-config
+
+# Create symlink (add to restore.sh)
+echo 'ln -sf /data/sys/config/some-config /etc/some-config' >> /data/sys/restore.sh
+```
+
+## MANIFEST.md Format
+
+Always log your changes in `/data/sys/MANIFEST.md`:
+
+```markdown
+## [YYYY-MM-DD HH:MM] Installation/Change Description
+
+**Type**: tool | package | config | other
+**Method**: portable | npm | pip | apt | symlink
+**Files**:
+- /data/sys/bin/tool-name
+- /data/sys/config/config-file
+
+**Restore Command**:
+\`\`\`bash
+# Commands to restore this installation
+\`\`\`
+
+**Notes**: Any additional information
+```
+
+## restore.sh Template
+
+Create `/data/sys/restore.sh` with this structure:
+
+```bash
+#!/bin/bash
+# System Restoration Script
+# This script is run after container restart to restore persistent configurations
+
+set -e
+
+echo "[restore.sh] Starting system restoration..."
+
+# 1. Add persistent bin to PATH
+export PATH="/data/sys/bin:$PATH"
+
+# 2. Restore npm global packages path
+if [ -d "/data/sys/npm-global" ]; then
+    export PATH="/data/sys/npm-global/bin:$PATH"
+    echo "[restore.sh] npm global path restored"
+fi
+
+# 3. Activate Python venv if exists
+if [ -f "/data/sys/python-venv/bin/activate" ]; then
+    source /data/sys/python-venv/bin/activate
+    echo "[restore.sh] Python venv activated"
+fi
+
+# 4. Reinstall apt packages if needed
+if [ -f "/data/sys/packages/apt-packages.txt" ]; then
+    echo "[restore.sh] Reinstalling apt packages..."
+    apt-get update -qq
+    xargs -a /data/sys/packages/apt-packages.txt apt-get install -y -qq
+fi
+
+# 5. Restore symlinks for configs
+# Add your symlink commands here
+
+echo "[restore.sh] System restoration complete!"
+```
+
+## Quick Reference
+
+| What | Where to Install | How to Persist |
+|------|------------------|----------------|
+| Binary tools | `/data/sys/bin/` | Direct install |
+| npm packages | `/data/sys/npm-global/` | Custom prefix |
+| Python packages | `/data/sys/python-venv/` | Virtual env |
+| Config files | `/data/sys/config/` | Symlink |
+| apt packages | System | Record + reinstall |
+
+## Checking Current State
+
+To see what's been installed persistently:
+
+```bash
+# List persistent binaries
+ls -la /data/sys/bin/
+
+# Check manifest
+cat /data/sys/MANIFEST.md
+
+# View restore script
+cat /data/sys/restore.sh
+```
+
+---
+
+**Remember**: Always update `MANIFEST.md` and `restore.sh` when making system changes!
