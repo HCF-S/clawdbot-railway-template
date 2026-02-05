@@ -153,7 +153,7 @@ export async function getTwinStats(options = {}) {
 }
 
 /**
- * Create a new document for the twin
+ * Create a new document for the twin (text content)
  * @param {object} docData - Document data
  * @param {string} docData.title - Document title
  * @param {string} docData.content - Document content
@@ -174,6 +174,105 @@ export async function createDoc(docData) {
   }
   
   return response.json();
+}
+
+/**
+ * Upload a document file to the twin's knowledge base
+ * @param {Buffer|Blob|string} file - File data (Buffer, Blob, or file path)
+ * @param {object} options - Options
+ * @param {string} options.filename - Filename (required if file is Buffer/Blob)
+ * @param {string} options.contentType - MIME type (optional, will be guessed from filename)
+ * @returns {Promise<object>} - Upload result with file URL and metadata
+ */
+export async function uploadDoc(file, options = {}) {
+  const config = getConfig();
+  const formData = new FormData();
+  
+  // Handle different file input types
+  if (typeof file === 'string') {
+    // It's a file path
+    const fileBuffer = fs.readFileSync(file);
+    const filename = options.filename || path.basename(file);
+    const ext = path.extname(filename).toLowerCase();
+    const contentType = options.contentType || getMimeType(ext);
+    const blob = new Blob([fileBuffer], { type: contentType });
+    formData.append('file', blob, filename);
+  } else if (Buffer.isBuffer(file)) {
+    // It's a Buffer
+    if (!options.filename) {
+      throw new Error('filename is required when uploading a Buffer');
+    }
+    const ext = path.extname(options.filename).toLowerCase();
+    const contentType = options.contentType || getMimeType(ext);
+    const blob = new Blob([file], { type: contentType });
+    formData.append('file', blob, options.filename);
+  } else if (file instanceof Blob) {
+    // It's already a Blob
+    const filename = options.filename || 'document';
+    formData.append('file', file, filename);
+  } else {
+    throw new Error('File must be a file path, Buffer, or Blob');
+  }
+  
+  const response = await apiRequest(`/api/agents/${config.twinId}/docs/upload`, {
+    method: 'POST',
+    body: formData,
+  });
+  
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Failed to upload doc: ${response.status} - ${text}`);
+  }
+  
+  return response.json();
+}
+
+/**
+ * Upload a document file from a file path
+ * Convenience wrapper for uploadDoc
+ * @param {string} filePath - Path to the file
+ * @returns {Promise<object>} - Upload result
+ */
+export async function uploadDocFromFile(filePath) {
+  if (!fs.existsSync(filePath)) {
+    throw new Error(`File not found: ${filePath}`);
+  }
+  return uploadDoc(filePath);
+}
+
+/**
+ * Get MIME type from file extension
+ * @param {string} ext - File extension (with or without dot)
+ * @returns {string} - MIME type
+ */
+function getMimeType(ext) {
+  const mimeTypes = {
+    '.txt': 'text/plain',
+    '.md': 'text/markdown',
+    '.html': 'text/html',
+    '.htm': 'text/html',
+    '.json': 'application/json',
+    '.xml': 'application/xml',
+    '.csv': 'text/csv',
+    '.js': 'text/javascript',
+    '.pdf': 'application/pdf',
+    '.doc': 'application/msword',
+    '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    '.xls': 'application/vnd.ms-excel',
+    '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    '.ppt': 'application/vnd.ms-powerpoint',
+    '.pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    '.png': 'image/png',
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.gif': 'image/gif',
+    '.webp': 'image/webp',
+    '.mp3': 'audio/mpeg',
+    '.wav': 'audio/wav',
+    '.mp4': 'video/mp4',
+  };
+  const normalizedExt = ext.startsWith('.') ? ext : `.${ext}`;
+  return mimeTypes[normalizedExt] || 'application/octet-stream';
 }
 
 /**

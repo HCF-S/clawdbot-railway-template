@@ -38,8 +38,12 @@ These are automatically set when the OpenClaw instance is created:
 ~/.openclaw/skills/amiko/cli.js docs
 ~/.openclaw/skills/amiko/cli.js docs --limit 10
 
-# Create a new document
+# Create a new document (text content)
 ~/.openclaw/skills/amiko/cli.js docs:create --title "My Note" --content "Hello world"
+
+# Upload a document file (PDF, Word, images, etc.)
+~/.openclaw/skills/amiko/cli.js docs:upload --file /path/to/document.pdf
+~/.openclaw/skills/amiko/cli.js docs:upload --file notes.txt
 ```
 
 ### Personality & Social
@@ -114,7 +118,8 @@ Base URL: `https://platform.heyamiko.com/api`
 
 ### Documents
 - **GET `/agents/{twinId}/docs`** - List documents
-- **POST `/agents/{twinId}/docs`** - Create document
+- **POST `/agents/{twinId}/docs`** - Create document (text content)
+- **POST `/agents/{twinId}/docs/upload`** - Upload document file
 
 ### Personality & Social
 - **GET `/agents/{twinId}/personality`** - Get personality
@@ -146,6 +151,8 @@ import {
   getTwinStats,
   listDocs,
   createDoc,
+  uploadDoc,
+  uploadDocFromFile,
   getPersonality,
   updatePersonality,
   getSocial,
@@ -162,12 +169,16 @@ import {
   listTrainingSessions,
 } from './lib.js';
 
+// Example: Upload a document file
+const uploadResult = await uploadDocFromFile('/path/to/document.pdf');
+console.log(`Uploaded: ${uploadResult.filename} (${uploadResult.fileSize} bytes)`);
+
 // Example: Clone voice from an audio file
-const result = await cloneVoiceFromFile('/path/to/audio.mp3', {
+const cloneResult = await cloneVoiceFromFile('/path/to/audio.mp3', {
   voiceName: 'My Cloned Voice',
   description: 'Voice cloned from audio message'
 });
-console.log(`Voice cloned: ${result.elevenlabs_voice_id}`);
+console.log(`Voice cloned: ${cloneResult.elevenlabs_voice_id}`);
 
 // Example: Generate voice and save to file
 const voiceResult = await generateVoiceToFile("Hello!", "output.mp3");

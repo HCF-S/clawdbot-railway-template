@@ -11,6 +11,7 @@ import {
   getTwinStats,
   listDocs, 
   createDoc,
+  uploadDocFromFile,
   getPersonality,
   updatePersonality,
   getSocial,
@@ -48,11 +49,15 @@ Commands:
                        --limit <n>      Number of docs (default: 50)
                        --offset <n>     Pagination offset (default: 0)
   
-  docs:create        Create a new document
+  docs:create        Create a new document (text content)
                      Options:
                        --title <title>  Document title (required)
                        --content <text> Document content (required)
                        --type <type>    Document type (default: text)
+  
+  docs:upload        Upload a document file
+                     Options:
+                       --file <path>    Path to file (required)
   
   personality        Get twin personality data
   
@@ -192,6 +197,21 @@ async function main() {
           content: parsed.content,
           type: parsed.type || 'text',
         });
+        console.log(JSON.stringify(result, null, 2));
+        break;
+      }
+      
+      case 'docs:upload': {
+        const parsed = parseArgs(args.slice(1));
+        if (!parsed.file) {
+          console.error('Error: --file is required');
+          console.error('Usage: cli.js docs:upload --file /path/to/document.pdf');
+          process.exit(1);
+        }
+        
+        console.error(`Uploading file: ${parsed.file}`);
+        const result = await uploadDocFromFile(parsed.file);
+        console.error(`File uploaded successfully!`);
         console.log(JSON.stringify(result, null, 2));
         break;
       }
