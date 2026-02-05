@@ -1,173 +1,10 @@
 import express from "express";
 import fs from "node:fs";
 import path from "node:path";
+import { renderAmikoMd, renderDocMd } from "../../templates/render.js";
 
 const PLATFORM_BASE_URL = "https://platform.heyamiko.com";
 //const PLATFORM_BASE_URL = "http://host.docker.internal:3001";
-
-function renderJsonBlock(label, value) {
-  if (value === undefined || value === null) return "";
-  const json = JSON.stringify(value, null, 2);
-  return `## ${label}\n\n\`\`\`json\n${json}\n\`\`\`\n`;
-}
-
-function formatTwinMarkdown(twin, user) {
-  const lines = [];
-  lines.push("You are an AI agent from Amiko platform, here is your information from Amiko:");
-  lines.push("");
-  lines.push("Amiko platform is a AI Agent identity and social platform. It creates digital identities based on how users actually live, think, and connect — trained on behavior, not just data.");
-  lines.push("");
-  lines.push("There are 2 types of Amiko:");
-  lines.push("- **Twin**: Replicates user behavior, personality, voice, style, and decision-making. Twins can contribute to user real work — writing, reviewing, filtering, organizing, reflecting.");
-  lines.push("- **Companion**: Relationship-driven digital identities that can be friends, rivals, romantic leads, mentors, or co-conspirators. Companions can brainstorm, spot patterns, specialize in skills, help user get unstuck — or just listen.");
-  lines.push("");
-  lines.push("---");
-  lines.push("");
-  lines.push("# Amiko");
-  lines.push("");
-
-  if (twin?.name) {
-    lines.push("**Name:**");
-    lines.push("");
-    lines.push(twin.name);
-    lines.push("");
-  }
-
-  if (twin?.description) {
-    lines.push("**Description:**");
-    lines.push("");
-    lines.push(twin.description);
-    lines.push("");
-  }
-
-  lines.push("## Summary");
-  lines.push("");
-  lines.push(`- ID: ${twin?.id || ""}`);
-  lines.push(`- User ID: ${twin?.user_id || ""}`);
-  lines.push(`- Type: ${twin?.type || ""}`);
-  lines.push(`- Public: ${twin?.is_public ? "yes" : "no"}`);
-  lines.push(`- Shipped: ${twin?.is_shipped ? "yes" : "no"}`);
-  lines.push(`- Shipped At: ${twin?.shipped_at || ""}`);
-  lines.push(`- Created At: ${twin?.created_at || ""}`);
-  lines.push(`- Updated At: ${twin?.updated_at || ""}`);
-  lines.push("");
-
-  lines.push("## Media");
-  lines.push("");
-  lines.push(`- Original Photo URL: ${twin?.original_photo_url || ""}`);
-  lines.push(`- Avatar URL: ${twin?.avatar_url || ""}`);
-  lines.push("");
-
-  lines.push("## Voice");
-  lines.push("");
-  lines.push(`- Voice ID: ${twin?.voice_id || ""}`);
-  lines.push(`- Voice Description: ${twin?.voice_description || ""}`);
-  lines.push(`- Voice Status: ${twin?.voice_status || ""}`);
-  lines.push("");
-  lines.push("> **Note:** This Voice ID is an ElevenLabs voice ID. Check the `amiko-skill` for tools on how to use it to generate voice.");
-  lines.push("");
-
-  const sections = [
-    ["Metadata", twin?.metadata],
-    ["Basic Info", twin?.basic_info],
-    ["Preferences", twin?.preferences],
-    ["Personality", twin?.personality],
-    ["Personality Source", twin?.personality_source],
-  ];
-
-  for (const [label, value] of sections) {
-    const block = renderJsonBlock(label, value);
-    if (block) {
-      lines.push(block.trimEnd());
-      lines.push("");
-    }
-  }
-
-  if (user) {
-    lines.push("# Your User");
-    lines.push("");
-    lines.push("## Profile");
-    lines.push("");
-    lines.push(`- ID: ${user?.id || ""}`);
-    lines.push(`- Name: ${user?.name || ""}`);
-    lines.push(`- Email: ${user?.email || ""}`);
-    lines.push(`- Twitter: ${user?.twitter_handle || ""}`);
-    lines.push(`- Profile Image: ${user?.profile_image || ""}`);
-    lines.push("");
-    lines.push("## Account Details");
-    lines.push("");
-    lines.push(`- Tier: ${user?.tier || ""}`);
-    lines.push(`- Created At: ${user?.created_at || ""}`);
-    lines.push("");
-  }
-
-  return lines.join("\n").trimEnd() + "\n";
-}
-
-function formatDocMarkdown(doc) {
-  const lines = [];
-  
-  lines.push(`# ${doc.title || doc.filename || "Untitled Document"}`);
-  lines.push("");
-  
-  lines.push("## Document Information");
-  lines.push("");
-  lines.push(`- **ID**: ${doc.id}`);
-  lines.push(`- **Filename**: ${doc.filename || "N/A"}`);
-  lines.push(`- **Type**: ${doc.doc_type || "N/A"}`);
-  lines.push(`- **File Type**: ${doc.file_type || "N/A"}`);
-  lines.push(`- **Relationship**: ${doc.relationship || "N/A"}`);
-  lines.push(`- **Stance**: ${doc.stance || "N/A"}`);
-  lines.push("");
-  
-  lines.push("## Dates");
-  lines.push("");
-  lines.push(`- **Created**: ${doc.created_at || "N/A"}`);
-  lines.push(`- **Updated**: ${doc.updated_at || "N/A"}`);
-  lines.push("");
-  
-  lines.push("## Processing Status");
-  lines.push("");
-  lines.push(`- **Parsed**: ${doc.is_parsed ? "Yes" : "No"}`);
-  lines.push(`- **Processed**: ${doc.is_processed ? "Yes" : "No"}`);
-  lines.push(`- **Chunk Count**: ${doc.chunk_count || 0}`);
-  lines.push("");
-  
-  if (doc.description) {
-    lines.push("## Description");
-    lines.push("");
-    lines.push(doc.description);
-    lines.push("");
-  }
-  
-  if (doc.file_url) {
-    lines.push("## File");
-    lines.push("");
-    lines.push(`- **URL**: ${doc.file_url}`);
-    if (doc.file_hash) {
-      lines.push(`- **Hash**: ${doc.file_hash}`);
-    }
-    lines.push("");
-  }
-  
-  if (doc.metadata && Object.keys(doc.metadata).length > 0) {
-    lines.push("## Metadata");
-    lines.push("");
-    lines.push("```json");
-    lines.push(JSON.stringify(doc.metadata, null, 2));
-    lines.push("```");
-    lines.push("");
-  }
-  
-  if (doc.content) {
-    lines.push("## Content");
-    lines.push("");
-    lines.push(doc.content);
-    lines.push("");
-  }
-  
-  return lines.join("\n").trimEnd() + "\n";
-}
 
 // ============================================================
 // SHARED FUNCTIONS - Used by both routes and syncAmikoData
@@ -223,8 +60,8 @@ export async function pullTwinData(handlers) {
       user = await userResponse.json();
     }
 
-    // Write AMIKO.md
-    const markdown = formatTwinMarkdown(twin, user);
+    // Write AMIKO.md using template
+    const markdown = renderAmikoMd(twin, user);
     fs.mkdirSync(WORKSPACE_DIR, { recursive: true });
     const outPath = path.join(WORKSPACE_DIR, "AMIKO.md");
     fs.writeFileSync(outPath, markdown, "utf8");
@@ -420,7 +257,8 @@ export async function pullDocs(handlers) {
         }
 
         if (needsWrite) {
-          const markdown = formatDocMarkdown(doc);
+          // Use template to render doc markdown
+          const markdown = renderDocMd(doc);
           fs.writeFileSync(docPath, markdown, "utf8");
 
           // Update manifest entry
@@ -461,10 +299,12 @@ export async function pullDocs(handlers) {
     // Save updated manifest
     saveDocsManifest(docsDir, manifest);
 
-    // Update AMIKO.md docs section (always update to reflect current state)
+    // Update AMIKO.md docs section using template (re-render with docs)
     const amikoMdPath = path.join(WORKSPACE_DIR, "AMIKO.md");
     if (fs.existsSync(amikoMdPath) && allDocs.length > 0) {
       try {
+        // Re-read current AMIKO.md and extract twin/user data
+        // For now, we'll just append the docs section
         let amikoContent = fs.readFileSync(amikoMdPath, "utf8");
 
         // Build new docs section
