@@ -39,6 +39,14 @@ import {
   simpleSearchUsers,
   discoverFriends,
   getFriendSuggestions,
+  // Notifications API
+  getNotifications,
+  markNotificationRead,
+  // User API
+  getUserInfo,
+  getUserSettings,
+  // Twins API
+  listUserTwins,
 } from './lib.js';
 
 const args = process.argv.slice(2);
@@ -172,6 +180,25 @@ Commands:
                        --query <q>      Search query (required)
   
   friends:suggestions Get friend suggestions
+  
+  --- Notifications ---
+  
+  notifications      Get notifications
+                     Options:
+                       --limit <n>      Number to fetch (default: 20)
+                       --cursor <date>  Pagination cursor (ISO date)
+  
+  notifications:read Mark a notification as read
+                     Options:
+                       --id <id>        Notification ID (required)
+  
+  --- User & Twins ---
+  
+  user               Get current user info
+  
+  user:settings      Get detailed user settings
+  
+  twins              List all user's twins
   
   help               Show this help message
 
@@ -594,6 +621,52 @@ async function main() {
       
       case 'friends:suggestions': {
         const result = await getFriendSuggestions();
+        console.log(JSON.stringify(result, null, 2));
+        break;
+      }
+      
+      // ============== Notifications Commands ==============
+      
+      case 'notifications': {
+        const parsed = parseArgs(args.slice(1));
+        const options = {};
+        if (parsed.limit) options.limit = parseInt(parsed.limit, 10);
+        if (parsed.cursor) options.cursor = parsed.cursor;
+        
+        const result = await getNotifications(options);
+        console.log(JSON.stringify(result, null, 2));
+        break;
+      }
+      
+      case 'notifications:read': {
+        const parsed = parseArgs(args.slice(1));
+        if (!parsed.id) {
+          console.error('Error: --id is required');
+          console.error('Usage: cli.js notifications:read --id <notification_id>');
+          process.exit(1);
+        }
+        
+        const result = await markNotificationRead(parsed.id);
+        console.log(JSON.stringify(result, null, 2));
+        break;
+      }
+      
+      // ============== User & Twins Commands ==============
+      
+      case 'user': {
+        const result = await getUserInfo();
+        console.log(JSON.stringify(result, null, 2));
+        break;
+      }
+      
+      case 'user:settings': {
+        const result = await getUserSettings();
+        console.log(JSON.stringify(result, null, 2));
+        break;
+      }
+      
+      case 'twins': {
+        const result = await listUserTwins();
         console.log(JSON.stringify(result, null, 2));
         break;
       }

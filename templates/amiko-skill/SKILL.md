@@ -169,6 +169,30 @@ These commands allow the twin to manage friends on behalf of the user.
 ~/.openclaw/skills/amiko/cli.js friends:suggestions
 ```
 
+### Notifications
+
+```bash
+# Get notifications
+~/.openclaw/skills/amiko/cli.js notifications
+~/.openclaw/skills/amiko/cli.js notifications --limit 10
+
+# Mark notification as read
+~/.openclaw/skills/amiko/cli.js notifications:read --id <notification_id>
+```
+
+### User & Twins
+
+```bash
+# Get current user info
+~/.openclaw/skills/amiko/cli.js user
+
+# Get detailed user settings
+~/.openclaw/skills/amiko/cli.js user:settings
+
+# List all user's twins
+~/.openclaw/skills/amiko/cli.js twins
+```
+
 ## API Endpoints
 
 Base URL: `https://platform.heyamiko.com/api`
@@ -218,6 +242,15 @@ Base URL: `https://platform.heyamiko.com/api`
 - **GET `/friends/discover`** - Combined search (q)
 - **GET `/friends/suggestions`** - Get suggestions
 
+### Notifications (User-level)
+- **GET `/notifications`** - Get notifications (supports cursor, limit)
+- **PATCH `/notifications`** - Mark notification as read (notificationId)
+
+### User & Twins (User-level)
+- **GET `/user/me`** - Get current user info
+- **GET `/user/settings`** - Get user settings
+- **GET `/twins`** - List all user's twins
+
 ## Library Functions (lib.js)
 
 ```javascript
@@ -256,6 +289,14 @@ import {
   simpleSearchUsers,
   discoverFriends,
   getFriendSuggestions,
+  // Notifications API (user-level)
+  getNotifications,
+  markNotificationRead,
+  // User API (user-level)
+  getUserInfo,
+  getUserSettings,
+  // Twins API (user-level)
+  listUserTwins,
 } from './lib.js';
 
 // Example: Upload a document file
@@ -297,6 +338,21 @@ console.log(`Found ${searchResult.results.length} users matching "john"`);
 // Example: Get friend suggestions
 const suggestions = await getFriendSuggestions();
 console.log(`${suggestions.suggestions.length} friend suggestions`);
+
+// Example: Get notifications
+const notifs = await getNotifications({ limit: 10 });
+console.log(`${notifs.notifications.length} notifications, ${notifs.unread_count} unread`);
+
+// Example: Mark notification as read
+await markNotificationRead('notification-id');
+
+// Example: Get user info
+const userInfo = await getUserInfo();
+console.log(`User: ${userInfo.user.name}`);
+
+// Example: List all twins
+const twins = await listUserTwins();
+console.log(`User has ${twins.length} twin(s)`);
 ```
 
 ## Files

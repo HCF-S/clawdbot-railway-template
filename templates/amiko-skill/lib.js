@@ -838,3 +838,109 @@ export async function getFriendSuggestions() {
   
   return response.json();
 }
+
+// ============================================================================
+// NOTIFICATIONS API (User-level operations)
+// ============================================================================
+
+/**
+ * Get notifications for the user
+ * @param {object} options - Options
+ * @param {string} options.cursor - Cursor for pagination (ISO date string)
+ * @param {number} options.limit - Number of notifications to return (default: 20)
+ * @returns {Promise<object>} - Notifications with pagination info
+ */
+export async function getNotifications(options = {}) {
+  const { cursor, limit = 20 } = options;
+  
+  const params = new URLSearchParams();
+  if (cursor) params.append('cursor', cursor);
+  if (limit) params.append('limit', String(limit));
+  
+  const queryString = params.toString();
+  const response = await apiRequest(`/api/notifications${queryString ? `?${queryString}` : ''}`);
+  
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Failed to get notifications: ${response.status} - ${text}`);
+  }
+  
+  return response.json();
+}
+
+/**
+ * Mark a notification as read
+ * @param {string} notificationId - ID of the notification to mark as read
+ * @returns {Promise<object>} - Result
+ */
+export async function markNotificationRead(notificationId) {
+  if (!notificationId) {
+    throw new Error('notificationId is required');
+  }
+  
+  const response = await apiRequest('/api/notifications', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ notificationId }),
+  });
+  
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Failed to mark notification as read: ${response.status} - ${text}`);
+  }
+  
+  return response.json();
+}
+
+// ============================================================================
+// USER API (User-level operations)
+// ============================================================================
+
+/**
+ * Get current user's basic information
+ * @returns {Promise<object>} - User data
+ */
+export async function getUserInfo() {
+  const response = await apiRequest('/api/user/me');
+  
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Failed to get user info: ${response.status} - ${text}`);
+  }
+  
+  return response.json();
+}
+
+/**
+ * Get user settings (more detailed than getUserInfo)
+ * @returns {Promise<object>} - User settings
+ */
+export async function getUserSettings() {
+  const response = await apiRequest('/api/user/settings');
+  
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Failed to get user settings: ${response.status} - ${text}`);
+  }
+  
+  return response.json();
+}
+
+// ============================================================================
+// TWINS API (User-level operations - list all user's twins)
+// ============================================================================
+
+/**
+ * Get all twins owned by the user
+ * @returns {Promise<Array>} - Array of twins
+ */
+export async function listUserTwins() {
+  const response = await apiRequest('/api/twins');
+  
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Failed to list twins: ${response.status} - ${text}`);
+  }
+  
+  return response.json();
+}
