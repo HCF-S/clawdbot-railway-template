@@ -26,6 +26,19 @@ import {
   getWalletBalance,
   updateAvatar,
   listTrainingSessions,
+  // Friends API
+  listFriends,
+  addFriend,
+  getFriendRequests,
+  acceptFriendRequest,
+  declineFriendRequest,
+  removeFriend,
+  toggleFriendFavorite,
+  toggleFriendBlock,
+  searchFriends,
+  simpleSearchUsers,
+  discoverFriends,
+  getFriendSuggestions,
 } from './lib.js';
 
 const args = process.argv.slice(2);
@@ -112,6 +125,53 @@ Commands:
                      Options:
                        --limit <n>      Number of sessions (default: 50)
                        --offset <n>     Pagination offset (default: 0)
+  
+  --- Friends Management (User-level) ---
+  
+  friends            List friends
+                     Options:
+                       --type <type>    Filter: 'user' or 'agent'
+                       --sub-type <t>   Filter by agent sub_type
+                       --favorites      Only show favorites
+  
+  friends:add        Add a friend (user or agent)
+                     Options:
+                       --id <id>        User or agent ID (required)
+                       --type <type>    'user' or 'agent' (default: user)
+                       --add-twins      Also add user's public twins
+  
+  friends:requests   Get pending friend requests (incoming/outgoing)
+  
+  friends:accept     Accept a friend request
+                     Options:
+                       --id <id>        Friendship ID (required)
+  
+  friends:decline    Decline a friend request
+                     Options:
+                       --id <id>        Friendship ID (required)
+  
+  friends:remove     Remove a friend (unfriend)
+                     Options:
+                       --id <id>        Friendship ID (required)
+  
+  friends:favorite   Toggle favorite status
+                     Options:
+                       --id <id>        Friendship ID (required)
+  
+  friends:block      Toggle block status
+                     Options:
+                       --id <id>        Friendship ID (required)
+  
+  friends:search     Search for users or agents
+                     Options:
+                       --query <q>      Search query (required)
+                       --type <type>    'user' or 'agent' (default: user)
+  
+  friends:discover   Discover users and agents (combined search)
+                     Options:
+                       --query <q>      Search query (required)
+  
+  friends:suggestions Get friend suggestions
   
   help               Show this help message
 
@@ -391,6 +451,149 @@ async function main() {
           offset: parsed.offset ? parseInt(parsed.offset, 10) : 0,
         };
         const result = await listTrainingSessions(options);
+        console.log(JSON.stringify(result, null, 2));
+        break;
+      }
+      
+      // ============== Friends Commands ==============
+      
+      case 'friends': {
+        const parsed = parseArgs(args.slice(1));
+        const options = {};
+        if (parsed.type) options.type = parsed.type;
+        if (parsed['sub-type']) options.subType = parsed['sub-type'];
+        if (parsed.favorites) options.favoritesOnly = true;
+        
+        const result = await listFriends(options);
+        console.log(JSON.stringify(result, null, 2));
+        break;
+      }
+      
+      case 'friends:add': {
+        const parsed = parseArgs(args.slice(1));
+        if (!parsed.id) {
+          console.error('Error: --id is required');
+          console.error('Usage: cli.js friends:add --id <user_or_agent_id> [--type user|agent] [--add-twins]');
+          process.exit(1);
+        }
+        
+        const data = {
+          friendId: parsed.id,
+          friendType: parsed.type || 'user',
+          alsoAddTwins: !!parsed['add-twins'],
+        };
+        
+        const result = await addFriend(data);
+        console.log(JSON.stringify(result, null, 2));
+        break;
+      }
+      
+      case 'friends:requests': {
+        const result = await getFriendRequests();
+        console.log(JSON.stringify(result, null, 2));
+        break;
+      }
+      
+      case 'friends:accept': {
+        const parsed = parseArgs(args.slice(1));
+        if (!parsed.id) {
+          console.error('Error: --id is required');
+          console.error('Usage: cli.js friends:accept --id <friendship_id>');
+          process.exit(1);
+        }
+        
+        const result = await acceptFriendRequest(parsed.id);
+        console.log(JSON.stringify(result, null, 2));
+        break;
+      }
+      
+      case 'friends:decline': {
+        const parsed = parseArgs(args.slice(1));
+        if (!parsed.id) {
+          console.error('Error: --id is required');
+          console.error('Usage: cli.js friends:decline --id <friendship_id>');
+          process.exit(1);
+        }
+        
+        const result = await declineFriendRequest(parsed.id);
+        console.log(JSON.stringify(result, null, 2));
+        break;
+      }
+      
+      case 'friends:remove': {
+        const parsed = parseArgs(args.slice(1));
+        if (!parsed.id) {
+          console.error('Error: --id is required');
+          console.error('Usage: cli.js friends:remove --id <friendship_id>');
+          process.exit(1);
+        }
+        
+        const result = await removeFriend(parsed.id);
+        console.log(JSON.stringify(result, null, 2));
+        break;
+      }
+      
+      case 'friends:favorite': {
+        const parsed = parseArgs(args.slice(1));
+        if (!parsed.id) {
+          console.error('Error: --id is required');
+          console.error('Usage: cli.js friends:favorite --id <friendship_id>');
+          process.exit(1);
+        }
+        
+        const result = await toggleFriendFavorite(parsed.id);
+        console.log(JSON.stringify(result, null, 2));
+        break;
+      }
+      
+      case 'friends:block': {
+        const parsed = parseArgs(args.slice(1));
+        if (!parsed.id) {
+          console.error('Error: --id is required');
+          console.error('Usage: cli.js friends:block --id <friendship_id>');
+          process.exit(1);
+        }
+        
+        const result = await toggleFriendBlock(parsed.id);
+        console.log(JSON.stringify(result, null, 2));
+        break;
+      }
+      
+      case 'friends:search': {
+        const parsed = parseArgs(args.slice(1));
+        const query = parsed.query || parsed._.join(' ');
+        
+        if (!query) {
+          console.error('Error: --query is required');
+          console.error('Usage: cli.js friends:search --query "search term" [--type user|agent]');
+          process.exit(1);
+        }
+        
+        const options = {};
+        if (parsed.type) options.type = parsed.type;
+        
+        const result = await searchFriends(query, options);
+        console.log(JSON.stringify(result, null, 2));
+        break;
+      }
+      
+      case 'friends:discover': {
+        const parsed = parseArgs(args.slice(1));
+        const query = parsed.query || parsed._.join(' ');
+        
+        if (!query) {
+          console.error('Error: --query is required');
+          console.error('Usage: cli.js friends:discover --query "search term"');
+          process.exit(1);
+        }
+        
+        const result = await discoverFriends(query);
+        console.log(JSON.stringify(result, null, 2));
+        break;
+      }
+      
+      case 'friends:suggestions': {
+        const result = await getFriendSuggestions();
         console.log(JSON.stringify(result, null, 2));
         break;
       }

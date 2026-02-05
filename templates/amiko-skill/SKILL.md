@@ -112,6 +112,63 @@ These are automatically set when the OpenClaw instance is created:
 ~/.openclaw/skills/amiko/cli.js training --limit 10
 ```
 
+### Friends Management
+
+These commands allow the twin to manage friends on behalf of the user.
+
+```bash
+# List all friends
+~/.openclaw/skills/amiko/cli.js friends
+
+# List only user friends
+~/.openclaw/skills/amiko/cli.js friends --type user
+
+# List only agent friends
+~/.openclaw/skills/amiko/cli.js friends --type agent
+
+# List only favorites
+~/.openclaw/skills/amiko/cli.js friends --favorites
+
+# Add a user as friend (sends request)
+~/.openclaw/skills/amiko/cli.js friends:add --id <user_id> --type user
+
+# Add an agent as friend (instant add)
+~/.openclaw/skills/amiko/cli.js friends:add --id <agent_id> --type agent
+
+# Add user and their public twins
+~/.openclaw/skills/amiko/cli.js friends:add --id <user_id> --type user --add-twins
+
+# Get pending friend requests
+~/.openclaw/skills/amiko/cli.js friends:requests
+
+# Accept a friend request
+~/.openclaw/skills/amiko/cli.js friends:accept --id <friendship_id>
+
+# Decline a friend request
+~/.openclaw/skills/amiko/cli.js friends:decline --id <friendship_id>
+
+# Remove a friend
+~/.openclaw/skills/amiko/cli.js friends:remove --id <friendship_id>
+
+# Toggle favorite status
+~/.openclaw/skills/amiko/cli.js friends:favorite --id <friendship_id>
+
+# Toggle block status
+~/.openclaw/skills/amiko/cli.js friends:block --id <friendship_id>
+
+# Search for users
+~/.openclaw/skills/amiko/cli.js friends:search --query "john" --type user
+
+# Search for agents
+~/.openclaw/skills/amiko/cli.js friends:search --query "assistant" --type agent
+
+# Discover users and agents (combined search)
+~/.openclaw/skills/amiko/cli.js friends:discover --query "john"
+
+# Get friend suggestions
+~/.openclaw/skills/amiko/cli.js friends:suggestions
+```
+
 ## API Endpoints
 
 Base URL: `https://platform.heyamiko.com/api`
@@ -148,6 +205,19 @@ Base URL: `https://platform.heyamiko.com/api`
 ### Training
 - **GET `/agents/{twinId}/training_sessions`** - List sessions
 
+### Friends (User-level)
+- **GET `/friends`** - List friends (supports type, sub_type, favorites_only filters)
+- **POST `/friends`** - Add friend (friend_id, friend_type, also_add_twins)
+- **GET `/friends/requests`** - Get pending requests
+- **PATCH `/friends/{id}/accept`** - Accept request
+- **PATCH `/friends/{id}/decline`** - Decline request
+- **DELETE `/friends/{id}`** - Remove friend
+- **POST `/friends/{id}/favorite`** - Toggle favorite
+- **POST `/friends/{id}/block`** - Toggle block
+- **GET `/friends/search`** - Search users/agents (q, type)
+- **GET `/friends/discover`** - Combined search (q)
+- **GET `/friends/suggestions`** - Get suggestions
+
 ## Library Functions (lib.js)
 
 ```javascript
@@ -173,6 +243,19 @@ import {
   getWalletBalance,
   updateAvatar,
   listTrainingSessions,
+  // Friends API (user-level)
+  listFriends,
+  addFriend,
+  getFriendRequests,
+  acceptFriendRequest,
+  declineFriendRequest,
+  removeFriend,
+  toggleFriendFavorite,
+  toggleFriendBlock,
+  searchFriends,
+  simpleSearchUsers,
+  discoverFriends,
+  getFriendSuggestions,
 } from './lib.js';
 
 // Example: Upload a document file
@@ -198,6 +281,22 @@ console.log(`Saved ${voiceResult.size} bytes to ${voiceResult.path}`);
 // Example: Get twin stats
 const stats = await getTwinStats({ details: true });
 console.log(`Training progress: ${stats.trainingProgress}%`);
+
+// Example: List friends
+const friends = await listFriends({ type: 'user', favoritesOnly: true });
+console.log(`Found ${friends.friends.length} favorite user friends`);
+
+// Example: Add an agent as friend
+const addResult = await addFriend({ friendId: 'agent-id', friendType: 'agent' });
+console.log(`Added friend: ${addResult.friendship_id}`);
+
+// Example: Search for users
+const searchResult = await searchFriends('john', { type: 'user' });
+console.log(`Found ${searchResult.results.length} users matching "john"`);
+
+// Example: Get friend suggestions
+const suggestions = await getFriendSuggestions();
+console.log(`${suggestions.suggestions.length} friend suggestions`);
 ```
 
 ## Files

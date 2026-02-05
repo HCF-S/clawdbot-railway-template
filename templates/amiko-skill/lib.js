@@ -561,3 +561,280 @@ export async function cloneVoiceFromFile(filePath, options = {}) {
   }
   return cloneVoice(filePath, options);
 }
+
+// ============================================================================
+// FRIENDS API (User-level operations - twin acts on behalf of user)
+// ============================================================================
+
+/**
+ * List friends for the user
+ * @param {object} options - Options
+ * @param {string} options.type - Filter by type: 'user' | 'agent' (optional)
+ * @param {string} options.subType - Filter by agent sub_type (optional)
+ * @param {boolean} options.favoritesOnly - Only return favorites (optional)
+ * @returns {Promise<object>} - Friends list
+ */
+export async function listFriends(options = {}) {
+  const { type, subType, favoritesOnly } = options;
+  
+  const params = new URLSearchParams();
+  if (type) params.append('type', type);
+  if (subType) params.append('sub_type', subType);
+  if (favoritesOnly) params.append('favorites_only', 'true');
+  
+  const queryString = params.toString();
+  const url = `/api/friends${queryString ? `?${queryString}` : ''}`;
+  
+  const response = await apiRequest(url);
+  
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Failed to list friends: ${response.status} - ${text}`);
+  }
+  
+  return response.json();
+}
+
+/**
+ * Send a friend request or add an agent as friend
+ * @param {object} data - Request data
+ * @param {string} data.friendId - ID of the user or agent to add
+ * @param {string} data.friendType - 'user' or 'agent' (default: 'user')
+ * @param {boolean} data.alsoAddTwins - Also add the user's public twins (for user friends)
+ * @returns {Promise<object>} - Result with friendship_id
+ */
+export async function addFriend(data) {
+  const { friendId, friendType = 'user', alsoAddTwins } = data;
+  
+  if (!friendId) {
+    throw new Error('friendId is required');
+  }
+  
+  const response = await apiRequest('/api/friends', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      friend_id: friendId,
+      friend_type: friendType,
+      also_add_twins: alsoAddTwins,
+    }),
+  });
+  
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Failed to add friend: ${response.status} - ${text}`);
+  }
+  
+  return response.json();
+}
+
+/**
+ * Get pending friend requests (incoming and outgoing)
+ * @returns {Promise<object>} - Object with incoming and outgoing requests
+ */
+export async function getFriendRequests() {
+  const response = await apiRequest('/api/friends/requests');
+  
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Failed to get friend requests: ${response.status} - ${text}`);
+  }
+  
+  return response.json();
+}
+
+/**
+ * Accept a friend request
+ * @param {string} friendshipId - ID of the friendship to accept
+ * @returns {Promise<object>} - Result
+ */
+export async function acceptFriendRequest(friendshipId) {
+  if (!friendshipId) {
+    throw new Error('friendshipId is required');
+  }
+  
+  const response = await apiRequest(`/api/friends/${friendshipId}/accept`, {
+    method: 'PATCH',
+  });
+  
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Failed to accept friend request: ${response.status} - ${text}`);
+  }
+  
+  return response.json();
+}
+
+/**
+ * Decline a friend request
+ * @param {string} friendshipId - ID of the friendship to decline
+ * @returns {Promise<object>} - Result
+ */
+export async function declineFriendRequest(friendshipId) {
+  if (!friendshipId) {
+    throw new Error('friendshipId is required');
+  }
+  
+  const response = await apiRequest(`/api/friends/${friendshipId}/decline`, {
+    method: 'PATCH',
+  });
+  
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Failed to decline friend request: ${response.status} - ${text}`);
+  }
+  
+  return response.json();
+}
+
+/**
+ * Remove a friend (unfriend)
+ * @param {string} friendshipId - ID of the friendship to remove
+ * @returns {Promise<object>} - Result
+ */
+export async function removeFriend(friendshipId) {
+  if (!friendshipId) {
+    throw new Error('friendshipId is required');
+  }
+  
+  const response = await apiRequest(`/api/friends/${friendshipId}`, {
+    method: 'DELETE',
+  });
+  
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Failed to remove friend: ${response.status} - ${text}`);
+  }
+  
+  return response.json();
+}
+
+/**
+ * Toggle favorite status for a friend
+ * @param {string} friendshipId - ID of the friendship
+ * @returns {Promise<object>} - Result with new is_favorite status
+ */
+export async function toggleFriendFavorite(friendshipId) {
+  if (!friendshipId) {
+    throw new Error('friendshipId is required');
+  }
+  
+  const response = await apiRequest(`/api/friends/${friendshipId}/favorite`, {
+    method: 'POST',
+  });
+  
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Failed to toggle favorite: ${response.status} - ${text}`);
+  }
+  
+  return response.json();
+}
+
+/**
+ * Toggle block status for a friend
+ * @param {string} friendshipId - ID of the friendship
+ * @returns {Promise<object>} - Result with new is_blocked status
+ */
+export async function toggleFriendBlock(friendshipId) {
+  if (!friendshipId) {
+    throw new Error('friendshipId is required');
+  }
+  
+  const response = await apiRequest(`/api/friends/${friendshipId}/block`, {
+    method: 'POST',
+  });
+  
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Failed to toggle block: ${response.status} - ${text}`);
+  }
+  
+  return response.json();
+}
+
+/**
+ * Search for users or agents to add as friends
+ * @param {string} query - Search query
+ * @param {object} options - Options
+ * @param {string} options.type - 'user' or 'agent' (default: 'user')
+ * @returns {Promise<object>} - Search results
+ */
+export async function searchFriends(query, options = {}) {
+  const { type = 'user' } = options;
+  
+  if (!query || query.trim().length < 1) {
+    throw new Error('Search query is required');
+  }
+  
+  const params = new URLSearchParams();
+  params.append('q', query);
+  params.append('type', type);
+  
+  const response = await apiRequest(`/api/friends/search?${params.toString()}`);
+  
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Failed to search: ${response.status} - ${text}`);
+  }
+  
+  return response.json();
+}
+
+/**
+ * Simple search for users (returns users and twins combined)
+ * @param {string} query - Search query (optional, returns recent users if empty)
+ * @returns {Promise<object>} - Search results
+ */
+export async function simpleSearchUsers(query = '') {
+  const params = new URLSearchParams();
+  if (query) params.append('q', query);
+  
+  const queryString = params.toString();
+  const response = await apiRequest(`/api/friends/simple-search${queryString ? `?${queryString}` : ''}`);
+  
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Failed to search: ${response.status} - ${text}`);
+  }
+  
+  return response.json();
+}
+
+/**
+ * Discover users and agents (combined search)
+ * @param {string} query - Search query
+ * @returns {Promise<object>} - Combined results of users and agents
+ */
+export async function discoverFriends(query) {
+  if (!query || query.trim().length < 1) {
+    throw new Error('Search query is required');
+  }
+  
+  const params = new URLSearchParams();
+  params.append('q', query);
+  
+  const response = await apiRequest(`/api/friends/discover?${params.toString()}`);
+  
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Failed to discover: ${response.status} - ${text}`);
+  }
+  
+  return response.json();
+}
+
+/**
+ * Get friend suggestions (users who are not yet friends)
+ * @returns {Promise<object>} - Suggested users to add as friends
+ */
+export async function getFriendSuggestions() {
+  const response = await apiRequest('/api/friends/suggestions');
+  
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Failed to get suggestions: ${response.status} - ${text}`);
+  }
+  
+  return response.json();
+}
