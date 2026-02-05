@@ -367,3 +367,70 @@ export async function listTrainingSessions(options = {}) {
   
   return response.json();
 }
+
+/**
+ * Clone voice from an audio file
+ * Uses ElevenLabs Instant Voice Cloning (IVC) to create a voice from audio
+ * @param {Buffer|Blob|string} audio - Audio data (Buffer, Blob, or file path)
+ * @param {object} options - Options
+ * @param {string} options.voiceName - Name for the cloned voice
+ * @param {string} options.description - Description for the voice
+ * @returns {Promise<object>} - Clone result with elevenlabs_voice_id
+ */
+export async function cloneVoice(audio, options = {}) {
+  const config = getConfig();
+  const { voiceName, description } = options;
+  
+  const formData = new FormData();
+  
+  // Handle different audio input types
+  if (typeof audio === 'string') {
+    // It's a file path
+    const audioBuffer = fs.readFileSync(audio);
+    const blob = new Blob([audioBuffer], { type: 'audio/mpeg' });
+    formData.append('audio', blob, path.basename(audio));
+  } else if (Buffer.isBuffer(audio)) {
+    // It's a Buffer
+    const blob = new Blob([audio], { type: 'audio/mpeg' });
+    formData.append('audio', blob, 'audio.mp3');
+  } else if (audio instanceof Blob) {
+    // It's already a Blob
+    formData.append('audio', audio, 'audio.mp3');
+  } else {
+    throw new Error('Audio must be a file path, Buffer, or Blob');
+  }
+  
+  if (voiceName) {
+    formData.append('voice_name', voiceName);
+  }
+  if (description) {
+    formData.append('description', description);
+  }
+  
+  const response = await apiRequest(`/api/agents/${config.twinId}/voice/clone`, {
+    method: 'POST',
+    body: formData,
+  });
+  
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Failed to clone voice: ${response.status} - ${text}`);
+  }
+  
+  return response.json();
+}
+
+/**
+ * Clone voice from a file path
+ * Convenience wrapper for cloneVoice that reads from a file
+ * @param {string} filePath - Path to the audio file
+ * @param {object} options - Options
+ * @param {string} options.voiceName - Name for the cloned voice
+ * @param {string} options.description - Description for the voice
+ */
+export async function cloneVoiceFromFile(filePath, options = {}) {
+  if (!fs.existsSync(filePath)) {
+    throw new Error(`Audio file not found: ${filePath}`);
+  }
+  return cloneVoice(filePath, options);
+}

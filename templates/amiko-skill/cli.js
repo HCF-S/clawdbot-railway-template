@@ -18,6 +18,7 @@ import {
   getVoice,
   generateVoice, 
   generateVoiceToFile,
+  cloneVoiceFromFile,
   listWallets,
   createWallet,
   getWalletBalance,
@@ -72,6 +73,12 @@ Commands:
                        <text>           Text to speak (required)
                        --output <file>  Save to file (default: base64 to stdout)
                        --model <id>     ElevenLabs model ID
+  
+  voice:clone        Clone a voice from an audio file
+                     Options:
+                       --file <path>        Path to audio file (required)
+                       --name <name>        Name for the cloned voice
+                       --description <desc> Description for the voice
   
   wallets            List wallets
   
@@ -264,6 +271,25 @@ async function main() {
             size: audioBuffer.byteLength 
           }));
         }
+        break;
+      }
+      
+      case 'voice:clone': {
+        const parsed = parseArgs(args.slice(1));
+        if (!parsed.file) {
+          console.error('Error: --file is required');
+          console.error('Usage: cli.js voice:clone --file audio.mp3 [--name "Voice Name"] [--description "Description"]');
+          process.exit(1);
+        }
+        
+        console.error(`Cloning voice from: ${parsed.file}`);
+        const options = {};
+        if (parsed.name) options.voiceName = parsed.name;
+        if (parsed.description) options.description = parsed.description;
+        
+        const result = await cloneVoiceFromFile(parsed.file, options);
+        console.error(`Voice cloned successfully!`);
+        console.log(JSON.stringify(result, null, 2));
         break;
       }
       

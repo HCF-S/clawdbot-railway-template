@@ -64,6 +64,10 @@ These are automatically set when the OpenClaw instance is created:
 # Get voice configuration
 ~/.openclaw/skills/amiko/cli.js voice
 
+# Clone voice from an audio file (e.g., a voice message you received)
+~/.openclaw/skills/amiko/cli.js voice:clone --file /path/to/audio.mp3
+~/.openclaw/skills/amiko/cli.js voice:clone --file audio.mp3 --name "My Voice" --description "Cloned from audio message"
+
 # Generate speech (output as base64)
 ~/.openclaw/skills/amiko/cli.js voice:generate "Hello, this is my digital twin!"
 
@@ -120,6 +124,7 @@ Base URL: `https://platform.heyamiko.com/api`
 
 ### Voice
 - **GET `/agents/{twinId}/voice`** - Get voice config
+- **POST `/agents/{twinId}/voice/clone`** - Clone voice from audio file
 - **POST `/agents/{twinId}/voice/generate`** - Generate speech
 
 ### Wallets
@@ -148,6 +153,8 @@ import {
   getVoice,
   generateVoice,
   generateVoiceToFile,
+  cloneVoice,
+  cloneVoiceFromFile,
   listWallets,
   createWallet,
   getWalletBalance,
@@ -155,9 +162,16 @@ import {
   listTrainingSessions,
 } from './lib.js';
 
+// Example: Clone voice from an audio file
+const result = await cloneVoiceFromFile('/path/to/audio.mp3', {
+  voiceName: 'My Cloned Voice',
+  description: 'Voice cloned from audio message'
+});
+console.log(`Voice cloned: ${result.elevenlabs_voice_id}`);
+
 // Example: Generate voice and save to file
-const result = await generateVoiceToFile("Hello!", "output.mp3");
-console.log(`Saved ${result.size} bytes to ${result.path}`);
+const voiceResult = await generateVoiceToFile("Hello!", "output.mp3");
+console.log(`Saved ${voiceResult.size} bytes to ${voiceResult.path}`);
 
 // Example: Get twin stats
 const stats = await getTwinStats({ details: true });
