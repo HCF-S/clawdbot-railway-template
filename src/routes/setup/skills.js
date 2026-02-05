@@ -6,8 +6,8 @@ import { fileURLToPath } from "node:url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Path to skill templates (relative to project root)
-const TEMPLATES_DIR = path.resolve(__dirname, "../../../templates");
+// Path to templates directory (inside src/templates)
+const TEMPLATES_DIR = path.resolve(__dirname, "../../templates");
 
 /**
  * Install the amiko-skill into the workspace
