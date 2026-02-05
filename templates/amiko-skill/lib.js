@@ -7,6 +7,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 // Configuration from environment
+const AMIKO_USER_ID = process.env.AMIKO_USER_ID || '';
 const AMIKO_TWIN_ID = process.env.AMIKO_TWIN_ID || '';
 const AMIKO_USER_TOKEN = process.env.AMIKO_USER_TOKEN || '';
 const AMIKO_PLATFORM_URL = process.env.AMIKO_PLATFORM_URL || 'https://platform.heyamiko.com';
@@ -23,6 +24,7 @@ export function getConfig() {
   }
   
   return {
+    userId: AMIKO_USER_ID,
     twinId: AMIKO_TWIN_ID,
     token: AMIKO_USER_TOKEN,
     baseUrl: AMIKO_PLATFORM_URL,
