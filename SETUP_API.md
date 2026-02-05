@@ -81,6 +81,42 @@ All `/setup/*` endpoints require the `x-api-token` header (set to your `SETUP_PA
 | --- | --- | --- |
 | `POST` | `/setup/api/skills/amiko/install` | Installs the Amiko skill to `skills/amiko/` in the workspace. The skill provides CLI tools for voice generation, twin info, and document listing. Automatically called during `/init`. |
 
+## Deploy (Platform Push Updates)
+
+These endpoints allow the platform to push updates to existing instances without re-running full initialization. Useful for upgrading instances that were initialized before certain features existed.
+
+| Method | Endpoint | Description |
+| --- | --- | --- |
+| `POST` | `/setup/api/deploy/amiko-skill` | Deploy/update the Amiko skill to an existing instance. Copies the latest skill files to `skills/amiko/`. |
+| `POST` | `/setup/api/deploy/sys` | Deploy/update `SYS.md` and `/data/sys/` structure for system persistence. Creates the persistence directories and files if they don't exist. |
+| `POST` | `/setup/api/deploy/amiko-data` | Re-sync Amiko data (twin info + docs) to an existing instance. Same as calling `/amiko/pull` + `/amiko/docs`. |
+| `POST` | `/setup/api/deploy/all` | Deploy all updates at once: amiko-data + amiko-skill + sys config. Returns status for each component. |
+
+### Deploy Response Format
+
+All deploy endpoints return:
+```json
+{
+  "ok": true,
+  "message": "Description of what was deployed",
+  "output": "Detailed log output"
+}
+```
+
+The `/deploy/all` endpoint returns additional `results` object showing status of each component:
+```json
+{
+  "ok": true,
+  "message": "All updates deployed successfully",
+  "results": {
+    "amikoData": { "ok": true },
+    "amikoSkill": { "ok": true, "path": "/data/workspace/skills/amiko", "files": 3 },
+    "sys": { "ok": true }
+  },
+  "output": "..."
+}
+```
+
 ### Amiko Skill Features
 
 The Amiko skill (`skills/amiko/`) provides:
