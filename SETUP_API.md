@@ -79,7 +79,55 @@ All `/setup/*` endpoints require the `x-api-token` header (set to your `SETUP_PA
 
 | Method | Endpoint | Description |
 | --- | --- | --- |
-| `POST` | `/setup/api/skills/amiko/install` | Installs the Amiko skill to `skills/amiko/` in the workspace. The skill provides CLI tools for voice generation, twin info, and document listing. Automatically called during `/init`. |
+| `POST` | `/setup/api/deploy/amiko-skill` | Install/update the Amiko skill to `skills/amiko/` in the workspace. See Deploy section for details. |
+
+## File Management
+
+These endpoints provide direct read/write access to files within `/data`. All paths are relative to `/data` and directory traversal is prevented.
+
+| Method | Endpoint | Description |
+| --- | --- | --- |
+| `GET` | `/setup/api/files/list?path=/` | List files and directories. Returns items with name, type, size, mtime. |
+| `GET` | `/setup/api/files/read?path=workspace/AMIKO.md` | Read a file's content. Returns content as utf8 or base64 (for binary). Max 10MB. |
+| `POST` | `/setup/api/files/write` | Write/replace a file. Body: `{ path, content, encoding?, mkdir? }`. Creates parent dirs by default. |
+| `DELETE` | `/setup/api/files/delete?path=...` | Delete a file or empty directory. |
+| `POST` | `/setup/api/files/mkdir` | Create a directory. Body: `{ path }`. Creates recursively. |
+| `GET` | `/setup/api/files/stat?path=...` | Get file/directory stats (exists, isFile, isDirectory, size, mtime). |
+
+### File Write Request Format
+```json
+{
+  "path": "workspace/custom/myfile.txt",
+  "content": "File content here",
+  "encoding": "utf8",
+  "mkdir": true
+}
+```
+
+- `encoding`: `"utf8"` (default) or `"base64"` for binary files
+- `mkdir`: `true` (default) to create parent directories if needed
+
+### Example Usage
+
+```bash
+# List workspace contents
+curl -X GET "https://your-instance/setup/api/files/list?path=workspace" \
+  -H "x-api-token: YOUR_TOKEN"
+
+# Read a file
+curl -X GET "https://your-instance/setup/api/files/read?path=workspace/AMIKO.md" \
+  -H "x-api-token: YOUR_TOKEN"
+
+# Write a file
+curl -X POST "https://your-instance/setup/api/files/write" \
+  -H "x-api-token: YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"path": "workspace/custom/test.md", "content": "# Hello\n\nThis is a test."}'
+
+# Delete a file
+curl -X DELETE "https://your-instance/setup/api/files/delete?path=workspace/custom/test.md" \
+  -H "x-api-token: YOUR_TOKEN"
+```
 
 ## Version Management
 

@@ -141,32 +141,11 @@ Read \`skills/amiko/SKILL.md\` for full documentation.
 
 /**
  * Create the skills router
+ * Note: The main skill installation endpoint is now at /setup/api/deploy/amiko-skill
+ * This router is kept for potential future skill management endpoints
  */
-export function createSkillsRouter(handlers) {
-  const { requireApiToken } = handlers;
+export function createSkillsRouter(_handlers) {
   const router = express.Router();
-
-  /**
-   * POST /setup/api/skills/amiko/install
-   * Install the amiko skill into the workspace
-   */
-  router.post("/skills/amiko/install", requireApiToken, async (_req, res) => {
-    try {
-      const result = await installAmikoSkill(handlers);
-      if (result.ok) {
-        return res.json({
-          ok: true,
-          path: result.path,
-          files: result.files,
-        });
-      } else {
-        return res.status(500).json({ ok: false, error: result.error });
-      }
-    } catch (err) {
-      console.error("[/setup/api/skills/amiko/install] error:", err);
-      return res.status(500).json({ ok: false, error: `Internal error: ${String(err)}` });
-    }
-  });
-
+  // Future skill management endpoints can be added here
   return router;
 }

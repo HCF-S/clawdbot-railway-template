@@ -18,6 +18,7 @@ import { createTwinRouter } from "./amiko.js";
 import { createSkillsRouter } from "./skills.js";
 import { createDeployRouter } from "./deploy.js";
 import { createVersionRouter } from "./version.js";
+import { createFilesRouter } from "./files.js";
 
 export function createSetupRouter(handlers) {
   const router = express.Router();
@@ -64,6 +65,7 @@ export function createSetupRouter(handlers) {
   router.use("/api", createSkillsRouter(handlers));
   router.use("/api", createDeployRouter(handlers));
   router.use("/api", createVersionRouter(handlers));
+  router.use("/api", createFilesRouter(handlers));
   router.use("/api", createResetRouter(handlers));
   router.use(createExportRouter(handlers));
   router.use(createImportRouter(handlers));
