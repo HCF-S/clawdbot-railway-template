@@ -1,0 +1,37 @@
+# Twin Memories
+
+> **Note**: These are memories extracted from the Amiko platform. Data quality may vary.
+> Last synced: {{syncedAt}}
+
+{{#if memories.length}}
+## Memory Summary
+
+- **Total Memories**: {{memories.length}}
+- **Twin ID**: {{twinId}}
+
+---
+
+## Memories
+
+{{#each memories}}
+### {{type}} Memory
+
+{{content}}
+
+{{#if tags.length}}
+**Tags**: {{#each tags}}{{this}}{{#unless @last}}, {{/unless}}{{/each}}
+{{/if}}
+**Confidence**: {{confidence}}
+**Created**: {{created_at}}
+{{#if updated_at}}**Updated**: {{updated_at}}{{/if}}
+
+---
+
+{{/each}}
+{{else}}
+*No memories found for this twin.*
+{{/if}}
+
+---
+
+*This file is auto-generated. Do not edit manually.*

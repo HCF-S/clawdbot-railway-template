@@ -196,3 +196,28 @@ export function renderDocMd(doc) {
   
   return renderTemplateFile("DOC.md.tmpl", { doc: docWithDefaults });
 }
+
+/**
+ * Render the MEMORIES.md template
+ * @param {Array} memories - Array of memory objects from API
+ * @param {string} twinId - Twin ID
+ * @returns {string} Rendered markdown
+ */
+export function renderMemoriesMd(memories, twinId) {
+  // Group memories by type for better organization
+  const memoriesByType = {};
+  for (const memory of memories) {
+    const type = memory.type || "GENERAL";
+    if (!memoriesByType[type]) {
+      memoriesByType[type] = [];
+    }
+    memoriesByType[type].push(memory);
+  }
+  
+  return renderTemplateFile("MEMORIES.md.tmpl", { 
+    memories, 
+    memoriesByType,
+    twinId,
+    syncedAt: new Date().toISOString(),
+  });
+}

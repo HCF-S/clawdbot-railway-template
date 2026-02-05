@@ -1,7 +1,7 @@
 import express from "express";
 import fs from "node:fs";
 import path from "node:path";
-import { renderAmikoMd, renderDocMd } from "../../templates/render.js";
+import { renderAmikoMd, renderDocMd, renderMemoriesMd } from "../../templates/render.js";
 
 const PLATFORM_BASE_URL = "https://platform.heyamiko.com";
 //const PLATFORM_BASE_URL = "http://host.docker.internal:3001";
@@ -419,6 +419,93 @@ export async function syncAmikoData(handlers) {
   return output;
 }
 
+/**
+ * Pull memories from Amiko platform and save to MEMORIES.md
+ * This is optional because the data quality of twin_memories may vary
+ * @returns {{ ok: boolean, path?: string, count?: number, error?: string, output?: string }}
+ */
+export async function pullMemories(handlers) {
+  const { WORKSPACE_DIR, AMIKO_TWIN_ID, AMIKO_USER_TOKEN } = handlers;
+  
+  const twinId = String(AMIKO_TWIN_ID || "").trim();
+  if (!twinId) {
+    return { ok: false, error: "Missing twinId" };
+  }
+
+  const userToken = String(AMIKO_USER_TOKEN || "").trim();
+  if (!userToken) {
+    return { ok: false, error: "Missing user token" };
+  }
+
+  try {
+    // Fetch all memories with pagination
+    const allMemories = [];
+    let offset = 0;
+    const limit = 100;
+    let hasMore = true;
+
+    while (hasMore) {
+      const url = `${PLATFORM_BASE_URL}/api/agents/${encodeURIComponent(twinId)}/memories?limit=${limit}&offset=${offset}`;
+      console.log("[pullMemories] fetching memories", { twinId, offset, limit });
+
+      const response = await fetch(url, {
+        method: "GET",
+        headers: {
+          authorization: `Bearer ${userToken}`,
+          accept: "application/json",
+        },
+      });
+
+      if (!response.ok) {
+        const errText = await response.text().catch(() => response.statusText);
+        return { ok: false, error: `HTTP ${response.status}: ${errText}` };
+      }
+
+      const data = await response.json();
+      const memories = data.memories || [];
+      allMemories.push(...memories);
+
+      // Check if there are more pages
+      const total = data.pagination?.total || 0;
+      offset += limit;
+      hasMore = offset < total;
+    }
+
+    console.log("[pullMemories] fetched", allMemories.length, "memories");
+
+    // Generate markdown using template
+    const markdown = renderMemoriesMd(allMemories, twinId);
+
+    // Write to MEMORIES.md in workspace
+    const destPath = path.join(WORKSPACE_DIR, "MEMORIES.md");
+    fs.writeFileSync(destPath, markdown, "utf8");
+    console.log("[pullMemories] wrote", destPath);
+
+    // Update HEARTBEAT.md
+    try {
+      const heartbeatPath = path.join(WORKSPACE_DIR, "HEARTBEAT.md");
+      const timestamp = new Date().toISOString();
+      fs.appendFileSync(
+        heartbeatPath, 
+        `- [${timestamp}] Synced ${allMemories.length} memories to MEMORIES.md\n`, 
+        "utf8"
+      );
+    } catch (err) {
+      console.warn("[pullMemories] failed to update HEARTBEAT.md:", err);
+    }
+
+    return { 
+      ok: true, 
+      path: destPath, 
+      count: allMemories.length,
+      output: `Synced ${allMemories.length} memories to MEMORIES.md`
+    };
+  } catch (err) {
+    console.error("[pullMemories] error:", err);
+    return { ok: false, error: String(err) };
+  }
+}
+
 // ============================================================
 // ROUTER - Uses shared functions
 // ============================================================
@@ -460,6 +547,29 @@ export function createTwinRouter(handlers) {
       }
     } catch (err) {
       console.error("[/setup/api/amiko/docs] error:", err);
+      return res.status(500).json({ ok: false, error: `Internal error: ${String(err)}` });
+    }
+  });
+
+  /**
+   * POST /setup/api/amiko/memories
+   * Pull memories from Amiko platform and save to MEMORIES.md
+   * This is optional - only call when you want to sync memories
+   */
+  router.post("/amiko/memories", requireApiToken, async (_req, res) => {
+    try {
+      const result = await pullMemories(handlers);
+      if (result.ok) {
+        return res.json({
+          ok: true,
+          count: result.count,
+          path: result.path,
+        });
+      } else {
+        return res.status(400).json({ ok: false, error: result.error });
+      }
+    } catch (err) {
+      console.error("[/setup/api/amiko/memories] error:", err);
       return res.status(500).json({ ok: false, error: `Internal error: ${String(err)}` });
     }
   });

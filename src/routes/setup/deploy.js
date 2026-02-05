@@ -1,7 +1,7 @@
 import express from "express";
 import { installAmikoSkill } from "./skills.js";
 import { installSysConfig } from "./init.js";
-import { syncAmikoData } from "./amiko.js";
+import { syncAmikoData, pullMemories } from "./amiko.js";
 import { CURRENT_SETUP_VERSION, setInstalledVersion } from "./version.js";
 
 /**
@@ -76,16 +76,44 @@ export function createDeployRouter(handlers) {
   });
 
   /**
+   * POST /setup/api/deploy/memories
+   * Sync memories from Amiko platform to MEMORIES.md
+   * This is optional and separate because memory data quality may vary
+   */
+  router.post("/deploy/memories", requireApiToken, async (_req, res) => {
+    try {
+      const result = await pullMemories(handlers);
+      if (result.ok) {
+        return res.json({
+          ok: true,
+          message: "Memories synced successfully",
+          count: result.count,
+          path: result.path,
+        });
+      } else {
+        return res.status(400).json({ ok: false, error: result.error });
+      }
+    } catch (err) {
+      console.error("[/setup/api/deploy/memories] error:", err);
+      return res.status(500).json({ ok: false, error: `Internal error: ${String(err)}` });
+    }
+  });
+
+  /**
    * POST /setup/api/deploy/all
    * Deploy all updates (amiko-skill + sys + amiko-data) to an existing instance
    * This is useful for upgrading existing instances to latest features
+   * Body: { includeMemories?: boolean } - optionally include memories sync
    */
-  router.post("/deploy/all", requireApiToken, async (_req, res) => {
+  router.post("/deploy/all", requireApiToken, async (req, res) => {
     try {
+      const { includeMemories = false } = req.body || {};
+      
       const results = {
         amikoData: null,
         amikoSkill: null,
         sys: null,
+        memories: null,
       };
       let output = "";
 
@@ -126,6 +154,24 @@ export function createDeployRouter(handlers) {
         output += `[deploy/sys] Error: ${err}\n`;
       }
 
+      // 4. Optionally sync memories
+      if (includeMemories) {
+        output += "\n[deploy] Syncing memories (optional)...\n";
+        try {
+          const memoriesResult = await pullMemories(handlers);
+          results.memories = memoriesResult;
+          output += memoriesResult.ok
+            ? `[deploy/memories] ${memoriesResult.output}\n`
+            : `[deploy/memories] Error: ${memoriesResult.error}\n`;
+        } catch (err) {
+          results.memories = { ok: false, error: String(err) };
+          output += `[deploy/memories] Error: ${err}\n`;
+        }
+      } else {
+        output += "\n[deploy] Skipping memories sync (not requested)\n";
+      }
+
+      // Check if core components succeeded (memories is optional)
       const allOk = results.amikoData?.ok && results.amikoSkill?.ok && results.sys?.ok;
 
       // Update version after successful deployment
