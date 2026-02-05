@@ -31,7 +31,7 @@ All `/setup/*` endpoints require the `x-api-token` header (set to your `SETUP_PA
 | Method | Endpoint | Description | Request body / headers |
 | --- | --- | --- | --- |
 | `POST` | `/setup/api/amiko/pull` | Fetches twin data from the platform API and writes a markdown snapshot to `AMIKO.md` in the workspace. | Uses `AMIKO_TWIN_ID` + `AMIKO_USER_TOKEN` from the container env. |
-| `POST` | `/setup/api/amiko/docs` | Fetches documents from the platform API and writes markdown files to `amiko-docs/` folder in the workspace. Each doc is saved as `{doc_id}.md`. | Body: `{ limit: number, offset: number }` (optional, defaults: limit=20, offset=0). Uses `AMIKO_TWIN_ID` + `AMIKO_USER_TOKEN` from env. |
+| `POST` | `/setup/api/amiko/docs` | Trigger to sync all documents from the platform API. Automatically fetches all docs in batches (50 per batch) and writes markdown files to `amiko-docs/` folder. **Supports incremental sync** — only writes files that are new or updated (based on `updated_at`), skipping unchanged docs. | No body required. Uses `AMIKO_TWIN_ID` + `AMIKO_USER_TOKEN` from env. Response includes `created`, `updated`, `skipped` counts. |
 
 ## Channel helpers
 

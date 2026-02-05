@@ -295,12 +295,45 @@ export async function pullTwinData(handlers) {
 }
 
 /**
- * Pull documents from Amiko platform and save to amiko-docs/
- * @returns {{ ok: boolean, count?: number, total?: number, docs?: Array, docsDir?: string, error?: string, output?: string }}
+ * Load the docs manifest file that tracks synced documents
+ * @returns {{ docs: Record<string, { updated_at: string, filename: string }> }}
  */
-export async function pullDocs(handlers, options = {}) {
+function loadDocsManifest(docsDir) {
+  const manifestPath = path.join(docsDir, ".manifest.json");
+  try {
+    if (fs.existsSync(manifestPath)) {
+      const content = fs.readFileSync(manifestPath, "utf8");
+      return JSON.parse(content);
+    }
+  } catch (err) {
+    console.warn("[pullDocs] failed to load manifest:", err);
+  }
+  return { docs: {} };
+}
+
+/**
+ * Save the docs manifest file
+ */
+function saveDocsManifest(docsDir, manifest) {
+  const manifestPath = path.join(docsDir, ".manifest.json");
+  try {
+    fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2), "utf8");
+  } catch (err) {
+    console.warn("[pullDocs] failed to save manifest:", err);
+  }
+}
+
+// Batch size for fetching docs from API
+const DOCS_BATCH_SIZE = 50;
+
+/**
+ * Pull ALL documents from Amiko platform and save to amiko-docs/
+ * Automatically handles pagination to fetch all docs in batches.
+ * Supports incremental sync - only writes files that are new or updated.
+ * @returns {{ ok: boolean, count?: number, total?: number, created?: number, updated?: number, skipped?: number, docs?: Array, docsDir?: string, error?: string, output?: string }}
+ */
+export async function pullDocs(handlers) {
   const { WORKSPACE_DIR, AMIKO_TWIN_ID, AMIKO_USER_TOKEN } = handlers;
-  const { limit = 20, offset = 0 } = options;
 
   const twinId = String(AMIKO_TWIN_ID || "").trim();
   if (!twinId) {
@@ -313,98 +346,197 @@ export async function pullDocs(handlers, options = {}) {
   }
 
   try {
-    const docsUrl = `${PLATFORM_BASE_URL}/api/agents/${twinId}/docs?limit=${limit}&offset=${offset}`;
-    console.log("[pullDocs] fetching docs", { twinId, limit, offset });
-
-    const response = await fetch(docsUrl, {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${userToken}`,
-        "Content-Type": "application/json",
-      },
-    });
-
-    if (!response.ok) {
-      const errText = await response.text().catch(() => response.statusText);
-      return { ok: false, error: `HTTP ${response.status}: ${errText}` };
-    }
-
-    const data = await response.json();
-    const docs = data.docs || [];
-    const total = data.pagination?.total || docs.length;
-
     // Create amiko-docs folder
     const docsDir = path.join(WORKSPACE_DIR, "amiko-docs");
     fs.mkdirSync(docsDir, { recursive: true });
 
-    // Save each doc as markdown
-    const savedDocs = [];
-    for (const doc of docs) {
-      const docId = doc.id;
-      const docPath = path.join(docsDir, `${docId}.md`);
-      const markdown = formatDocMarkdown(doc);
-      fs.writeFileSync(docPath, markdown, "utf8");
+    // Load existing manifest to check for changes
+    const manifest = loadDocsManifest(docsDir);
+    const existingDocs = manifest.docs || {};
 
-      savedDocs.push({
-        id: docId,
-        filename: doc.filename,
-        path: docPath,
+    // Track stats
+    let created = 0;
+    let updated = 0;
+    let skipped = 0;
+    const allDocs = [];
+
+    // Fetch all docs in batches
+    let offset = 0;
+    let total = 0;
+    let batchNum = 0;
+
+    while (true) {
+      batchNum++;
+      const docsUrl = `${PLATFORM_BASE_URL}/api/agents/${twinId}/docs?limit=${DOCS_BATCH_SIZE}&offset=${offset}`;
+      console.log("[pullDocs] fetching batch", { batch: batchNum, offset, limit: DOCS_BATCH_SIZE });
+
+      const response = await fetch(docsUrl, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${userToken}`,
+          "Content-Type": "application/json",
+        },
       });
 
-      console.log("[pullDocs] saved doc", { id: docId, filename: doc.filename });
-    }
+      if (!response.ok) {
+        const errText = await response.text().catch(() => response.statusText);
+        return { ok: false, error: `HTTP ${response.status}: ${errText}` };
+      }
 
-    // Append reference to amiko-docs in AMIKO.md
-    if (savedDocs.length > 0) {
-      const amikoMdPath = path.join(WORKSPACE_DIR, "AMIKO.md");
-      
-      if (fs.existsSync(amikoMdPath)) {
-        try {
-          let amikoContent = fs.readFileSync(amikoMdPath, "utf8");
-          
-          if (!amikoContent.includes("## Your Documents")) {
-            const docsSection = [
-              "",
-              "---",
-              "",
-              "## Your Documents",
-              "",
-              `You have ${savedDocs.length} document(s) from Amiko platform stored in the \`amiko-docs\` folder:`,
-              "",
-            ];
-            
-            for (const doc of savedDocs) {
-              docsSection.push(`- **${doc.filename}** (\`amiko-docs/${doc.id}.md\`)`);
-            }
-            
-            docsSection.push("");
-            
-            amikoContent = amikoContent.trimEnd() + "\n" + docsSection.join("\n");
-            fs.writeFileSync(amikoMdPath, amikoContent, "utf8");
-            console.log("[pullDocs] appended docs section to AMIKO.md");
-          }
-        } catch (err) {
-          console.warn("[pullDocs] failed to update AMIKO.md:", err);
+      const data = await response.json();
+      const docs = data.docs || [];
+      total = data.pagination?.total || total || docs.length;
+
+      if (docs.length === 0) {
+        // No more docs
+        break;
+      }
+
+      // Process each doc in this batch
+      for (const doc of docs) {
+        const docId = doc.id;
+        const docPath = path.join(docsDir, `${docId}.md`);
+        const docUpdatedAt = doc.updated_at || doc.created_at || "";
+
+        // Check if we need to write this doc
+        const existingEntry = existingDocs[docId];
+        const fileExists = fs.existsSync(docPath);
+
+        let needsWrite = false;
+        let action = "skipped";
+
+        if (!fileExists) {
+          // File doesn't exist, need to create
+          needsWrite = true;
+          action = "created";
+        } else if (!existingEntry) {
+          // File exists but no manifest entry (legacy), update it
+          needsWrite = true;
+          action = "updated";
+        } else if (existingEntry.updated_at !== docUpdatedAt) {
+          // File exists but updated_at changed, need to update
+          needsWrite = true;
+          action = "updated";
         }
+
+        if (needsWrite) {
+          const markdown = formatDocMarkdown(doc);
+          fs.writeFileSync(docPath, markdown, "utf8");
+
+          // Update manifest entry
+          manifest.docs[docId] = {
+            updated_at: docUpdatedAt,
+            filename: doc.filename || "",
+          };
+
+          if (action === "created") {
+            created++;
+            console.log("[pullDocs] created doc", { id: docId, filename: doc.filename });
+          } else {
+            updated++;
+            console.log("[pullDocs] updated doc", { id: docId, filename: doc.filename });
+          }
+        } else {
+          skipped++;
+          console.log("[pullDocs] skipped doc (unchanged)", { id: docId, filename: doc.filename });
+        }
+
+        allDocs.push({
+          id: docId,
+          filename: doc.filename,
+          path: docPath,
+          action,
+        });
+      }
+
+      // Move to next batch
+      offset += docs.length;
+
+      // Check if we've fetched all docs
+      if (offset >= total || docs.length < DOCS_BATCH_SIZE) {
+        break;
       }
     }
 
-    // Append to HEARTBEAT.md
-    try {
-      const heartbeatPath = path.join(WORKSPACE_DIR, "HEARTBEAT.md");
-      const timestamp = new Date().toISOString();
-      fs.appendFileSync(heartbeatPath, `- [${timestamp}] Amiko docs just synced into amiko-docs folder\n`, "utf8");
-    } catch (err) {
-      console.warn("[pullDocs] failed to update HEARTBEAT.md:", err);
+    // Save updated manifest
+    saveDocsManifest(docsDir, manifest);
+
+    // Update AMIKO.md docs section (always update to reflect current state)
+    const amikoMdPath = path.join(WORKSPACE_DIR, "AMIKO.md");
+    if (fs.existsSync(amikoMdPath) && allDocs.length > 0) {
+      try {
+        let amikoContent = fs.readFileSync(amikoMdPath, "utf8");
+
+        // Build new docs section
+        const docsSection = [
+          "",
+          "---",
+          "",
+          "## Your Documents",
+          "",
+          `You have ${allDocs.length} document(s) from Amiko platform stored in the \`amiko-docs\` folder:`,
+          "",
+        ];
+
+        for (const doc of allDocs) {
+          docsSection.push(`- **${doc.filename}** (\`amiko-docs/${doc.id}.md\`)`);
+        }
+
+        docsSection.push("");
+
+        // Remove existing docs section if present
+        const docsSectionMarker = "## Your Documents";
+        const docsSectionIndex = amikoContent.indexOf(docsSectionMarker);
+
+        if (docsSectionIndex !== -1) {
+          // Find the separator before the docs section
+          const separatorBefore = amikoContent.lastIndexOf("---", docsSectionIndex);
+          if (separatorBefore !== -1) {
+            // Remove from separator to end
+            amikoContent = amikoContent.substring(0, separatorBefore).trimEnd();
+          }
+        }
+
+        // Append new docs section
+        amikoContent = amikoContent.trimEnd() + "\n" + docsSection.join("\n");
+        fs.writeFileSync(amikoMdPath, amikoContent, "utf8");
+        console.log("[pullDocs] updated docs section in AMIKO.md");
+      } catch (err) {
+        console.warn("[pullDocs] failed to update AMIKO.md:", err);
+      }
     }
+
+    // Append to HEARTBEAT.md only if there were actual changes
+    if (created > 0 || updated > 0) {
+      try {
+        const heartbeatPath = path.join(WORKSPACE_DIR, "HEARTBEAT.md");
+        const timestamp = new Date().toISOString();
+        const changesSummary = [];
+        if (created > 0) changesSummary.push(`${created} created`);
+        if (updated > 0) changesSummary.push(`${updated} updated`);
+        fs.appendFileSync(heartbeatPath, `- [${timestamp}] Amiko docs synced (${changesSummary.join(", ")})\n`, "utf8");
+      } catch (err) {
+        console.warn("[pullDocs] failed to update HEARTBEAT.md:", err);
+      }
+    }
+
+    // Build output message
+    const parts = [];
+    if (created > 0) parts.push(`${created} created`);
+    if (updated > 0) parts.push(`${updated} updated`);
+    if (skipped > 0) parts.push(`${skipped} unchanged`);
+    const summary = parts.length > 0 ? parts.join(", ") : "no changes";
 
     return {
       ok: true,
-      count: savedDocs.length,
+      count: allDocs.length,
       total,
-      docs: savedDocs,
+      created,
+      updated,
+      skipped,
+      docs: allDocs,
       docsDir,
-      output: `Saved ${savedDocs.length} docs to: ${docsDir}` + (total > savedDocs.length ? ` (total available: ${total})` : ""),
+      output: `Synced ${allDocs.length} docs (${summary})`,
     };
   } catch (err) {
     return { ok: false, error: String(err) };
@@ -466,18 +598,17 @@ export function createTwinRouter(handlers) {
     }
   });
 
-  router.post("/amiko/docs", requireApiToken, async (req, res) => {
+  router.post("/amiko/docs", requireApiToken, async (_req, res) => {
     try {
-      const options = {
-        limit: req.body?.limit || 20,
-        offset: req.body?.offset || 0,
-      };
-      const result = await pullDocs(handlers, options);
+      const result = await pullDocs(handlers);
       if (result.ok) {
         return res.json({
           ok: true,
           count: result.count,
           total: result.total,
+          created: result.created,
+          updated: result.updated,
+          skipped: result.skipped,
           docs: result.docs,
           docsDir: result.docsDir,
         });
