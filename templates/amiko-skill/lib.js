@@ -468,6 +468,34 @@ export async function listTrainingSessions(options = {}) {
 }
 
 /**
+ * Design a voice from a text description
+ * Uses ElevenLabs Voice Design API to generate voice previews based on description
+ * @param {string} description - Text description of the desired voice (min 20 chars)
+ *   Example: "A warm, friendly female voice with a slight British accent, calm and reassuring"
+ * @returns {Promise<object>} - Design result with voice previews (audio_base_64, generated_voice_id)
+ */
+export async function designVoice(description) {
+  const config = getConfig();
+  
+  if (!description || description.trim().length < 20) {
+    throw new Error('Voice description must be at least 20 characters long');
+  }
+  
+  const response = await apiRequest(`/api/agents/${config.twinId}/voice/design`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ voiceDescription: description }),
+  });
+  
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Failed to design voice: ${response.status} - ${text}`);
+  }
+  
+  return response.json();
+}
+
+/**
  * Clone voice from an audio file
  * Uses ElevenLabs Instant Voice Cloning (IVC) to create a voice from audio
  * @param {Buffer|Blob|string} audio - Audio data (Buffer, Blob, or file path)

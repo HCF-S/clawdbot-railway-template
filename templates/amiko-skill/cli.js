@@ -19,6 +19,7 @@ import {
   getVoice,
   generateVoice, 
   generateVoiceToFile,
+  designVoice,
   cloneVoiceFromFile,
   listWallets,
   createWallet,
@@ -84,6 +85,12 @@ Commands:
                        --file <path>        Path to audio file (required)
                        --name <name>        Name for the cloned voice
                        --description <desc> Description for the voice
+  
+  voice:design       Design a voice from a text description
+                     Options:
+                       --description <text> Voice description (min 20 chars, required)
+                     Example:
+                       "A warm, friendly female voice with a slight British accent"
   
   wallets            List wallets
   
@@ -309,6 +316,25 @@ async function main() {
         
         const result = await cloneVoiceFromFile(parsed.file, options);
         console.error(`Voice cloned successfully!`);
+        console.log(JSON.stringify(result, null, 2));
+        break;
+      }
+      
+      case 'voice:design': {
+        const parsed = parseArgs(args.slice(1));
+        // Allow description as positional arg or --description flag
+        const description = parsed.description || parsed._.join(' ');
+        
+        if (!description || description.trim().length < 20) {
+          console.error('Error: Voice description is required (minimum 20 characters)');
+          console.error('Usage: cli.js voice:design --description "A warm, friendly female voice with a slight British accent"');
+          console.error('   or: cli.js voice:design "A warm, friendly female voice with a slight British accent"');
+          process.exit(1);
+        }
+        
+        console.error(`Designing voice with description: "${description}"`);
+        const result = await designVoice(description);
+        console.error(`Voice design generated ${result.previews?.length || 0} preview(s)!`);
         console.log(JSON.stringify(result, null, 2));
         break;
       }

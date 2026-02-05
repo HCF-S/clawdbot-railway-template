@@ -72,6 +72,10 @@ These are automatically set when the OpenClaw instance is created:
 ~/.openclaw/skills/amiko/cli.js voice:clone --file /path/to/audio.mp3
 ~/.openclaw/skills/amiko/cli.js voice:clone --file audio.mp3 --name "My Voice" --description "Cloned from audio message"
 
+# Design a voice from text description (generates previews)
+~/.openclaw/skills/amiko/cli.js voice:design "A warm, friendly female voice with a slight British accent, calm and reassuring"
+~/.openclaw/skills/amiko/cli.js voice:design --description "A deep male voice with an American accent, confident and professional"
+
 # Generate speech (output as base64)
 ~/.openclaw/skills/amiko/cli.js voice:generate "Hello, this is my digital twin!"
 
@@ -130,6 +134,7 @@ Base URL: `https://platform.heyamiko.com/api`
 ### Voice
 - **GET `/agents/{twinId}/voice`** - Get voice config
 - **POST `/agents/{twinId}/voice/clone`** - Clone voice from audio file
+- **POST `/agents/{twinId}/voice/design`** - Design voice from text description
 - **POST `/agents/{twinId}/voice/generate`** - Generate speech
 
 ### Wallets
@@ -160,6 +165,7 @@ import {
   getVoice,
   generateVoice,
   generateVoiceToFile,
+  designVoice,
   cloneVoice,
   cloneVoiceFromFile,
   listWallets,
@@ -172,6 +178,11 @@ import {
 // Example: Upload a document file
 const uploadResult = await uploadDocFromFile('/path/to/document.pdf');
 console.log(`Uploaded: ${uploadResult.filename} (${uploadResult.fileSize} bytes)`);
+
+// Example: Design a voice from description
+const designResult = await designVoice("A warm, friendly female voice with a slight British accent");
+console.log(`Generated ${designResult.previews.length} voice preview(s)`);
+// Each preview has: audio_base_64, generated_voice_id, duration_secs
 
 // Example: Clone voice from an audio file
 const cloneResult = await cloneVoiceFromFile('/path/to/audio.mp3', {
