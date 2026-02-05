@@ -8,9 +8,21 @@
 import { 
   getConfig, 
   getTwinInfo, 
+  getTwinStats,
   listDocs, 
+  createDoc,
+  getPersonality,
+  updatePersonality,
+  getSocial,
+  updateSocial,
+  getVoice,
   generateVoice, 
-  generateVoiceToFile 
+  generateVoiceToFile,
+  listWallets,
+  createWallet,
+  getWalletBalance,
+  updateAvatar,
+  listTrainingSessions,
 } from './lib.js';
 
 const args = process.argv.slice(2);
@@ -24,30 +36,82 @@ Usage:
   cli.js <command> [options]
 
 Commands:
-  voice <text>     Generate speech using your twin's cloned voice
-                   Options:
-                     --output <file>  Save to file (default: base64 to stdout)
-                     --model <id>     ElevenLabs model ID
+  info               Get your twin's profile information
   
-  info             Get your twin's profile information
+  stats              Get twin statistics (training progress, memories, etc.)
+                     Options:
+                       --details        Include detailed category progress
   
-  docs             List documents associated with your twin
-                   Options:
-                     --limit <n>      Number of docs (default: 50)
-                     --offset <n>     Pagination offset (default: 0)
+  docs               List documents associated with your twin
+                     Options:
+                       --limit <n>      Number of docs (default: 50)
+                       --offset <n>     Pagination offset (default: 0)
   
-  help             Show this help message
+  docs:create        Create a new document
+                     Options:
+                       --title <title>  Document title (required)
+                       --content <text> Document content (required)
+                       --type <type>    Document type (default: text)
+  
+  personality        Get twin personality data
+  
+  personality:update Update twin personality
+                     Options:
+                       --text <text>    Personality description (required)
+  
+  social             Get twin social data
+  
+  social:update      Update twin social data
+                     Options:
+                       --twitter <handle>  Twitter handle
+  
+  voice              Get voice configuration
+  
+  voice:generate     Generate speech using your twin's cloned voice
+                     Options:
+                       <text>           Text to speak (required)
+                       --output <file>  Save to file (default: base64 to stdout)
+                       --model <id>     ElevenLabs model ID
+  
+  wallets            List wallets
+  
+  wallets:create     Create a new wallet
+                     Options:
+                       --chain <chain>      Blockchain (ethereum, polygon, solana-devnet)
+                       --custodian <name>   Custodian (crossmint, amiko)
+  
+  wallets:balance    Get wallet balance
+                     Options:
+                       --address <addr>     Wallet address (required)
+  
+  avatar:update      Update twin avatar
+                     Options:
+                       --url <url>          Avatar URL
+                       --original <url>     Original photo URL
+  
+  training           List training sessions
+                     Options:
+                       --limit <n>      Number of sessions (default: 50)
+                       --offset <n>     Pagination offset (default: 0)
+  
+  help               Show this help message
 
 Environment Variables:
+  AMIKO_USER_ID       Your user's unique ID
   AMIKO_TWIN_ID       Your twin's unique ID (required)
   AMIKO_USER_TOKEN    Authentication token (required)
   AMIKO_PLATFORM_URL  Platform URL (default: https://platform.heyamiko.com)
 
 Examples:
-  cli.js voice "Hello, this is my digital twin!"
-  cli.js voice "Hello world" --output hello.mp3
   cli.js info
+  cli.js stats --details
   cli.js docs --limit 10
+  cli.js docs:create --title "My Note" --content "Hello world"
+  cli.js personality
+  cli.js voice:generate "Hello, this is my digital twin!"
+  cli.js voice:generate "Hello world" --output hello.mp3
+  cli.js wallets
+  cli.js wallets:balance --address 0x123...
 `);
 }
 
@@ -85,13 +149,95 @@ async function main() {
 
   try {
     switch (command) {
+      case 'info': {
+        const twin = await getTwinInfo();
+        console.log(JSON.stringify(twin, null, 2));
+        break;
+      }
+      
+      case 'stats': {
+        const parsed = parseArgs(args.slice(1));
+        const options = { details: !!parsed.details };
+        const stats = await getTwinStats(options);
+        console.log(JSON.stringify(stats, null, 2));
+        break;
+      }
+      
+      case 'docs': {
+        const parsed = parseArgs(args.slice(1));
+        const options = {
+          limit: parsed.limit ? parseInt(parsed.limit, 10) : 50,
+          offset: parsed.offset ? parseInt(parsed.offset, 10) : 0,
+        };
+        const result = await listDocs(options);
+        console.log(JSON.stringify(result, null, 2));
+        break;
+      }
+      
+      case 'docs:create': {
+        const parsed = parseArgs(args.slice(1));
+        if (!parsed.title || !parsed.content) {
+          console.error('Error: --title and --content are required');
+          process.exit(1);
+        }
+        const result = await createDoc({
+          title: parsed.title,
+          content: parsed.content,
+          type: parsed.type || 'text',
+        });
+        console.log(JSON.stringify(result, null, 2));
+        break;
+      }
+      
+      case 'personality': {
+        const result = await getPersonality();
+        console.log(JSON.stringify(result, null, 2));
+        break;
+      }
+      
+      case 'personality:update': {
+        const parsed = parseArgs(args.slice(1));
+        if (!parsed.text) {
+          console.error('Error: --text is required');
+          process.exit(1);
+        }
+        const result = await updatePersonality(parsed.text);
+        console.log(JSON.stringify(result, null, 2));
+        break;
+      }
+      
+      case 'social': {
+        const result = await getSocial();
+        console.log(JSON.stringify(result, null, 2));
+        break;
+      }
+      
+      case 'social:update': {
+        const parsed = parseArgs(args.slice(1));
+        const data = {};
+        if (parsed.twitter) data.twitter_handle = parsed.twitter;
+        if (Object.keys(data).length === 0) {
+          console.error('Error: At least one option is required (--twitter)');
+          process.exit(1);
+        }
+        const result = await updateSocial(data);
+        console.log(JSON.stringify(result, null, 2));
+        break;
+      }
+      
       case 'voice': {
+        const result = await getVoice();
+        console.log(JSON.stringify(result, null, 2));
+        break;
+      }
+      
+      case 'voice:generate': {
         const parsed = parseArgs(args.slice(1));
         const text = parsed._.join(' ');
         
         if (!text) {
           console.error('Error: Text is required for voice generation');
-          console.error('Usage: cli.js voice "Your text here"');
+          console.error('Usage: cli.js voice:generate "Your text here"');
           process.exit(1);
         }
         
@@ -121,20 +267,58 @@ async function main() {
         break;
       }
       
-      case 'info': {
-        const twin = await getTwinInfo();
-        console.log(JSON.stringify(twin, null, 2));
+      case 'wallets': {
+        const result = await listWallets();
+        console.log(JSON.stringify(result, null, 2));
         break;
       }
       
-      case 'docs': {
+      case 'wallets:create': {
+        const parsed = parseArgs(args.slice(1));
+        if (!parsed.chain) {
+          console.error('Error: --chain is required');
+          process.exit(1);
+        }
+        const result = await createWallet({
+          chain: parsed.chain,
+          custodian: parsed.custodian,
+        });
+        console.log(JSON.stringify(result, null, 2));
+        break;
+      }
+      
+      case 'wallets:balance': {
+        const parsed = parseArgs(args.slice(1));
+        if (!parsed.address) {
+          console.error('Error: --address is required');
+          process.exit(1);
+        }
+        const result = await getWalletBalance(parsed.address);
+        console.log(JSON.stringify(result, null, 2));
+        break;
+      }
+      
+      case 'avatar:update': {
+        const parsed = parseArgs(args.slice(1));
+        const data = {};
+        if (parsed.url) data.avatar_url = parsed.url;
+        if (parsed.original) data.original_photo_url = parsed.original;
+        if (Object.keys(data).length === 0) {
+          console.error('Error: At least one option is required (--url or --original)');
+          process.exit(1);
+        }
+        const result = await updateAvatar(data);
+        console.log(JSON.stringify(result, null, 2));
+        break;
+      }
+      
+      case 'training': {
         const parsed = parseArgs(args.slice(1));
         const options = {
           limit: parsed.limit ? parseInt(parsed.limit, 10) : 50,
           offset: parsed.offset ? parseInt(parsed.offset, 10) : 0,
         };
-        
-        const result = await listDocs(options);
+        const result = await listTrainingSessions(options);
         console.log(JSON.stringify(result, null, 2));
         break;
       }

@@ -1,6 +1,6 @@
 ---
 name: amiko
-description: Interact with Amiko Platform APIs - voice generation, twin data, and more
+description: Interact with Amiko Platform APIs - voice, documents, wallets, personality, and more
 homepage: https://platform.heyamiko.com
 metadata: {"openclaw":{"emoji":"🤖","requires":{"bins":["node"]}}}
 ---
@@ -20,78 +20,148 @@ These are automatically set when the OpenClaw instance is created:
 
 ## Quick Commands
 
-### Generate Voice Audio
-
-Generate speech using your twin's cloned voice:
+### Twin Info & Stats
 
 ```bash
-~/.openclaw/skills/amiko/cli.js voice "Hello, this is my digital twin speaking!"
-```
-
-Options:
-- `--output <file>` - Save to file (default: outputs to stdout as base64)
-- `--model <id>` - ElevenLabs model ID (default: eleven_multilingual_v2)
-
-Example with file output:
-```bash
-~/.openclaw/skills/amiko/cli.js voice "Hello world" --output hello.mp3
-```
-
-### Get Twin Info
-
-Get your twin's profile information:
-
-```bash
+# Get twin profile
 ~/.openclaw/skills/amiko/cli.js info
+
+# Get statistics (training progress, memory count, etc.)
+~/.openclaw/skills/amiko/cli.js stats
+~/.openclaw/skills/amiko/cli.js stats --details
 ```
 
-### List Documents
-
-List documents associated with your twin:
+### Documents
 
 ```bash
+# List documents
 ~/.openclaw/skills/amiko/cli.js docs
+~/.openclaw/skills/amiko/cli.js docs --limit 10
+
+# Create a new document
+~/.openclaw/skills/amiko/cli.js docs:create --title "My Note" --content "Hello world"
 ```
 
-Options:
-- `--limit <n>` - Number of docs to fetch (default: 50)
-- `--offset <n>` - Pagination offset (default: 0)
+### Personality & Social
+
+```bash
+# Get personality data
+~/.openclaw/skills/amiko/cli.js personality
+
+# Update personality
+~/.openclaw/skills/amiko/cli.js personality:update --text "Friendly and helpful"
+
+# Get social data
+~/.openclaw/skills/amiko/cli.js social
+
+# Update Twitter handle
+~/.openclaw/skills/amiko/cli.js social:update --twitter "@myhandle"
+```
+
+### Voice
+
+```bash
+# Get voice configuration
+~/.openclaw/skills/amiko/cli.js voice
+
+# Generate speech (output as base64)
+~/.openclaw/skills/amiko/cli.js voice:generate "Hello, this is my digital twin!"
+
+# Generate speech and save to file
+~/.openclaw/skills/amiko/cli.js voice:generate "Hello world" --output hello.mp3
+```
+
+### Wallets
+
+```bash
+# List wallets
+~/.openclaw/skills/amiko/cli.js wallets
+
+# Create a wallet
+~/.openclaw/skills/amiko/cli.js wallets:create --chain ethereum
+~/.openclaw/skills/amiko/cli.js wallets:create --chain solana-devnet --custodian amiko
+
+# Get wallet balance
+~/.openclaw/skills/amiko/cli.js wallets:balance --address 0x123...
+```
+
+### Avatar
+
+```bash
+# Update avatar
+~/.openclaw/skills/amiko/cli.js avatar:update --url "https://example.com/avatar.png"
+```
+
+### Training
+
+```bash
+# List training sessions
+~/.openclaw/skills/amiko/cli.js training
+~/.openclaw/skills/amiko/cli.js training --limit 10
+```
 
 ## API Endpoints
 
 Base URL: `https://platform.heyamiko.com/api`
 
-### Voice Generation
-
-- **POST `/agents/{twinId}/voice/generate`** - Generate speech with cloned voice
-  - Body (FormData): `text_to_generate`, `model_id` (optional)
-  - Returns: Audio stream (audio/mpeg)
-
 ### Twin Data
-
 - **GET `/agents/{twinId}`** - Get twin profile
-- **GET `/agents/{twinId}/docs`** - List twin documents
+- **GET `/agents/{twinId}/stat`** - Get twin statistics
 
-## Example Usage in Chat
+### Documents
+- **GET `/agents/{twinId}/docs`** - List documents
+- **POST `/agents/{twinId}/docs`** - Create document
 
-**"Say hello using my voice"**
-```bash
-~/.openclaw/skills/amiko/cli.js voice "Hello! I'm your digital twin."
-```
+### Personality & Social
+- **GET `/agents/{twinId}/personality`** - Get personality
+- **POST `/agents/{twinId}/personality`** - Update personality
+- **GET `/agents/{twinId}/social`** - Get social data
+- **POST `/agents/{twinId}/social`** - Update social data
 
-**"Generate a voice message and save it"**
-```bash
-~/.openclaw/skills/amiko/cli.js voice "This is a test message" --output message.mp3
-```
+### Voice
+- **GET `/agents/{twinId}/voice`** - Get voice config
+- **POST `/agents/{twinId}/voice/generate`** - Generate speech
 
-**"What's my twin info?"**
-```bash
-~/.openclaw/skills/amiko/cli.js info
-```
+### Wallets
+- **GET `/agents/{twinId}/wallets`** - List wallets
+- **POST `/agents/{twinId}/wallets`** - Create wallet
+- **GET `/agents/{twinId}/wallets/{address}/balance`** - Get balance
 
-**"Show my training documents"**
-```bash
-~/.openclaw/skills/amiko/cli.js docs --limit 10
+### Avatar
+- **POST `/agents/{twinId}/avatar`** - Update avatar
+
+### Training
+- **GET `/agents/{twinId}/training_sessions`** - List sessions
+
+## Library Functions (lib.js)
+
+```javascript
+import { 
+  getTwinInfo,
+  getTwinStats,
+  listDocs,
+  createDoc,
+  getPersonality,
+  updatePersonality,
+  getSocial,
+  updateSocial,
+  getVoice,
+  generateVoice,
+  generateVoiceToFile,
+  listWallets,
+  createWallet,
+  getWalletBalance,
+  updateAvatar,
+  listTrainingSessions,
+} from './lib.js';
+
+// Example: Generate voice and save to file
+const result = await generateVoiceToFile("Hello!", "output.mp3");
+console.log(`Saved ${result.size} bytes to ${result.path}`);
+
+// Example: Get twin stats
+const stats = await getTwinStats({ details: true });
+console.log(`Training progress: ${stats.trainingProgress}%`);
 ```
 
 ## Files

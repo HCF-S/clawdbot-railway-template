@@ -133,3 +133,237 @@ export async function generateVoiceToFile(text, outputPath, options = {}) {
   fs.writeFileSync(outputPath, buffer);
   return { path: outputPath, size: buffer.length };
 }
+
+/**
+ * Get twin statistics (training progress, memory count, etc.)
+ */
+export async function getTwinStats(options = {}) {
+  const config = getConfig();
+  const { details = false } = options;
+  
+  const url = `/api/agents/${config.twinId}/stat${details ? '?details=true' : ''}`;
+  const response = await apiRequest(url);
+  
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Failed to get twin stats: ${response.status} - ${text}`);
+  }
+  
+  return response.json();
+}
+
+/**
+ * Create a new document for the twin
+ * @param {object} docData - Document data
+ * @param {string} docData.title - Document title
+ * @param {string} docData.content - Document content
+ * @param {string} docData.type - Document type (e.g., 'text', 'note')
+ */
+export async function createDoc(docData) {
+  const config = getConfig();
+  
+  const response = await apiRequest(`/api/agents/${config.twinId}/docs`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(docData),
+  });
+  
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Failed to create doc: ${response.status} - ${text}`);
+  }
+  
+  return response.json();
+}
+
+/**
+ * Get twin personality data
+ */
+export async function getPersonality() {
+  const config = getConfig();
+  
+  const response = await apiRequest(`/api/agents/${config.twinId}/personality`);
+  
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Failed to get personality: ${response.status} - ${text}`);
+  }
+  
+  return response.json();
+}
+
+/**
+ * Update twin personality
+ * @param {string} personality - Personality text/description
+ */
+export async function updatePersonality(personality) {
+  const config = getConfig();
+  
+  const response = await apiRequest(`/api/agents/${config.twinId}/personality`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ personality }),
+  });
+  
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Failed to update personality: ${response.status} - ${text}`);
+  }
+  
+  return response.json();
+}
+
+/**
+ * Get twin social data (Twitter handle, etc.)
+ */
+export async function getSocial() {
+  const config = getConfig();
+  
+  const response = await apiRequest(`/api/agents/${config.twinId}/social`);
+  
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Failed to get social data: ${response.status} - ${text}`);
+  }
+  
+  return response.json();
+}
+
+/**
+ * Update twin social data
+ * @param {object} socialData - Social data
+ * @param {string} socialData.twitter_handle - Twitter handle
+ * @param {object} socialData.personality_sphere - Personality sphere data
+ */
+export async function updateSocial(socialData) {
+  const config = getConfig();
+  
+  const response = await apiRequest(`/api/agents/${config.twinId}/social`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(socialData),
+  });
+  
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Failed to update social data: ${response.status} - ${text}`);
+  }
+  
+  return response.json();
+}
+
+/**
+ * Get twin voice configuration
+ */
+export async function getVoice() {
+  const config = getConfig();
+  
+  const response = await apiRequest(`/api/agents/${config.twinId}/voice`);
+  
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Failed to get voice data: ${response.status} - ${text}`);
+  }
+  
+  return response.json();
+}
+
+/**
+ * List wallets for the twin
+ */
+export async function listWallets() {
+  const config = getConfig();
+  
+  const response = await apiRequest(`/api/agents/${config.twinId}/wallets`);
+  
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Failed to list wallets: ${response.status} - ${text}`);
+  }
+  
+  return response.json();
+}
+
+/**
+ * Create a new wallet for the twin
+ * @param {object} walletData - Wallet data
+ * @param {string} walletData.chain - Blockchain chain (e.g., 'ethereum', 'polygon', 'solana-devnet')
+ * @param {string} walletData.custodian - Custodian ('crossmint' or 'amiko')
+ */
+export async function createWallet(walletData) {
+  const config = getConfig();
+  
+  const response = await apiRequest(`/api/agents/${config.twinId}/wallets`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(walletData),
+  });
+  
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Failed to create wallet: ${response.status} - ${text}`);
+  }
+  
+  return response.json();
+}
+
+/**
+ * Get wallet balance
+ * @param {string} address - Wallet address
+ */
+export async function getWalletBalance(address) {
+  const config = getConfig();
+  
+  const response = await apiRequest(`/api/agents/${config.twinId}/wallets/${address}/balance`);
+  
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Failed to get wallet balance: ${response.status} - ${text}`);
+  }
+  
+  return response.json();
+}
+
+/**
+ * Update twin avatar
+ * @param {object} avatarData - Avatar data
+ * @param {string} avatarData.avatar_url - Avatar URL
+ * @param {string} avatarData.original_photo_url - Original photo URL
+ */
+export async function updateAvatar(avatarData) {
+  const config = getConfig();
+  
+  const response = await apiRequest(`/api/agents/${config.twinId}/avatar`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(avatarData),
+  });
+  
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Failed to update avatar: ${response.status} - ${text}`);
+  }
+  
+  return response.json();
+}
+
+/**
+ * Get training sessions for the twin
+ * @param {object} options - Options
+ * @param {number} options.limit - Number of sessions to return
+ * @param {number} options.offset - Offset for pagination
+ */
+export async function listTrainingSessions(options = {}) {
+  const config = getConfig();
+  const { limit = 50, offset = 0 } = options;
+  
+  const url = `/api/agents/${config.twinId}/training_sessions?limit=${limit}&offset=${offset}`;
+  const response = await apiRequest(url);
+  
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Failed to list training sessions: ${response.status} - ${text}`);
+  }
+  
+  return response.json();
+}
