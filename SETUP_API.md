@@ -32,7 +32,7 @@ All `/setup/*` endpoints require the `x-api-token` header (set to your `SETUP_PA
 | --- | --- | --- | --- |
 | `POST` | `/setup/api/amiko/pull` | Fetches twin data from the platform API and writes a markdown snapshot to `AMIKO.md` in the workspace. | Uses `AMIKO_TWIN_ID` + `AMIKO_USER_TOKEN` from the container env. |
 | `POST` | `/setup/api/amiko/docs` | Trigger to sync all documents from the platform API. Automatically fetches all docs in batches (50 per batch) and writes markdown files to `amiko-docs/` folder. **Supports incremental sync** — only writes files that are new or updated (based on `updated_at`), skipping unchanged docs. | No body required. Uses `AMIKO_TWIN_ID` + `AMIKO_USER_TOKEN` from env. Response includes `created`, `updated`, `skipped` counts. |
-| `POST` | `/setup/api/amiko/memories` | **Optional.** Sync memories from the platform API to `MEMORIES.md`. Data quality may vary. | No body required. Uses `AMIKO_TWIN_ID` + `AMIKO_USER_TOKEN` from env. |
+| `POST` | `/setup/api/amiko/memories` | **Optional.** Sync memories from the platform API to `amiko-memories.md`. Data quality may vary. | No body required. Uses `AMIKO_TWIN_ID` + `AMIKO_USER_TOKEN` from env. |
 
 ## Channel helpers
 
@@ -162,7 +162,7 @@ These endpoints allow the platform to push updates to existing instances without
 | `POST` | `/setup/api/deploy/amiko-skill` | Deploy/update the Amiko skill to an existing instance. Copies the latest skill files to `skills/amiko/`. |
 | `POST` | `/setup/api/deploy/sys` | Deploy/update `SYS.md` and `/data/sys/` structure for system persistence. Creates the persistence directories and files if they don't exist. |
 | `POST` | `/setup/api/deploy/amiko-data` | Re-sync Amiko data (twin info + docs) to an existing instance. Same as calling `/amiko/pull` + `/amiko/docs`. |
-| `POST` | `/setup/api/deploy/memories` | **Optional.** Sync memories to `MEMORIES.md`. Separate endpoint because data quality may vary. |
+| `POST` | `/setup/api/deploy/memories` | **Optional.** Sync memories to `amiko-memories.md`. Separate endpoint because data quality may vary. |
 | `POST` | `/setup/api/deploy/all` | Deploy all updates at once: amiko-data + amiko-skill + sys config. **Automatically updates version** after successful deployment. Body: `{ includeMemories?: boolean }` to optionally include memories sync. |
 
 ### Deploy Response Format

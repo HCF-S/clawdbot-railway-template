@@ -476,8 +476,8 @@ export async function pullMemories(handlers) {
     // Generate markdown using template
     const markdown = renderMemoriesMd(allMemories, twinId);
 
-    // Write to MEMORIES.md in workspace
-    const destPath = path.join(WORKSPACE_DIR, "MEMORIES.md");
+    // Write to amiko-memories.md in workspace (avoid conflict with Clawd's own data)
+    const destPath = path.join(WORKSPACE_DIR, "amiko-memories.md");
     fs.writeFileSync(destPath, markdown, "utf8");
     console.log("[pullMemories] wrote", destPath);
 
@@ -487,7 +487,7 @@ export async function pullMemories(handlers) {
       const timestamp = new Date().toISOString();
       fs.appendFileSync(
         heartbeatPath, 
-        `- [${timestamp}] Synced ${allMemories.length} memories to MEMORIES.md\n`, 
+        `- [${timestamp}] Synced ${allMemories.length} memories to amiko-memories.md\n`, 
         "utf8"
       );
     } catch (err) {
@@ -498,7 +498,7 @@ export async function pullMemories(handlers) {
       ok: true, 
       path: destPath, 
       count: allMemories.length,
-      output: `Synced ${allMemories.length} memories to MEMORIES.md`
+      output: `Synced ${allMemories.length} memories to amiko-memories.md`
     };
   } catch (err) {
     console.error("[pullMemories] error:", err);
