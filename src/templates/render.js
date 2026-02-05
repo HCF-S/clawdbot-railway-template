@@ -1,8 +1,8 @@
 /**
- * Simple template rendering engine
- * Supports Handlebars-like syntax: {{variable}}, {{#if}}, {{#each}}, {{json}}
+ * Template rendering using Handlebars
  */
 
+import Handlebars from "handlebars";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -10,38 +10,44 @@ import { fileURLToPath } from "node:url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-/**
- * Get a nested value from an object using dot notation
- * @param {object} obj - The object to get the value from
- * @param {string} path - Dot-notation path (e.g., "twin.name")
- * @returns {*} The value at the path, or empty string if not found
- */
-function getValue(obj, pathStr) {
-  if (!pathStr || !obj) return "";
-  
-  const parts = pathStr.trim().split(".");
-  let current = obj;
-  
-  for (const part of parts) {
-    if (current === null || current === undefined) return "";
-    current = current[part];
-  }
-  
-  return current ?? "";
-}
+// Register custom helpers
 
 /**
- * Check if a value is truthy for template conditionals
- * @param {*} value - The value to check
- * @returns {boolean}
+ * JSON stringify helper
+ * Usage: {{json variable}}
  */
-function isTruthy(value) {
-  if (value === null || value === undefined) return false;
-  if (value === false || value === 0 || value === "") return false;
-  if (Array.isArray(value) && value.length === 0) return false;
-  if (typeof value === "object" && Object.keys(value).length === 0) return false;
-  return true;
-}
+Handlebars.registerHelper("json", function(context) {
+  if (context === null || context === undefined) return "";
+  try {
+    return JSON.stringify(context, null, 2);
+  } catch {
+    return String(context);
+  }
+});
+
+/**
+ * Check if array has items
+ * Usage: {{#if (hasItems array)}}...{{/if}}
+ */
+Handlebars.registerHelper("hasItems", function(array) {
+  return Array.isArray(array) && array.length > 0;
+});
+
+/**
+ * Format date helper
+ * Usage: {{formatDate date}}
+ */
+Handlebars.registerHelper("formatDate", function(date) {
+  if (!date) return "";
+  try {
+    return new Date(date).toISOString();
+  } catch {
+    return String(date);
+  }
+});
+
+// Cache compiled templates
+const templateCache = new Map();
 
 /**
  * Render a template string with the given context
@@ -50,98 +56,8 @@ function isTruthy(value) {
  * @returns {string} The rendered string
  */
 export function renderTemplate(template, context) {
-  let result = template;
-  
-  // Process {{#each items}}...{{/each}} blocks
-  result = processEachBlocks(result, context);
-  
-  // Process {{#if condition}}...{{else}}...{{/if}} blocks
-  result = processIfBlocks(result, context);
-  
-  // Process {{json variable}} helpers
-  result = result.replace(/\{\{json\s+([^}]+)\}\}/g, (match, varPath) => {
-    const value = getValue(context, varPath.trim());
-    if (value === "" || value === null || value === undefined) return "";
-    try {
-      return JSON.stringify(value, null, 2);
-    } catch {
-      return String(value);
-    }
-  });
-  
-  // Process simple {{variable}} replacements
-  result = result.replace(/\{\{([^#/}][^}]*)\}\}/g, (match, varPath) => {
-    // Skip if it's a helper like {{json ...}}
-    if (varPath.trim().startsWith("json ")) return match;
-    
-    const value = getValue(context, varPath.trim());
-    return value === null || value === undefined ? "" : String(value);
-  });
-  
-  // Clean up multiple consecutive blank lines (more than 2)
-  result = result.replace(/\n{3,}/g, "\n\n");
-  
-  return result.trimEnd() + "\n";
-}
-
-/**
- * Process {{#each items}}...{{/each}} blocks
- */
-function processEachBlocks(template, context) {
-  const eachRegex = /\{\{#each\s+([^}]+)\}\}([\s\S]*?)\{\{\/each\}\}/g;
-  
-  return template.replace(eachRegex, (match, varPath, content) => {
-    const items = getValue(context, varPath.trim());
-    
-    if (!Array.isArray(items) || items.length === 0) {
-      return "";
-    }
-    
-    return items.map((item, index) => {
-      // Create a new context with "this" pointing to the current item
-      const itemContext = {
-        ...context,
-        this: item,
-        "@index": index,
-        "@first": index === 0,
-        "@last": index === items.length - 1,
-      };
-      
-      // Recursively render the content with the item context
-      return renderTemplate(content, itemContext).trimEnd();
-    }).join("\n");
-  });
-}
-
-/**
- * Process {{#if condition}}...{{else}}...{{/if}} blocks
- */
-function processIfBlocks(template, context) {
-  // Handle nested if blocks by processing from innermost to outermost
-  let result = template;
-  let prevResult = "";
-  
-  // Keep processing until no more changes (handles nested blocks)
-  while (result !== prevResult) {
-    prevResult = result;
-    
-    // Match the innermost if block (one that doesn't contain another #if)
-    const ifRegex = /\{\{#if\s+([^}]+)\}\}((?:(?!\{\{#if)[\s\S])*?)\{\{\/if\}\}/g;
-    
-    result = result.replace(ifRegex, (match, condition, content) => {
-      const value = getValue(context, condition.trim());
-      const truthy = isTruthy(value);
-      
-      // Check for {{else}} block
-      const elseParts = content.split(/\{\{else\}\}/);
-      const ifContent = elseParts[0];
-      const elseContent = elseParts[1] || "";
-      
-      return truthy ? ifContent : elseContent;
-    });
-  }
-  
-  return result;
+  const compiled = Handlebars.compile(template);
+  return compiled(context);
 }
 
 /**
@@ -157,8 +73,15 @@ export function renderTemplateFile(templateName, context) {
     throw new Error(`Template not found: ${templatePath}`);
   }
   
-  const template = fs.readFileSync(templatePath, "utf8");
-  return renderTemplate(template, context);
+  // Check cache
+  let compiled = templateCache.get(templatePath);
+  if (!compiled) {
+    const template = fs.readFileSync(templatePath, "utf8");
+    compiled = Handlebars.compile(template);
+    templateCache.set(templatePath, compiled);
+  }
+  
+  return compiled(context);
 }
 
 /**
