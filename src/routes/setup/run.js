@@ -112,6 +112,12 @@ export async function runOnboarding(payload, handlers) {
       clawArgs(["config", "set", "gateway.trustedProxies", '["127.0.0.1","::1","10.0.0.0/8","172.16.0.0/12","192.168.0.0/16"]']),
     );
 
+    const allowedOriginsRaw = (process.env.OPENCLAW_CONTROL_UI_ALLOWED_ORIGINS || "").trim();
+    if (allowedOriginsRaw) {
+      const originsArray = JSON.stringify(allowedOriginsRaw.split(",").map((o) => o.trim()).filter(Boolean));
+      await runCmd(OPENCLAW_NODE, clawArgs(["config", "set", "gateway.controlUi.allowedOrigins", originsArray]));
+    }
+
     // Configure channels using shared function
     const { configureChannels } = await import("./channels.js");
     const channelOutput = await configureChannels(payload, handlers);
