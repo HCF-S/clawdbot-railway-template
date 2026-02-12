@@ -1,7 +1,7 @@
-# Build openclaw from source to avoid npm packaging gaps (some dist files are not shipped).
+# Build openclaw from a pinned npm package version.
 FROM node:22-bookworm AS openclaw-build
 
-# Dependencies needed for openclaw build
+# Dependencies needed for dependency install (native addons may compile).
 RUN apt-get update \
   && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
     git \
@@ -12,30 +12,18 @@ RUN apt-get update \
     g++ \
   && rm -rf /var/lib/apt/lists/*
 
-# Install Bun (openclaw build uses it)
-RUN curl -fsSL https://bun.sh/install | bash
-ENV PATH="/root/.bun/bin:${PATH}"
-
 RUN corepack enable
 
 WORKDIR /openclaw
 
-# Pin to a known ref (tag/branch). If it doesn't exist, fall back to main.
-ARG OPENCLAW_GIT_REF=v2026.2.9
-RUN git clone --depth 1 --branch "${OPENCLAW_GIT_REF}" https://github.com/openclaw/openclaw.git .
-
-# Patch: relax version requirements for packages that may reference unpublished versions.
-# Apply to all extension package.json files to handle workspace protocol (workspace:*).
+# Pin OpenClaw package version.
+ARG OPENCLAW_NPM_VERSION=2026.2.9
 RUN set -eux; \
-  find ./extensions -name 'package.json' -type f | while read -r f; do \
-    sed -i -E 's/"openclaw"[[:space:]]*:[[:space:]]*">=[^"]+"/"openclaw": "*"/g' "$f"; \
-    sed -i -E 's/"openclaw"[[:space:]]*:[[:space:]]*"workspace:[^"]+"/"openclaw": "*"/g' "$f"; \
-  done
-
-RUN pnpm install --no-frozen-lockfile
-ENV OPENCLAW_PREFER_PNPM=1
-RUN cd ui && pnpm install && pnpm build && cd ..
-RUN pnpm build
+  npm pack "openclaw@${OPENCLAW_NPM_VERSION}"; \
+  PKG_TGZ="$(ls -1 openclaw-*.tgz | head -n 1)"; \
+  tar -xzf "${PKG_TGZ}" --strip-components=1 -C /openclaw; \
+  rm -f openclaw-*.tgz; \
+  pnpm install --prod --no-frozen-lockfile
 
 # Runtime image
 FROM node:22-bookworm
