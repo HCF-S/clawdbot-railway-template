@@ -1,0 +1,51 @@
+# {{doc.title}}
+
+## Document Information
+
+- **ID**: {{doc.id}}
+- **Filename**: {{doc.filename}}
+- **Type**: {{doc.doc_type}}
+- **File Type**: {{doc.file_type}}
+- **Relationship**: {{doc.relationship}}
+- **Stance**: {{doc.stance}}
+
+## Dates
+
+- **Created**: {{doc.created_at}}
+- **Updated**: {{doc.updated_at}}
+
+## Processing Status
+
+- **Parsed**: {{#if doc.is_parsed}}Yes{{else}}No{{/if}}
+- **Processed**: {{#if doc.is_processed}}Yes{{else}}No{{/if}}
+- **Chunk Count**: {{doc.chunk_count}}
+
+{{#if doc.description}}
+## Description
+
+{{doc.description}}
+
+{{/if}}
+{{#if doc.file_url}}
+## File
+
+- **URL**: {{doc.file_url}}
+{{#if doc.file_hash}}
+- **Hash**: {{doc.file_hash}}
+{{/if}}
+
+{{/if}}
+{{#if doc.metadata}}
+## Metadata
+
+```json
+{{json doc.metadata}}
+```
+
+{{/if}}
+{{#if doc.content}}
+## Content
+
+{{doc.content}}
+
+{{/if}}
