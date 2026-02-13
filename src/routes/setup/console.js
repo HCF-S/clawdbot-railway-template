@@ -28,7 +28,10 @@ export function createConsoleRouter(handlers) {
     try {
       if (cmd === "gateway.restart") {
         await restartGateway();
-        return res.json({ ok: true, output: "Gateway restarted (wrapper-managed).\n" });
+        return res.json({
+          ok: true,
+          output: "Gateway restarted. (Gateway auto-starts with the container; use Restart to apply config changes.)\n",
+        });
       }
       if (cmd === "gateway.stop") {
         if (gatewayProcRef.current) {
@@ -36,11 +39,19 @@ export function createConsoleRouter(handlers) {
           await sleep(750);
           gatewayProcRef.current = null;
         }
-        return res.json({ ok: true, output: "Gateway stopped (wrapper-managed).\n" });
+        return res.json({
+          ok: true,
+          output: "Gateway stopped. It will not run until you run gateway.start or the container restarts.\n",
+        });
       }
       if (cmd === "gateway.start") {
         const r = await ensureGatewayRunning();
-        return res.json({ ok: Boolean(r.ok), output: r.ok ? "Gateway started.\n" : `Gateway not started: ${r.reason}\n` });
+        return res.json({
+          ok: Boolean(r.ok),
+          output: r.ok
+            ? "Gateway started. (Normally the gateway auto-starts with the container.)\n"
+            : `Gateway not started: ${r.reason}\n`,
+        });
       }
 
       if (cmd === "openclaw.version") {

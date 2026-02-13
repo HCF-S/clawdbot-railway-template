@@ -418,19 +418,33 @@ app.use(async (req, res) => {
   return proxy.web(req, res, { target: GATEWAY_TARGET });
 });
 
-const server = app.listen(PORT, "0.0.0.0", () => {
-  console.log(`[wrapper] listening on :${PORT}`);
-  console.log(`[wrapper] state dir: ${STATE_DIR}`);
-  console.log(`[wrapper] workspace dir: ${WORKSPACE_DIR}`);
-  console.log(`[wrapper] gateway token: ${OPENCLAW_GATEWAY_TOKEN ? "(set)" : "(missing)"}`);
-  console.log(`[wrapper] gateway target: ${GATEWAY_TARGET}`);
-  if (!SETUP_PASSWORD) {
-    console.warn("[wrapper] WARNING: SETUP_PASSWORD is not set; /setup will error.");
+// Start gateway before accepting traffic so we never serve "Gateway not ready in time"
+// on first request. Only then start the HTTP server.
+(async function startServer() {
+  if (isConfigured()) {
+    try {
+      await ensureGatewayRunning();
+      console.log("[wrapper] gateway ready before listening");
+    } catch (err) {
+      console.error("[wrapper] boot gateway start failed:", err);
+      // Continue anyway so /setup is reachable; proxy will 503 until gateway is up.
+    }
   }
-  // Don't start gateway unless configured; proxy will ensure it starts.
-});
+  const server = app.listen(PORT, "0.0.0.0", () => {
+    console.log(`[wrapper] listening on :${PORT}`);
+    console.log(`[wrapper] state dir: ${STATE_DIR}`);
+    console.log(`[wrapper] workspace dir: ${WORKSPACE_DIR}`);
+    console.log(`[wrapper] gateway token: ${OPENCLAW_GATEWAY_TOKEN ? "(set)" : "(missing)"}`);
+    console.log(`[wrapper] gateway target: ${GATEWAY_TARGET}`);
+    if (!SETUP_PASSWORD) {
+      console.warn("[wrapper] WARNING: SETUP_PASSWORD is not set; /setup will error.");
+    }
+  });
+  server.on("upgrade", onUpgrade);
+  process.on("SIGTERM", onSigTerm);
+})();
 
-server.on("upgrade", async (req, socket, head) => {
+async function onUpgrade(req, socket, head) {
   if (!isConfigured()) {
     socket.destroy();
     return;
@@ -442,14 +456,13 @@ server.on("upgrade", async (req, socket, head) => {
     return;
   }
   proxy.ws(req, socket, head, { target: GATEWAY_TARGET });
-});
+}
 
-process.on("SIGTERM", () => {
-  // Best-effort shutdown
+function onSigTerm() {
   try {
     if (gatewayProcRef.current) gatewayProcRef.current.kill("SIGTERM");
   } catch {
     // ignore
   }
   process.exit(0);
-});
+}

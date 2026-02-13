@@ -53,7 +53,7 @@ All `/setup/*` endpoints require the `x-api-token` header (set to your `SETUP_PA
 
 | Method | Endpoint | Description |
 | --- | --- | --- |
-| `POST` | `/setup/api/console/run` | Runs a small allowlist of commands (`gateway.start`, `gateway.stop`, `gateway.restart`, plus CLI helpers such as `openclaw.version`, `openclaw.status`, `openclaw.health`, `openclaw.doctor`, `openclaw.logs.tail`, `openclaw.config.get`, and `print.envs` to dump wrapper env vars). The same commands back the UI console. | Body `{ cmd, arg }` (arg optional). `gateway.*` toggles the wrapper gateway process. |
+| `POST` | `/setup/api/console/run` | Runs a small allowlist of commands (`gateway.start`, `gateway.stop`, `gateway.restart`, plus CLI helpers such as `openclaw.version`, `openclaw.status`, `openclaw.health`, `openclaw.doctor`, `openclaw.logs.tail`, `openclaw.config.get`, and `print.envs` to dump wrapper env vars). The same commands back the UI console. | Body `{ cmd, arg }` (arg optional). Gateway auto-starts with the container; `gateway.start` / `gateway.stop` / `gateway.restart` control the in-process gateway (use Restart to apply config). |
 
 ## Model helpers
 
@@ -72,9 +72,11 @@ All `/setup/*` endpoints require the `x-api-token` header (set to your `SETUP_PA
 
 ## Gateway helpers
 
+The gateway **auto-starts when the container starts** (when the wrapper is configured). The setup service only connects to it; use Restart to apply config changes.
+
 | Method | Endpoint | Description |
 | --- | --- | --- |
-| `POST` | `/setup/api/gateway/restart` | Restarts the gateway process managed by the wrapper. |
+| `POST` | `/setup/api/gateway/restart` | Restarts the gateway process (e.g. to apply config changes). Gateway is started automatically with the container. |
 | `POST` | `/setup/api/gateway/control-ui-allowed-origins` | Sets `gateway.controlUi.allowedOrigins` (from env, or default: platform + Vercel + localhost origins) and restarts the gateway. Optional body `{ origins: "comma,separated" }`. Use to fix old containers that lack the setting. |
 
 ## Skills
