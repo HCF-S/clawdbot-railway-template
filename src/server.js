@@ -7,6 +7,7 @@ import path from "node:path";
 import express from "express";
 import httpProxy from "http-proxy";
 import { createSetupRouter } from "./routes/setup/index.js";
+import { setGatewayControlUiAllowedOrigins } from "./routes/setup/run.js";
 
 // Railway deployments sometimes inject PORT=3000 by default. We want the wrapper to
 // reliably listen on 8080 unless explicitly overridden.
@@ -298,6 +299,72 @@ function buildOnboardArgs(payload) {
   return args;
 }
 
+/** Env var for OpenRouter API key; when set and no config exists, bootstrap so gateway can auto-start on first run. */
+const OPENROUTER_API_KEY_ENV =
+  process.env.OPENROUTER_API_KEY?.trim() || process.env.OPENCLAW_OPENROUTER_API_KEY?.trim() || "";
+
+/**
+ * If not configured but OPENROUTER_API_KEY (or OPENCLAW_OPENROUTER_API_KEY) is set, run
+ * non-interactive onboarding and gateway config so the gateway can auto-start on first run.
+ */
+async function bootstrapFromEnv() {
+  if (isConfigured() || !OPENROUTER_API_KEY_ENV) return;
+
+  console.log("[wrapper] bootstrapping from OPENROUTER_API_KEY (first-run auto-config)");
+  fs.mkdirSync(STATE_DIR, { recursive: true });
+  fs.mkdirSync(WORKSPACE_DIR, { recursive: true });
+
+  const onboardArgs = [
+    "onboard",
+    "--non-interactive",
+    "--accept-risk",
+    "--json",
+    "--no-install-daemon",
+    "--skip-health",
+    "--workspace",
+    WORKSPACE_DIR,
+    "--gateway-bind",
+    "loopback",
+    "--gateway-port",
+    String(INTERNAL_GATEWAY_PORT),
+    "--gateway-auth",
+    "token",
+    "--gateway-token",
+    OPENCLAW_GATEWAY_TOKEN,
+    "--flow",
+    "quickstart",
+    "--auth-choice",
+    "openrouter-api-key",
+    "--openrouter-api-key",
+    OPENROUTER_API_KEY_ENV,
+  ];
+
+  const onboard = await runCmd(OPENCLAW_NODE, clawArgs(onboardArgs));
+  if (onboard.code !== 0 || !isConfigured()) {
+    console.error("[wrapper] bootstrap onboard failed:", onboard.output);
+    return;
+  }
+
+  await runCmd(OPENCLAW_NODE, clawArgs(["config", "set", "gateway.auth.mode", "token"]));
+  await runCmd(OPENCLAW_NODE, clawArgs(["config", "set", "gateway.auth.token", OPENCLAW_GATEWAY_TOKEN]));
+  await runCmd(OPENCLAW_NODE, clawArgs(["config", "set", "gateway.bind", "loopback"]));
+  await runCmd(OPENCLAW_NODE, clawArgs(["config", "set", "gateway.port", String(INTERNAL_GATEWAY_PORT)]));
+  await runCmd(
+    OPENCLAW_NODE,
+    clawArgs(["config", "set", "gateway.trustedProxies", '["127.0.0.1","::1","10.0.0.0/8","172.16.0.0/12","192.168.0.0/16"]']),
+  );
+
+  const handlers = { runCmd, OPENCLAW_NODE, clawArgs };
+  await setGatewayControlUiAllowedOrigins(handlers);
+
+  const setModel = await runCmd(OPENCLAW_NODE, clawArgs(["models", "set", "openrouter/auto"]));
+  if (setModel.code !== 0) {
+    console.warn("[wrapper] bootstrap default model set:", setModel.output);
+  }
+
+  console.log("[wrapper] bootstrap complete; gateway can auto-start");
+}
+
 function runCmd(cmd, args, opts = {}) {
   return new Promise((resolve) => {
     const proc = childProcess.spawn(cmd, args, {
@@ -421,6 +488,7 @@ app.use(async (req, res) => {
 // Start gateway before accepting traffic so we never serve "Gateway not ready in time"
 // on first request. Only then start the HTTP server.
 (async function startServer() {
+  await bootstrapFromEnv();
   if (isConfigured()) {
     try {
       await ensureGatewayRunning();
