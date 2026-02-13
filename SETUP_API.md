@@ -75,6 +75,7 @@ All `/setup/*` endpoints require the `x-api-token` header (set to your `SETUP_PA
 | Method | Endpoint | Description |
 | --- | --- | --- |
 | `POST` | `/setup/api/gateway/restart` | Restarts the gateway process managed by the wrapper. |
+| `POST` | `/setup/api/gateway/control-ui-allowed-origins` | Sets `gateway.controlUi.allowedOrigins` (from env, or default: platform + Vercel + localhost origins) and restarts the gateway. Optional body `{ origins: "comma,separated" }`. Use to fix old containers that lack the setting. |
 
 ## Skills
 

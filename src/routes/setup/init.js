@@ -2,7 +2,7 @@ import express from "express";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { runOnboarding } from "./run.js";
+import { runOnboarding, setGatewayControlUiAllowedOrigins } from "./run.js";
 import { syncAmikoData } from "./amiko.js";
 import { installAmikoSkill } from "./skills.js";
 import { CURRENT_SETUP_VERSION, setInstalledVersion } from "./version.js";
@@ -168,12 +168,23 @@ export function createInitRouter(handlers) {
 
       // Step 1: Run onboarding (includes channel configuration)
       const onboardResult = await runOnboarding(payload, handlers);
-      
+
       if (!onboardResult.ok) {
         return res.status(500).json(onboardResult);
       }
 
       let output = onboardResult.output;
+
+      // Step 1b: Ensure gateway control UI allowed origins (fixes old containers)
+      output += "\n[gateway] Setting control UI allowed origins...\n";
+      const { restartGateway } = handlers;
+      try {
+        await setGatewayControlUiAllowedOrigins(handlers);
+        await restartGateway();
+        output += "[gateway] Allowed origins set and gateway restarted.\n";
+      } catch (err) {
+        output += `[gateway] Warning: ${String(err)}\n`;
+      }
 
       // Step 2: Sync Amiko data
       output += "\n\n[amiko] Starting Amiko data sync...\n";

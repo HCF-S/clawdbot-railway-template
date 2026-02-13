@@ -19,6 +19,26 @@ export function createRunRouter(handlers) {
   return router;
 }
 
+/** Default allowed origins for gateway control UI when env is not set */
+const DEFAULT_CONTROL_UI_ALLOWED_ORIGINS =
+  "https://platform.heyamiko.com,https://amiko-platform.vercel.app,http://localhost:3000,http://localhost,http://127.0.0.1:3000,http://127.0.0.1";
+
+/**
+ * Set gateway.controlUi.allowedOrigins in OpenClaw config.
+ * Uses OPENCLAW_CONTROL_UI_ALLOWED_ORIGINS or default (platform.heyamiko.com, localhost:3000).
+ * @param {object} handlers - { runCmd, OPENCLAW_NODE, clawArgs }
+ * @param {string} [originsOverride] - Optional comma-separated list to use instead of env/default
+ * @returns {{ ok: boolean }}
+ */
+export async function setGatewayControlUiAllowedOrigins(handlers, originsOverride = null) {
+  const { runCmd, OPENCLAW_NODE, clawArgs } = handlers;
+  const raw = (originsOverride ?? process.env.OPENCLAW_CONTROL_UI_ALLOWED_ORIGINS ?? DEFAULT_CONTROL_UI_ALLOWED_ORIGINS).trim();
+  if (!raw) return { ok: true };
+  const originsArray = JSON.stringify(raw.split(",").map((o) => o.trim()).filter(Boolean));
+  await runCmd(OPENCLAW_NODE, clawArgs(["config", "set", "gateway.controlUi.allowedOrigins", originsArray]));
+  return { ok: true };
+}
+
 // Shared onboarding logic that can be reused by init.js
 export async function runOnboarding(payload, handlers) {
   const {
@@ -112,11 +132,7 @@ export async function runOnboarding(payload, handlers) {
       clawArgs(["config", "set", "gateway.trustedProxies", '["127.0.0.1","::1","10.0.0.0/8","172.16.0.0/12","192.168.0.0/16"]']),
     );
 
-    const allowedOriginsRaw = (process.env.OPENCLAW_CONTROL_UI_ALLOWED_ORIGINS || "").trim();
-    if (allowedOriginsRaw) {
-      const originsArray = JSON.stringify(allowedOriginsRaw.split(",").map((o) => o.trim()).filter(Boolean));
-      await runCmd(OPENCLAW_NODE, clawArgs(["config", "set", "gateway.controlUi.allowedOrigins", originsArray]));
-    }
+    await setGatewayControlUiAllowedOrigins(handlers);
 
     // Configure channels using shared function
     const { configureChannels } = await import("./channels.js");
