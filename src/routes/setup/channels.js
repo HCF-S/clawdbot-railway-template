@@ -38,8 +38,14 @@ export async function configureChannels(payload, handlers) {
         OPENCLAW_NODE,
         clawArgs(["config", "set", "--json", "channels.telegram", JSON.stringify(cfgObj)]),
       );
+      const patchPayload = { plugins: { entries: { telegram: { enabled: true } } } };
+      const patch = await runCmd(
+        OPENCLAW_NODE,
+        clawArgs(["config", "patch", JSON.stringify(patchPayload)]),
+      );
       const get = await runCmd(OPENCLAW_NODE, clawArgs(["config", "get", "channels.telegram"]));
       out.push(`[telegram config] exit=${set.code} (output ${set.output.length} chars)\n${set.output || "(no output)"}`);
+      out.push(`[telegram plugin] exit=${patch.code} (output ${patch.output.length} chars)\n${patch.output || "(no output)"}`);
       out.push(`[telegram verify] exit=${get.code} (output ${get.output.length} chars)\n${get.output || "(no output)"}`);
     }
   }
@@ -61,8 +67,14 @@ export async function configureChannels(payload, handlers) {
         OPENCLAW_NODE,
         clawArgs(["config", "set", "--json", "channels.discord", JSON.stringify(cfgObj)]),
       );
+      const discordPatch = { plugins: { entries: { discord: { enabled: true } } } };
+      const patch = await runCmd(
+        OPENCLAW_NODE,
+        clawArgs(["config", "patch", JSON.stringify(discordPatch)]),
+      );
       const get = await runCmd(OPENCLAW_NODE, clawArgs(["config", "get", "channels.discord"]));
       out.push(`[discord config] exit=${set.code} (output ${set.output.length} chars)\n${set.output || "(no output)"}`);
+      out.push(`[discord plugin] exit=${patch.code} (output ${patch.output.length} chars)\n${patch.output || "(no output)"}`);
       out.push(`[discord verify] exit=${get.code} (output ${get.output.length} chars)\n${get.output || "(no output)"}`);
     }
   }
@@ -80,8 +92,14 @@ export async function configureChannels(payload, handlers) {
         OPENCLAW_NODE,
         clawArgs(["config", "set", "--json", "channels.slack", JSON.stringify(cfgObj)]),
       );
+      const slackPatch = { plugins: { entries: { slack: { enabled: true } } } };
+      const patch = await runCmd(
+        OPENCLAW_NODE,
+        clawArgs(["config", "patch", JSON.stringify(slackPatch)]),
+      );
       const get = await runCmd(OPENCLAW_NODE, clawArgs(["config", "get", "channels.slack"]));
       out.push(`[slack config] exit=${set.code} (output ${set.output.length} chars)\n${set.output || "(no output)"}`);
+      out.push(`[slack plugin] exit=${patch.code} (output ${patch.output.length} chars)\n${patch.output || "(no output)"}`);
       out.push(`[slack verify] exit=${get.code} (output ${get.output.length} chars)\n${get.output || "(no output)"}`);
     }
   }
