@@ -63,6 +63,12 @@ All `/setup/*` endpoints require the `x-api-token` header (set to your `SETUP_PA
 | `GET` | `/setup/api/models/status` | Returns `openclaw models status --json` describing the current default/fallback model and auth state. |
 | `POST` | `/setup/api/models/set` | Runs `openclaw models set <model>` to switch the default model/provider. Body `{ model: "provider/model" }`. |
 
+## Agents
+
+| Method | Endpoint | Description | Request body |
+| --- | --- | --- | --- |
+| `POST` | `/setup/api/add-agent` | Runs `openclaw agents add <agentId>` in non-interactive mode. | `agentId` (required), `name` (required), `workspace` (optional, default `/data/workspace-${agentId}`), `model` (optional), `agentDir` (optional), `bind` (optional, string or array e.g. `"whatsapp:+1234567890"`), `json` (optional boolean to request CLI JSON output). |
+
 ## Backup helpers
 
 | Method | Endpoint | Description |
