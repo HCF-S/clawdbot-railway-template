@@ -95,6 +95,30 @@ function isConfigured() {
   }
 }
 
+/** Essential env vars required to run. If any are missing, returns their names; otherwise null. */
+function checkEssentialEnv() {
+  const required = [
+    ["SETUP_PASSWORD", () => process.env.SETUP_PASSWORD?.trim()],
+    [
+      "OPENCLAW_GATEWAY_TOKEN",
+      () =>
+        process.env.OPENCLAW_GATEWAY_TOKEN?.trim() ||
+        process.env.CLAWDBOT_GATEWAY_TOKEN?.trim(),
+    ],
+    ["AMIKO_USER_ID", () => process.env.AMIKO_USER_ID?.trim()],
+    ["AMIKO_TWIN_ID", () => process.env.AMIKO_TWIN_ID?.trim()],
+    ["AMIKO_USER_TOKEN", () => process.env.AMIKO_USER_TOKEN?.trim()],
+    [
+      "OPENROUTER_API_KEY",
+      () =>
+        process.env.OPENROUTER_API_KEY?.trim() ||
+        process.env.OPENCLAW_OPENROUTER_API_KEY?.trim(),
+    ],
+  ];
+  const missing = required.filter(([_, get]) => !get()).map(([name]) => name);
+  return missing.length ? missing : null;
+}
+
 const gatewayProcRef = { current: null };
 let gatewayStarting = null;
 
@@ -485,28 +509,31 @@ app.use(async (req, res) => {
   return proxy.web(req, res, { target: GATEWAY_TARGET });
 });
 
-// Start gateway before accepting traffic so we never serve "Gateway not ready in time"
-// on first request. Only then start the HTTP server.
+// Start gateway before accepting traffic only when all essential envs are set.
+// Otherwise start server without gateway; user runs /setup and init to onboard.
 (async function startServer() {
-  await bootstrapFromEnv();
-  if (isConfigured()) {
-    try {
-      await ensureGatewayRunning();
-      console.log("[wrapper] gateway ready before listening");
-    } catch (err) {
-      console.error("[wrapper] boot gateway start failed:", err);
-      // Continue anyway so /setup is reachable; proxy will 503 until gateway is up.
+  const missingEnv = checkEssentialEnv();
+  if (!missingEnv) {
+    await bootstrapFromEnv();
+    if (isConfigured()) {
+      try {
+        await ensureGatewayRunning();
+        console.log("[wrapper] gateway ready before listening");
+      } catch (err) {
+        console.error("[wrapper] boot gateway start failed:", err);
+        // Continue anyway so /setup is reachable; proxy will 503 until gateway is up.
+      }
     }
+  } else {
+    console.log("[wrapper] Some essential envs missing; gateway will not auto-start. Use /setup and run init to configure.");
   }
+
   const server = app.listen(PORT, "0.0.0.0", () => {
     console.log(`[wrapper] listening on :${PORT}`);
     console.log(`[wrapper] state dir: ${STATE_DIR}`);
     console.log(`[wrapper] workspace dir: ${WORKSPACE_DIR}`);
     console.log(`[wrapper] gateway token: ${OPENCLAW_GATEWAY_TOKEN ? "(set)" : "(missing)"}`);
     console.log(`[wrapper] gateway target: ${GATEWAY_TARGET}`);
-    if (!SETUP_PASSWORD) {
-      console.warn("[wrapper] WARNING: SETUP_PASSWORD is not set; /setup will error.");
-    }
   });
   server.on("upgrade", onUpgrade);
   process.on("SIGTERM", onSigTerm);

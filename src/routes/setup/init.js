@@ -165,25 +165,29 @@ export function createInitRouter(handlers) {
   router.post("/init", requireApiToken, async (req, res) => {
     try {
       const payload = req.body || {};
+      const { isConfigured } = handlers;
+      let output = "";
 
-      // Step 1: Run onboarding (includes channel configuration)
-      const onboardResult = await runOnboarding(payload, handlers);
+      if (!isConfigured()) {
+        // Step 1: Run onboarding (includes channel configuration)
+        const onboardResult = await runOnboarding(payload, handlers);
+        if (!onboardResult.ok) {
+          return res.status(500).json(onboardResult);
+        }
+        output = onboardResult.output;
 
-      if (!onboardResult.ok) {
-        return res.status(500).json(onboardResult);
-      }
-
-      let output = onboardResult.output;
-
-      // Step 1b: Ensure gateway control UI allowed origins (fixes old containers)
-      output += "\n[gateway] Setting control UI allowed origins...\n";
-      const { restartGateway } = handlers;
-      try {
-        await setGatewayControlUiAllowedOrigins(handlers);
-        await restartGateway();
-        output += "[gateway] Allowed origins set and gateway restarted.\n";
-      } catch (err) {
-        output += `[gateway] Warning: ${String(err)}\n`;
+        // Step 1b: Ensure gateway control UI allowed origins (fixes old containers)
+        output += "\n[gateway] Setting control UI allowed origins...\n";
+        const { restartGateway } = handlers;
+        try {
+          await setGatewayControlUiAllowedOrigins(handlers);
+          await restartGateway();
+          output += "[gateway] Allowed origins set and gateway restarted.\n";
+        } catch (err) {
+          output += `[gateway] Warning: ${String(err)}\n`;
+        }
+      } else {
+        output = "Already configured; skipping onboarding and gateway setup. Running data sync only.\n";
       }
 
       // Step 2: Sync Amiko data
