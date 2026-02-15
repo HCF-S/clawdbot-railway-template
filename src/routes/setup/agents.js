@@ -40,8 +40,6 @@ export function createAgentsRouter(handlers) {
         "add",
         agentId,
         "--non-interactive",
-        "--name",
-        name,
         "--workspace",
         workspace,
       ];
