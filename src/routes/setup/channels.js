@@ -34,18 +34,20 @@ export async function configureChannels(payload, handlers) {
         groupPolicy: "allowlist",
         streamMode: "partial",
       };
+
       const set = await runCmd(
         OPENCLAW_NODE,
         clawArgs(["config", "set", "--json", "channels.telegram", JSON.stringify(cfgObj)]),
       );
-      const patchPayload = { plugins: { entries: { telegram: { enabled: true } } } };
-      const patch = await runCmd(
+
+      const enablePlugin = await runCmd(
         OPENCLAW_NODE,
-        clawArgs(["config", "patch", JSON.stringify(patchPayload)]),
+        clawArgs(["config", "set", "plugins.entries.telegram.enabled", "true"]),
       );
+
       const get = await runCmd(OPENCLAW_NODE, clawArgs(["config", "get", "channels.telegram"]));
       out.push(`[telegram config] exit=${set.code} (output ${set.output.length} chars)\n${set.output || "(no output)"}`);
-      out.push(`[telegram plugin] exit=${patch.code} (output ${patch.output.length} chars)\n${patch.output || "(no output)"}`);
+      out.push(`[telegram enable plugin] exit=${enablePlugin.code} (output ${enablePlugin.output.length} chars)\n${enablePlugin.output || "(no output)"}`);
       out.push(`[telegram verify] exit=${get.code} (output ${get.output.length} chars)\n${get.output || "(no output)"}`);
     }
   }
