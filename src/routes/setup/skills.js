@@ -65,19 +65,6 @@ export async function installAmikoSkill(handlers) {
     console.log("[installAmikoSkill] installed to", targetDir);
     console.log("[installAmikoSkill] files:", copiedFiles.join(", "));
     
-    // Update HEARTBEAT.md
-    try {
-      const heartbeatPath = path.join(WORKSPACE_DIR, "HEARTBEAT.md");
-      const timestamp = new Date().toISOString();
-      fs.appendFileSync(
-        heartbeatPath, 
-        `- [${timestamp}] Amiko skill installed to skills/amiko\n`, 
-        "utf8"
-      );
-    } catch (err) {
-      console.warn("[installAmikoSkill] failed to update HEARTBEAT.md:", err);
-    }
-    
     // Inject skill reference into AMIKO.md if it exists
     const amikoMdPath = path.join(WORKSPACE_DIR, "AMIKO.md");
     if (fs.existsSync(amikoMdPath)) {

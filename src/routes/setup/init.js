@@ -186,6 +186,7 @@ export function createInitRouter(handlers) {
         } catch (err) {
           output += `[gateway] Warning: ${String(err)}\n`;
         }
+
       } else {
         output = "Already configured; skipping onboarding and gateway setup. Running data sync only.\n";
       }
