@@ -67,15 +67,6 @@ export async function pullTwinData(handlers) {
     fs.writeFileSync(outPath, markdown, "utf8");
     console.log("[pullTwinData] saved", { path: outPath });
 
-    // Append to HEARTBEAT.md
-    try {
-      const heartbeatPath = path.join(WORKSPACE_DIR, "HEARTBEAT.md");
-      const timestamp = new Date().toISOString();
-      fs.appendFileSync(heartbeatPath, `- [${timestamp}] Amiko data just updated\n`, "utf8");
-    } catch (err) {
-      console.warn("[pullTwinData] failed to update HEARTBEAT.md:", err);
-    }
-
     // Inject AMIKO.md reference into BOOTSTRAP.md or AGENTS.md
     const bootstrapPath = path.join(WORKSPACE_DIR, "BOOTSTRAP.md");
     const agentsPath = path.join(WORKSPACE_DIR, "AGENTS.md");
