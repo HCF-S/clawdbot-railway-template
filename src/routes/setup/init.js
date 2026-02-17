@@ -178,7 +178,7 @@ export function createInitRouter(handlers) {
 
         // Step 1b: Ensure gateway control UI allowed origins (fixes old containers)
         output += "\n[gateway] Setting control UI allowed origins...\n";
-        const { restartGateway, runCmd, OPENCLAW_NODE, clawArgs } = handlers;
+        const { restartGateway } = handlers;
         try {
           await setGatewayControlUiAllowedOrigins(handlers);
           await restartGateway();
@@ -187,14 +187,6 @@ export function createInitRouter(handlers) {
           output += `[gateway] Warning: ${String(err)}\n`;
         }
 
-        // Step 1c: Disable heartbeats to save API calls
-        output += "\n[heartbeat] Disabling heartbeats...\n";
-        try {
-          await runCmd(OPENCLAW_NODE, clawArgs(["config", "set", "agents.defaults.heartbeat.every", "0m"]));
-          output += "[heartbeat] Heartbeats disabled (set to 0m)\n";
-        } catch (err) {
-          output += `[heartbeat] Warning: ${String(err)}\n`;
-        }
       } else {
         output = "Already configured; skipping onboarding and gateway setup. Running data sync only.\n";
       }
