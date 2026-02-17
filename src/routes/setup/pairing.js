@@ -108,7 +108,7 @@ export function createPairingRouter(handlers) {
   });
 
   router.post("/devices/request", requireApiToken, async (req, res) => {
-    const { deviceId, publicKey, displayName, platform, role, scopes, clientId, remoteIp } = req.body || {};
+    const { deviceId, publicKey, displayName, platform, role, scopes, clientId, remoteIp, clientMode } = req.body || {};
 
     if (!deviceId || typeof deviceId !== "string" || !deviceId.trim()) {
       return res.status(400).json({ ok: false, error: "deviceId is required" });
@@ -143,6 +143,7 @@ export function createPairingRouter(handlers) {
           ts:          Date.now(),
           clientId:      typeof clientId === "string" ? clientId.trim() : undefined,
           remoteIp:      typeof remoteIp === "string" ? remoteIp.trim() : undefined,
+          clientMode:   typeof clientMode === "string" ? clientMode.trim() : undefined,
         };
         pendingById[request.requestId] = request;
         await writeJsonAtomic(pendingPath, pendingById);
