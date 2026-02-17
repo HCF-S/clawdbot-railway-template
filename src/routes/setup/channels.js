@@ -69,14 +69,15 @@ export async function configureChannels(payload, handlers) {
         OPENCLAW_NODE,
         clawArgs(["config", "set", "--json", "channels.discord", JSON.stringify(cfgObj)]),
       );
-      const discordPatch = { plugins: { entries: { discord: { enabled: true } } } };
-      const patch = await runCmd(
+
+      const enablePlugin = await runCmd(
         OPENCLAW_NODE,
-        clawArgs(["config", "patch", JSON.stringify(discordPatch)]),
+        clawArgs(["config", "set", "plugins.entries.discord.enabled", "true"]),
       );
+
       const get = await runCmd(OPENCLAW_NODE, clawArgs(["config", "get", "channels.discord"]));
       out.push(`[discord config] exit=${set.code} (output ${set.output.length} chars)\n${set.output || "(no output)"}`);
-      out.push(`[discord plugin] exit=${patch.code} (output ${patch.output.length} chars)\n${patch.output || "(no output)"}`);
+      out.push(`[discord enable plugin] exit=${enablePlugin.code} (output ${enablePlugin.output.length} chars)\n${enablePlugin.output || "(no output)"}`);
       out.push(`[discord verify] exit=${get.code} (output ${get.output.length} chars)\n${get.output || "(no output)"}`);
     }
   }
@@ -94,14 +95,15 @@ export async function configureChannels(payload, handlers) {
         OPENCLAW_NODE,
         clawArgs(["config", "set", "--json", "channels.slack", JSON.stringify(cfgObj)]),
       );
-      const slackPatch = { plugins: { entries: { slack: { enabled: true } } } };
-      const patch = await runCmd(
+
+      const enablePlugin = await runCmd(
         OPENCLAW_NODE,
-        clawArgs(["config", "patch", JSON.stringify(slackPatch)]),
+        clawArgs(["config", "set", "plugins.entries.slack.enabled", "true"]),
       );
+
       const get = await runCmd(OPENCLAW_NODE, clawArgs(["config", "get", "channels.slack"]));
       out.push(`[slack config] exit=${set.code} (output ${set.output.length} chars)\n${set.output || "(no output)"}`);
-      out.push(`[slack plugin] exit=${patch.code} (output ${patch.output.length} chars)\n${patch.output || "(no output)"}`);
+      out.push(`[slack enable plugin] exit=${enablePlugin.code} (output ${enablePlugin.output.length} chars)\n${enablePlugin.output || "(no output)"}`);
       out.push(`[slack verify] exit=${get.code} (output ${get.output.length} chars)\n${get.output || "(no output)"}`);
     }
   }
