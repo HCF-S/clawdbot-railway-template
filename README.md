@@ -1,86 +1,73 @@
-# OpenClaw Railway Template (1‑click deploy)
+# Clawdbot Railway Template
 
-This repo packages **OpenClaw** for Railway with a small **/setup** web wizard so users can deploy and onboard **without running any commands**.
+Deploy a personal **OpenClaw** AI gateway on Railway in one click — no commands, no config files, no DevOps.
 
 ## What you get
 
-- **OpenClaw Gateway + Control UI** (served at `/` and `/openclaw`)
-- A friendly **Setup Wizard** at `/setup` (protected by a password)
-- Persistent state via **Railway Volume** (so config/credentials/memory survive redeploys)
-- One-click **Export backup** (so users can migrate off Railway later)
-- **Import backup** from `/setup` (advanced recovery)
+- **OpenClaw gateway** running at `/` — your personal AI proxy with memory, skills, and chat integrations
+- **Setup wizard** at `/setup` — browser-based onboarding, no terminal required
+- **Amiko integration** — syncs your twin data, documents, and skills automatically on init
+- **Persistent state** via Railway Volume — config, memory, and credentials survive redeploys
+- **Export / Import backup** from `/setup` for migration or recovery
+- **Setup API** at `/setup/api/*` for programmatic control (see [SETUP_API.md](./SETUP_API.md))
 
-## How it works (high level)
+## Quick start
 
-- The container runs a wrapper web server.
-- The wrapper protects `/setup` with `SETUP_PASSWORD`.
-- During setup, the wrapper runs `openclaw onboard --non-interactive ...` inside the container, writes state to the volume, and then starts the gateway.
-- After setup, **`/` is OpenClaw**. The wrapper reverse-proxies all traffic (including WebSockets) to the local gateway process.
+1. Click **Deploy on Railway** (or use the Railway Template Composer with this repo)
+2. Add a **Volume** mounted at `/data`
+3. Set the required environment variables (see below)
+4. Enable **Public Networking** — Railway assigns a domain automatically
+5. Deploy, then visit `https://<your-app>.up.railway.app/setup` to complete onboarding
 
-## Railway deploy instructions (what you’ll publish as a Template)
+## Environment variables
 
-In Railway Template Composer:
+| Variable | Required | Description |
+| --- | --- | --- |
+| `SETUP_PASSWORD` | ✅ | Password to access `/setup` |
+| `OPENCLAW_STATE_DIR` | Recommended | Set to `/data/.openclaw` |
+| `OPENCLAW_WORKSPACE_DIR` | Recommended | Set to `/data/workspace` |
+| `OPENCLAW_GATEWAY_TOKEN` | Optional | Auth token for the gateway. Auto-generated if not set — use a Railway secret for templates |
+| `AMIKO_TWIN_ID` | Optional | Your Amiko twin ID |
+| `AMIKO_USER_TOKEN` | Optional | Your Amiko user token |
 
-1) Create a new template from this GitHub repo.
-2) Add a **Volume** mounted at `/data`.
-3) Set the following variables:
+> The template pins OpenClaw to a known-good version via the `OPENCLAW_GIT_REF` Docker build arg.
 
-Required:
-- `SETUP_PASSWORD` — user-provided password to access `/setup`
+## Chat integrations
 
-Recommended:
-- `OPENCLAW_STATE_DIR=/data/.openclaw`
-- `OPENCLAW_WORKSPACE_DIR=/data/workspace`
+### Telegram
+1. Message **@BotFather** on Telegram
+2. Run `/newbot` and follow the prompts
+3. Copy the token (`123456789:AA...`) and paste it into `/setup`
 
-Optional:
-- `OPENCLAW_GATEWAY_TOKEN` — if not set, the wrapper generates one (not ideal). In a template, set it using a generated secret.
-- `AMIKO_TWIN_ID` — your Amiko twin ID
-- `AMIKO_USER_TOKEN` — your Amiko user token
+### Discord
+1. Go to [discord.com/developers/applications](https://discord.com/developers/applications)
+2. **New Application** → **Bot** tab → **Add Bot** → copy the token
+3. Paste into `/setup`
+4. Invite the bot via OAuth2 URL Generator (scopes: `bot`, `applications.commands`)
 
-Notes:
-- This template pins OpenClaw to a known-good version by default via Docker build arg `OPENCLAW_GIT_REF`.
+### Slack
+Generate a Bot Token and App Token from [api.slack.com/apps](https://api.slack.com/apps) and paste both into `/setup`.
 
-4) Enable **Public Networking** (HTTP). Railway will assign a domain.
-5) Deploy.
+## Setup API
 
-Then:
-- Visit `https://<your-app>.up.railway.app/setup`
-- Complete setup
-- Visit `https://<your-app>.up.railway.app/` and `/openclaw`
+The `/setup/api/*` endpoints allow programmatic control of the gateway — onboarding, config, model selection, Amiko sync, backup/restore, and more.
 
-## Getting chat tokens (so you don’t have to scramble)
+See **[SETUP_API.md](./SETUP_API.md)** for the full reference.
 
-### Telegram bot token
-1) Open Telegram and message **@BotFather**
-2) Run `/newbot` and follow the prompts
-3) BotFather will give you a token that looks like: `123456789:AA...`
-4) Paste that token into `/setup`
-
-### Discord bot token
-1) Go to the Discord Developer Portal: https://discord.com/developers/applications
-2) **New Application** → pick a name
-3) Open the **Bot** tab → **Add Bot**
-4) Copy the **Bot Token** and paste it into `/setup`
-5) Invite the bot to your server (OAuth2 URL Generator → scopes: `bot`, `applications.commands`; then choose permissions)
-
-## Local dev (auto-restart on file changes)
-
-This uses Node's built-in watcher and a bind mount so changes on your host restart the server inside the container.
-
-Use the helper script:
+## Local development
 
 ```bash
-# start (default)
+# Start with auto-restart on file changes
 ./start-dev.sh
 
-# stop
+# Stop
 ./start-dev.sh stop
 
-# rebuild image
+# Rebuild image
 ./start-dev.sh build
 ```
 
-Equivalent manual command:
+Or manually:
 
 ```bash
 docker run --rm -p 3000:3000 \
@@ -96,7 +83,9 @@ docker run --rm -p 3000:3000 \
   npm run dev
 ```
 
-## Thanks
-- [OpenClaw](https://github.com/openclaw/openclaw)
-- [Railway](https://railway.app/)
-- [Original Template](https://github.com/vignesh07/clawdbot-railway-template)
+## How it works
+
+- A Node.js wrapper server handles `/setup` (protected by `SETUP_PASSWORD`) and proxies everything else to the OpenClaw gateway process
+- On first setup, `/setup/api/init` runs onboarding, syncs Amiko twin data and documents, and installs skills
+- After setup, the gateway runs at `/` with full WebSocket support
+- All state is written to the Railway Volume so it persists across redeploys and restarts
