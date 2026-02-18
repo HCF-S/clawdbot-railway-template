@@ -340,20 +340,6 @@ export async function pullDocs(handlers) {
       }
     }
 
-    // Append to HEARTBEAT.md only if there were actual changes
-    if (created > 0 || updated > 0) {
-      try {
-        const heartbeatPath = path.join(WORKSPACE_DIR, "HEARTBEAT.md");
-        const timestamp = new Date().toISOString();
-        const changesSummary = [];
-        if (created > 0) changesSummary.push(`${created} created`);
-        if (updated > 0) changesSummary.push(`${updated} updated`);
-        fs.appendFileSync(heartbeatPath, `- [${timestamp}] Amiko docs synced (${changesSummary.join(", ")})\n`, "utf8");
-      } catch (err) {
-        console.warn("[pullDocs] failed to update HEARTBEAT.md:", err);
-      }
-    }
-
     // Build output message
     const parts = [];
     if (created > 0) parts.push(`${created} created`);
@@ -471,19 +457,6 @@ export async function pullMemories(handlers) {
     const destPath = path.join(WORKSPACE_DIR, "amiko-memories.md");
     fs.writeFileSync(destPath, markdown, "utf8");
     console.log("[pullMemories] wrote", destPath);
-
-    // Update HEARTBEAT.md
-    try {
-      const heartbeatPath = path.join(WORKSPACE_DIR, "HEARTBEAT.md");
-      const timestamp = new Date().toISOString();
-      fs.appendFileSync(
-        heartbeatPath, 
-        `- [${timestamp}] Synced ${allMemories.length} memories to amiko-memories.md\n`, 
-        "utf8"
-      );
-    } catch (err) {
-      console.warn("[pullMemories] failed to update HEARTBEAT.md:", err);
-    }
 
     return { 
       ok: true, 
