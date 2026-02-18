@@ -77,9 +77,13 @@ async function writeJsonAtomic(filePath, data) {
   const tmp = `${filePath}.${randomUUID()}.tmp`;
   await mkdir(path.dirname(filePath), { recursive: true });
   await writeFile(tmp, JSON.stringify(data, null, 2), "utf8");
-  try { await chmod(tmp, 0o600); } catch { /* best-effort */ }
+  try { await chmod(tmp, 0o600); } catch (e) { 
+   console.error(e) 
+  }
   await rename(tmp, filePath);
-  try { await chmod(filePath, 0o600); } catch { /* best-effort */ }
+  try { await chmod(filePath, 0o600); } catch (e) { 
+    console.error(e)
+  }
 }
 
 const PENDING_TTL_MS = 5 * 60 * 1000;
@@ -180,7 +184,6 @@ export function createPairingRouter(handlers) {
       const result = await withLock(async () => {
         const { pendingById, pairedByDeviceId, pendingPath } = await loadPairingState();
 
-        // Return existing pending request for the same device (idempotent).
         const existing = Object.values(pendingById).find((p) => p.deviceId === derivedDeviceId);
         if (existing) {
           return { request: existing, created: false };
