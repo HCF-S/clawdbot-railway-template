@@ -1,8 +1,58 @@
 import express from "express";
 import path from "node:path";
 import os from "node:os";
-import { randomUUID } from "node:crypto";
-import { readFile, writeFile, mkdir, rename } from "node:fs/promises";
+import { randomUUID, createPublicKey, createHash } from "node:crypto";
+import { readFile, writeFile, mkdir, rename, chmod } from "node:fs/promises";
+
+// ---------------------------------------------------------------------------
+// Key normalization helpers (mirrors openclaw/src/infra/device-identity.ts)
+// ---------------------------------------------------------------------------
+
+const ED25519_SPKI_PREFIX = Buffer.from("302a300506032b6570032100", "hex");
+
+function base64UrlEncode(buf) {
+  return buf.toString("base64").replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/g, "");
+}
+
+function base64UrlDecode(input) {
+  const normalized = input.replaceAll("-", "+").replaceAll("_", "/");
+  const padded = normalized + "=".repeat((4 - (normalized.length % 4)) % 4);
+  return Buffer.from(padded, "base64");
+}
+
+function derivePublicKeyRaw(publicKeyPem) {
+  const key = createPublicKey(publicKeyPem);
+  const spki = key.export({ type: "spki", format: "der" });
+  if (
+    spki.length === ED25519_SPKI_PREFIX.length + 32 &&
+    spki.subarray(0, ED25519_SPKI_PREFIX.length).equals(ED25519_SPKI_PREFIX)
+  ) {
+    return spki.subarray(ED25519_SPKI_PREFIX.length);
+  }
+  return spki;
+}
+
+function normalizeDevicePublicKeyBase64Url(publicKey) {
+  try {
+    if (publicKey.includes("BEGIN")) {
+      return base64UrlEncode(derivePublicKeyRaw(publicKey));
+    }
+    return base64UrlEncode(base64UrlDecode(publicKey));
+  } catch {
+    return null;
+  }
+}
+
+function deriveDeviceIdFromPublicKey(publicKey) {
+  try {
+    const raw = publicKey.includes("BEGIN")
+      ? derivePublicKeyRaw(publicKey)
+      : base64UrlDecode(publicKey);
+    return createHash("sha256").update(raw).digest("hex");
+  } catch {
+    return null;
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Device-pairing state helpers (mirrors openclaw/src/infra/device-pairing.ts)
@@ -24,10 +74,12 @@ async function readJsonFile(filePath) {
 }
 
 async function writeJsonAtomic(filePath, data) {
-  const tmp = `${filePath}.tmp.${Date.now()}`;
+  const tmp = `${filePath}.${randomUUID()}.tmp`;
   await mkdir(path.dirname(filePath), { recursive: true });
   await writeFile(tmp, JSON.stringify(data, null, 2), "utf8");
+  try { await chmod(tmp, 0o600); } catch { /* best-effort */ }
   await rename(tmp, filePath);
+  try { await chmod(filePath, 0o600); } catch { /* best-effort */ }
 }
 
 const PENDING_TTL_MS = 5 * 60 * 1000;
@@ -108,32 +160,38 @@ export function createPairingRouter(handlers) {
   });
 
   router.post("/devices/request", requireApiToken, async (req, res) => {
-    const { deviceId, publicKey, displayName, platform, role, scopes, clientId, remoteIp, clientMode } = req.body || {};
+    const { publicKey, displayName, platform, role, scopes, clientId, remoteIp, clientMode } = req.body || {};
 
-    if (!deviceId || typeof deviceId !== "string" || !deviceId.trim()) {
-      return res.status(400).json({ ok: false, error: "deviceId is required" });
-    }
     if (!publicKey || typeof publicKey !== "string" || !publicKey.trim()) {
       return res.status(400).json({ ok: false, error: "publicKey is required" });
+    }
+
+    const normalizedPublicKey = normalizeDevicePublicKeyBase64Url(publicKey.trim());
+    if (!normalizedPublicKey) {
+      return res.status(400).json({ ok: false, error: "publicKey is invalid or unsupported format" });
+    }
+
+    const derivedDeviceId = deriveDeviceIdFromPublicKey(publicKey.trim());
+    if (!derivedDeviceId) {
+      return res.status(400).json({ ok: false, error: "Could not derive deviceId from publicKey" });
     }
 
     try {
       const result = await withLock(async () => {
         const { pendingById, pairedByDeviceId, pendingPath } = await loadPairingState();
-        const normalizedId = deviceId.trim();
 
         // Return existing pending request for the same device (idempotent).
-        const existing = Object.values(pendingById).find((p) => p.deviceId === normalizedId);
+        const existing = Object.values(pendingById).find((p) => p.deviceId === derivedDeviceId);
         if (existing) {
           return { request: existing, created: false };
         }
 
-        const isRepair = Boolean(pairedByDeviceId[normalizedId]);
+        const isRepair = Boolean(pairedByDeviceId[derivedDeviceId]);
         const normalizedRole = typeof role === "string" ? role.trim() : undefined;
         const request = {
           requestId:   randomUUID(),
-          deviceId:    normalizedId,
-          publicKey:   publicKey.trim(),
+          deviceId:    derivedDeviceId,
+          publicKey:   normalizedPublicKey,
           displayName: typeof displayName === "string" ? displayName.trim() : undefined,
           platform:    typeof platform    === "string" ? platform.trim()    : undefined,
           role:        normalizedRole || undefined,
@@ -144,6 +202,7 @@ export function createPairingRouter(handlers) {
           clientId:      typeof clientId === "string" ? clientId.trim() : undefined,
           remoteIp:      typeof remoteIp === "string" ? remoteIp.trim() : undefined,
           clientMode:   typeof clientMode === "string" ? clientMode.trim() : undefined,
+          silent: false
         };
         pendingById[request.requestId] = request;
         await writeJsonAtomic(pendingPath, pendingById);
