@@ -325,7 +325,10 @@ function showSection(id) {
     initRunEl.onclick = function () {
       var payload = {
         authSecret: document.getElementById('initAuthSecret').value,
-        model: document.getElementById('initModel').value
+        model: document.getElementById('initModel').value,
+        amikoUserId: document.getElementById('initAmikoUserId').value,
+        amikoTwinId: document.getElementById('initAmikoTwinId').value,
+        amikoUserToken: document.getElementById('initAmikoUserToken').value
       };
 
       if (!payload.authSecret) {

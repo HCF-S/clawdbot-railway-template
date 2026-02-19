@@ -77,7 +77,7 @@
 
           <div data-onboard-section="quick" hidden>
             <p class="muted" style="margin-top:0.75rem;">
-              Use this after the container auto-onboards with a dummy key. It plugs in the real OpenRouter API key and sets the default model.
+              Use this after the container auto-onboards with a dummy key. It plugs in the real OpenRouter API key, default model, and Amiko IDs/tokens.
             </p>
 
             <div class="field-grid">
@@ -86,6 +86,15 @@
 
               <label for="initModel">Default model (provider/model)</label>
               <input id="initModel" placeholder="e.g. openrouter/auto" />
+
+              <label for="initAmikoUserId">Amiko user ID</label>
+              <input id="initAmikoUserId" placeholder="user UUID from Amiko" />
+
+              <label for="initAmikoTwinId">Amiko twin ID</label>
+              <input id="initAmikoTwinId" placeholder="twin UUID from Amiko" />
+
+              <label for="initAmikoUserToken">Amiko user token</label>
+              <input id="initAmikoUserToken" type="password" placeholder="JWT from Amiko" />
             </div>
 
             <div class="action-row">

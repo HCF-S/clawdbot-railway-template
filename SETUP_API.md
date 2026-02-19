@@ -29,7 +29,7 @@ When creating **pooled** instances (unassigned, no user/twin yet), set only mini
 
 | Method | Endpoint | Description | Request body |
 | --- | --- | --- | --- |
-| `POST` | `/setup/api/init` | **Recommended.** Replace the dummy OpenRouter key created at startup with `authSecret`, optionally set the default model, restart the gateway, then run Amiko sync + skill + SYS + version. When not configured (rare), runs full onboarding first and then the same steps. | JSON body `{ authSecret: string, model?: "provider/model" }`. `authSecret` = real OpenRouter API key. |
+| `POST` | `/setup/api/init` | **Recommended.** Replace the dummy OpenRouter key created at startup with `authSecret`, optionally set the default model, and persist Amiko IDs/tokens for later sync, then restart the gateway and run Amiko sync + skill + SYS + version. When not configured (rare), runs full onboarding first and then the same steps. | JSON body `{ authSecret: string, model?: "provider/model", amikoUserId?: string, amikoTwinId?: string, amikoUserToken?: string }`. `authSecret` = real OpenRouter API key. When provided, `amikoUserId`/`amikoTwinId`/`amikoUserToken` are stored in `/data/.amiko.json`. |
 | `POST` | `/setup/api/onboard` | Core onboarding endpoint (without Amiko sync). Runs `openclaw onboard ...` with the selected `authChoice` + secret + flow, writes gateway auth (token, bind, port, trusted proxies), applies default model based on provider, and optionally writes Telegram/Discord/Slack config objects. | JSON body with keys `flow`, `authChoice`, `authSecret`, `telegramToken`, `discordToken`, `slackBotToken`, `slackAppToken`. |
 | `GET` | `/setup/api/config/raw` | Returns the raw `openclaw.json` so the UI can edit it. | Response `{ ok, path, exists, content }`. |
 | `POST` | `/setup/api/config/raw` | Overwrite the entire config. Creates a timestamped `.bak` of the previous file and restarts the gateway immediately. | Body `{ content: string }` (max `500000` chars). |
@@ -38,9 +38,9 @@ When creating **pooled** instances (unassigned, no user/twin yet), set only mini
 
 | Method | Endpoint | Description | Request body / headers |
 | --- | --- | --- | --- |
-| `POST` | `/setup/api/amiko/pull` | Fetches twin data from the platform API and writes a markdown snapshot to `AMIKO.md` in the workspace. | Uses `AMIKO_TWIN_ID` + `AMIKO_USER_TOKEN` from the container env. |
-| `POST` | `/setup/api/amiko/docs` | Trigger to sync all documents from the platform API. Automatically fetches all docs in batches (50 per batch) and writes markdown files to `amiko-docs/` folder. **Supports incremental sync** — only writes files that are new or updated (based on `updated_at`), skipping unchanged docs. | No body required. Uses `AMIKO_TWIN_ID` + `AMIKO_USER_TOKEN` from env. Response includes `created`, `updated`, `skipped` counts. |
-| `POST` | `/setup/api/amiko/memories` | **Optional.** Sync memories from the platform API to `amiko-memories.md`. Data quality may vary. | No body required. Uses `AMIKO_TWIN_ID` + `AMIKO_USER_TOKEN` from env. |
+| `POST` | `/setup/api/amiko/pull` | Fetches twin data from the platform API and writes a markdown snapshot to `AMIKO.md` in the workspace. | Uses `AMIKO_TWIN_ID` + `AMIKO_USER_TOKEN` from `/data/.amiko.json` (written by `/init`), falling back to env if the file is missing. |
+| `POST` | `/setup/api/amiko/docs` | Trigger to sync all documents from the platform API. Automatically fetches all docs in batches (50 per batch) and writes markdown files to `amiko-docs/` folder. **Supports incremental sync** — only writes files that are new or updated (based on `updated_at`), skipping unchanged docs. | No body required. Uses `AMIKO_TWIN_ID` + `AMIKO_USER_TOKEN` from `/data/.amiko.json` (or env as fallback). Response includes `created`, `updated`, `skipped` counts. |
+| `POST` | `/setup/api/amiko/memories` | **Optional.** Sync memories from the platform API to `amiko-memories.md`. Data quality may vary. | No body required. Uses `AMIKO_TWIN_ID` + `AMIKO_USER_TOKEN` from `/data/.amiko.json` (or env as fallback). |
 
 ## Channel helpers
 

@@ -185,23 +185,56 @@ export function createInitRouter(handlers) {
       } else {
         // Already configured (e.g. auto-onboard with dummy key at startup): replace dummy key with real one
         const realKey = String(payload.authSecret ?? "").trim();
+        const amikoUserId = String(payload.amikoUserId ?? "").trim();
+        const amikoTwinId = String(payload.amikoTwinId ?? "").trim();
+        const amikoUserToken = String(payload.amikoUserToken ?? "").trim();
+
         if (realKey) {
           const replaceResult = replaceOpenRouterKeyInAuthProfiles(handlers, realKey);
           output = replaceResult.ok ? `${replaceResult.output}\n` : `${replaceResult.output}\n`;
-          if (replaceResult.ok) {
-            await restartGateway();
-            output += "[gateway] Restarted to pick up new OpenRouter key.\n";
-
-            const model = String(payload.model ?? "").trim();
-            if (model) {
-              const r = await runCmd(OPENCLAW_NODE, clawArgs(["models", "set", model]));
-              output += `[models] Set default model to ${model} (exit=${r.code})\n${r.output || ""}\n`;
-            }
-          } else {
+          if (!replaceResult.ok) {
             return res.status(500).json({ ok: false, output: replaceResult.output });
           }
         } else {
-          output = "Already configured; no authSecret provided to replace key. Running data sync only.\n";
+          output = "Already configured; no authSecret provided to replace key.\n";
+        }
+
+        // Persist Amiko config if provided
+        if (amikoUserId || amikoTwinId || amikoUserToken) {
+          try {
+            const cfgPath = "/data/.amiko.json";
+            let current = {};
+            if (fs.existsSync(cfgPath)) {
+              try {
+                current = JSON.parse(fs.readFileSync(cfgPath, "utf8"));
+              } catch {
+                current = {};
+              }
+            }
+            const next = {
+              ...current,
+              AMIKO_USER_ID: amikoUserId || current.AMIKO_USER_ID || "",
+              AMIKO_TWIN_ID: amikoTwinId || current.AMIKO_TWIN_ID || "",
+              AMIKO_USER_TOKEN: amikoUserToken || current.AMIKO_USER_TOKEN || "",
+            };
+            fs.writeFileSync(cfgPath, JSON.stringify(next, null, 2), { encoding: "utf8", mode: 0o600 });
+            output += "[amiko] Saved Amiko config to /data/.amiko.json\n";
+          } catch (err) {
+            output += `[amiko] WARNING: Failed to write /data/.amiko.json: ${String(err)}\n`;
+          }
+        }
+
+        // Restart gateway after key/model changes
+        if (realKey || payload.model) {
+          await restartGateway();
+          output += "[gateway] Restarted to pick up new OpenRouter key/model.\n";
+
+          const model = String(payload.model ?? "").trim();
+          if (model) {
+            const r = await runCmd(OPENCLAW_NODE, clawArgs(["models", "set", model]));
+            output += `[models] Set default model to ${model} (exit=${r.code})\n${r.output || ""}\n`;
+          }
+        } else {
           try {
             await handlers.ensureGatewayRunning();
           } catch {
