@@ -1,5 +1,6 @@
 import express from "express";
 import fs from "node:fs";
+import path from "node:path";
 
 export function createRunRouter(handlers) {
   const { requireApiToken } = handlers;
@@ -37,6 +38,35 @@ export async function setGatewayControlUiAllowedOrigins(handlers, originsOverrid
   const originsArray = JSON.stringify(raw.split(",").map((o) => o.trim()).filter(Boolean));
   await runCmd(OPENCLAW_NODE, clawArgs(["config", "set", "gateway.controlUi.allowedOrigins", originsArray]));
   return { ok: true };
+}
+
+/**
+ * Replace the OpenRouter API key in agents/main/agent/auth-profiles.json.
+ * Used when config was created with a dummy key at startup; /init passes the real key.
+ * @param {object} handlers - { STATE_DIR, restartGateway }
+ * @param {string} realKey - The real OpenRouter API key
+ * @returns {{ ok: boolean, output: string }}
+ */
+export function replaceOpenRouterKeyInAuthProfiles(handlers, realKey) {
+  const { STATE_DIR } = handlers;
+  const authPath = path.join(STATE_DIR, "agents", "main", "agent", "auth-profiles.json");
+  if (!fs.existsSync(authPath)) {
+    return { ok: false, output: `auth-profiles.json not found at ${authPath}` };
+  }
+  const raw = fs.readFileSync(authPath, "utf8");
+  let data;
+  try {
+    data = JSON.parse(raw);
+  } catch (e) {
+    return { ok: false, output: `Invalid JSON in auth-profiles.json: ${String(e)}` };
+  }
+  if (data.profiles && data.profiles["openrouter:default"]) {
+    data.profiles["openrouter:default"].key = String(realKey ?? "").trim();
+  } else {
+    return { ok: false, output: "openrouter:default profile not found in auth-profiles.json" };
+  }
+  fs.writeFileSync(authPath, JSON.stringify(data, null, 2), { encoding: "utf8", mode: 0o600 });
+  return { ok: true, output: "Replaced OpenRouter key in auth-profiles.json" };
 }
 
 // Shared onboarding logic that can be reused by init.js

@@ -1,6 +1,14 @@
 # `/setup` API reference
 
-All `/setup/*` endpoints require the `x-api-token` header (set to your `SETUP_PASSWORD`) once the wizard is running. The browser / SPA stores the token in `localStorage` under `openclaw_setup_api_token` and sets it automatically; other clients must set `x-api-token`. The only endpoint that still uses Basic auth is `GET /setup` itself, which serves the static SPA.
+All `/setup/*` endpoints require the `x-api-token` header (set to your `SETUP_PASSWORD`) once the wizard is running.
+
+## Pool (pre-provisioned) instances
+
+When creating **pooled** instances (unassigned, no user/twin yet), set only minimal env so the container can start and persist state under `/data`:
+
+- **Required**: `OPENCLAW_HOME=/data` (or `OPENCLAW_STATE_DIR=/data/.openclaw`) so OpenClaw state lives on persistent storage.
+- **Required for setup UI**: `SETUP_PASSWORD`, `OPENCLAW_GATEWAY_TOKEN`, `PORT` (e.g. `3000`), `OPENCLAW_PUBLIC_PORT`, `OPENCLAW_CONTROL_UI_ALLOWED_ORIGINS`.
+- **Do not set** at create time: `AMIKO_USER_ID`, `AMIKO_TWIN_ID`, `AMIKO_USER_TOKEN`, `OPENROUTER_API_KEY`. On first start the wrapper **auto-runs onboard with a dummy OpenRouter key** (`"test"`) so `.openclaw` is fully created and the gateway can start. When the instance is assigned to a user, the platform calls `POST /setup/api/init` with `authSecret` (user’s real OpenRouter key); the wrapper **replaces the dummy key** in `/data/.openclaw/agents/main/agent/auth-profiles.json` and restarts the gateway, then runs Amiko sync + skill + SYS + version. The browser / SPA stores the token in `localStorage` under `openclaw_setup_api_token`; other clients must set `x-api-token`. The only endpoint that still uses Basic auth is `GET /setup` itself.
 
 ## Health & static assets
 
@@ -21,7 +29,8 @@ All `/setup/*` endpoints require the `x-api-token` header (set to your `SETUP_PA
 
 | Method | Endpoint | Description | Request body |
 | --- | --- | --- | --- |
-| `POST` | `/setup/api/init` | **Recommended.** Full initialization endpoint that combines onboarding + Amiko data sync + skill installation. Runs the onboarding process, syncs twin data (`AMIKO.md`) and documents (`amiko-docs/`), and installs the Amiko skill (`skills/amiko/`). | Same as `/run`: JSON body with keys `flow`, `authChoice`, `authSecret`, `telegramToken`, `discordToken`, `slackBotToken`, `slackAppToken`. |
+| `POST` | `/setup/api/init` | **Recommended.** When already configured (e.g. after auto-onboard at startup): replaces the dummy OpenRouter key in `agents/main/agent/auth-profiles.json` with `authSecret`, restarts the gateway, then runs Amiko sync + skill + SYS + version. When not configured: runs full onboarding then the same. | JSON body with keys `flow`, `authChoice`, `authSecret`, `telegramToken`, `discordToken`, `slackBotToken`, `slackAppToken`. `authSecret` = real OpenRouter API key. |
+| `POST` | `/setup/api/init-template` | Alias for `/init`: same behavior (replace key when configured, full onboarding when not). | Same body as `/init`. |
 | `POST` | `/setup/api/run` | Core onboarding endpoint (without Amiko sync). Runs `openclaw onboard ...` with the selected `authChoice` + secret + flow, writes gateway auth (token, bind, port, trusted proxies), applies default model based on provider, and optionally writes Telegram/Discord/Slack config objects. | JSON body with keys `flow`, `authChoice`, `authSecret`, `telegramToken`, `discordToken`, `slackBotToken`, `slackAppToken`. |
 | `GET` | `/setup/api/config/raw` | Returns the raw `openclaw.json` so the UI can edit it. | Response `{ ok, path, exists, content }`. |
 | `POST` | `/setup/api/config/raw` | Overwrite the entire config. Creates a timestamped `.bak` of the previous file and restarts the gateway immediately. | Body `{ content: string }` (max `500000` chars). |
@@ -83,7 +92,6 @@ The gateway **auto-starts when the container starts** (when the wrapper is confi
 | Method | Endpoint | Description |
 | --- | --- | --- |
 | `POST` | `/setup/api/gateway/restart` | Restarts the gateway process (e.g. to apply config changes). Gateway is started automatically with the container. |
-| `POST` | `/setup/api/gateway/control-ui-allowed-origins` | Sets `gateway.controlUi.allowedOrigins` (from env, or default: platform + Vercel + localhost origins) and restarts the gateway. Optional body `{ origins: "comma,separated" }`. Use to fix old containers that lack the setting. |
 
 ## Skills
 

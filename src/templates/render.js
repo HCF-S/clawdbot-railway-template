@@ -92,7 +92,7 @@ export function renderTemplateFile(templateName, context) {
  * @returns {string} Rendered markdown
  */
 export function renderAmikoMd(twin, user = null, docs = null) {
-  return renderTemplateFile("AMIKO.md.tmpl", { twin, user, docs });
+  return renderTemplateFile("workspace/AMIKO.md.tmpl", { twin, user, docs });
 }
 
 /**
@@ -117,7 +117,7 @@ export function renderDocMd(doc) {
     ...doc,
   };
   
-  return renderTemplateFile("DOC.md.tmpl", { doc: docWithDefaults });
+  return renderTemplateFile("workspace/DOC.md.tmpl", { doc: docWithDefaults });
 }
 
 /**
@@ -137,7 +137,7 @@ export function renderMemoriesMd(memories, twinId) {
     memoriesByType[type].push(memory);
   }
   
-  return renderTemplateFile("MEMORIES.md.tmpl", { 
+  return renderTemplateFile("workspace/MEMORIES.md.tmpl", { 
     memories, 
     memoriesByType,
     twinId,

@@ -2,7 +2,7 @@ import express from "express";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { runOnboarding, setGatewayControlUiAllowedOrigins } from "./run.js";
+import { runOnboarding, replaceOpenRouterKeyInAuthProfiles, setGatewayControlUiAllowedOrigins } from "./run.js";
 import { syncAmikoData } from "./amiko.js";
 import { installAmikoSkill } from "./skills.js";
 import { CURRENT_SETUP_VERSION, setInstalledVersion } from "./version.js";
@@ -18,8 +18,8 @@ export async function installSysConfig(handlers) {
   const { WORKSPACE_DIR } = handlers;
   
   try {
-    // Copy SYS.md template to workspace
-    const templatePath = path.join(__dirname, "../../templates/SYS.md.tmpl");
+    // Copy SYS.md template to workspace (template lives under workspace/ = final position)
+    const templatePath = path.join(__dirname, "../../templates/workspace/SYS.md.tmpl");
     const destPath = path.join(WORKSPACE_DIR, "SYS.md");
     
     if (fs.existsSync(templatePath)) {
@@ -165,20 +165,16 @@ export function createInitRouter(handlers) {
   router.post("/init", requireApiToken, async (req, res) => {
     try {
       const payload = req.body || {};
-      const { isConfigured } = handlers;
+      const { isConfigured, restartGateway } = handlers;
       let output = "";
 
       if (!isConfigured()) {
-        // Step 1: Run onboarding (includes channel configuration)
+        // Not configured: run full onboarding (e.g. bootstrap failed or first deploy without auto-onboard)
         const onboardResult = await runOnboarding(payload, handlers);
         if (!onboardResult.ok) {
           return res.status(500).json(onboardResult);
         }
         output = onboardResult.output;
-
-        // Step 1b: Ensure gateway control UI allowed origins (fixes old containers)
-        output += "\n[gateway] Setting control UI allowed origins...\n";
-        const { restartGateway } = handlers;
         try {
           await setGatewayControlUiAllowedOrigins(handlers);
           await restartGateway();
@@ -186,49 +182,123 @@ export function createInitRouter(handlers) {
         } catch (err) {
           output += `[gateway] Warning: ${String(err)}\n`;
         }
-
       } else {
-        output = "Already configured; skipping onboarding and gateway setup. Running data sync only.\n";
+        // Already configured (e.g. auto-onboard with dummy key at startup): replace dummy key with real one
+        const realKey = String(payload.authSecret ?? "").trim();
+        if (realKey) {
+          const replaceResult = replaceOpenRouterKeyInAuthProfiles(handlers, realKey);
+          output = replaceResult.ok ? `${replaceResult.output}\n` : `${replaceResult.output}\n`;
+          if (replaceResult.ok) {
+            await restartGateway();
+            output += "[gateway] Restarted to pick up new OpenRouter key.\n";
+          } else {
+            return res.status(500).json({ ok: false, output: replaceResult.output });
+          }
+        } else {
+          output = "Already configured; no authSecret provided to replace key. Running data sync only.\n";
+          try {
+            await handlers.ensureGatewayRunning();
+          } catch {
+            // ignore
+          }
+        }
       }
 
-      // Step 2: Sync Amiko data
-      output += "\n\n[amiko] Starting Amiko data sync...\n";
-      const amikoOutput = await syncAmikoData(handlers);
-      output += amikoOutput;
-
-      // Step 3: Install Amiko skill
-      output += "\n[amiko] Installing Amiko skill...\n";
-      const skillResult = await installAmikoSkill(handlers);
-      if (skillResult.ok) {
-        output += `[amiko/skill] ${skillResult.output}\n`;
-      } else {
-        output += `[amiko/skill] Warning: ${skillResult.error}\n`;
-      }
-
-      // Step 4: Install SYS.md and create /data/sys structure
-      output += "\n[sys] Setting up system persistence...\n";
-      const sysResult = await installSysConfig(handlers);
-      if (sysResult.ok) {
-        output += `[sys] ${sysResult.output}\n`;
-      } else {
-        output += `[sys] Warning: ${sysResult.error}\n`;
-      }
-
-      // Step 5: Set setup version
-      output += "\n[version] Setting setup version...\n";
-      const versionSet = setInstalledVersion(CURRENT_SETUP_VERSION);
-      if (versionSet) {
-        output += `[version] Set to ${CURRENT_SETUP_VERSION}\n`;
-      } else {
-        output += `[version] Warning: Failed to set version\n`;
-      }
-
-      return res.json({ ok: true, version: CURRENT_SETUP_VERSION, output });
+      return await finishInit(output, handlers, res);
     } catch (err) {
       console.error("[/setup/api/init] error:", err);
       return res.status(500).json({ ok: false, output: `Internal error: ${String(err)}` });
     }
   });
 
+  /** Alias for /init: same behavior (key replace when configured, full onboarding when not). */
+  router.post("/init-template", requireApiToken, async (req, res) => {
+    try {
+      const payload = req.body || {};
+      const { isConfigured, restartGateway } = handlers;
+      let output = "";
+
+      if (!isConfigured()) {
+        const onboardResult = await runOnboarding(payload, handlers);
+        if (!onboardResult.ok) {
+          return res.status(500).json(onboardResult);
+        }
+        output = onboardResult.output;
+        try {
+          await setGatewayControlUiAllowedOrigins(handlers);
+          await restartGateway();
+          output += "[gateway] Allowed origins set and gateway restarted.\n";
+        } catch (err) {
+          output += `[gateway] Warning: ${String(err)}\n`;
+        }
+      } else {
+        const realKey = String(payload.authSecret ?? "").trim();
+        if (realKey) {
+          const replaceResult = replaceOpenRouterKeyInAuthProfiles(handlers, realKey);
+          output = replaceResult.ok ? `${replaceResult.output}\n` : replaceResult.output;
+          if (replaceResult.ok) {
+            await restartGateway();
+            output += "[gateway] Restarted to pick up new OpenRouter key.\n";
+          } else {
+            return res.status(500).json({ ok: false, output: replaceResult.output });
+          }
+        } else {
+          output = "Already configured; no authSecret provided. Running data sync only.\n";
+          try {
+            await handlers.ensureGatewayRunning();
+          } catch {
+            // ignore
+          }
+        }
+      }
+
+      return await finishInit(output, handlers, res);
+    } catch (err) {
+      console.error("[/setup/api/init-template] error:", err);
+      return res.status(500).json({ ok: false, output: `Internal error: ${String(err)}` });
+    }
+  });
+
   return router;
+}
+
+async function finishInit(output, handlers, res) {
+  try {
+    // Step 2: Sync Amiko data
+    output += "\n\n[amiko] Starting Amiko data sync...\n";
+    const amikoOutput = await syncAmikoData(handlers);
+    output += amikoOutput;
+
+    // Step 3: Install Amiko skill
+    output += "\n[amiko] Installing Amiko skill...\n";
+    const skillResult = await installAmikoSkill(handlers);
+    if (skillResult.ok) {
+      output += `[amiko/skill] ${skillResult.output}\n`;
+    } else {
+      output += `[amiko/skill] Warning: ${skillResult.error}\n`;
+    }
+
+    // Step 4: Install SYS.md and create /data/sys structure
+    output += "\n[sys] Setting up system persistence...\n";
+    const sysResult = await installSysConfig(handlers);
+    if (sysResult.ok) {
+      output += `[sys] ${sysResult.output}\n`;
+    } else {
+      output += `[sys] Warning: ${sysResult.error}\n`;
+    }
+
+    // Step 5: Set setup version
+    output += "\n[version] Setting setup version...\n";
+    const versionSet = setInstalledVersion(CURRENT_SETUP_VERSION);
+    if (versionSet) {
+      output += `[version] Set to ${CURRENT_SETUP_VERSION}\n`;
+    } else {
+      output += `[version] Warning: Failed to set version\n`;
+    }
+
+    return res.json({ ok: true, version: CURRENT_SETUP_VERSION, output });
+  } catch (err) {
+    console.error("[finishInit] error:", err);
+    return res.status(500).json({ ok: false, output: `Internal error: ${String(err)}` });
+  }
 }

@@ -44,8 +44,7 @@ docker run --rm --name "${CONTAINER_NAME}" -p "${PORT}:3000" \
   -e AMIKO_TWIN_ID="${AMIKO_TWIN_ID}" \
   -e AMIKO_USER_ID="${AMIKO_USER_ID}" \
   -e AMIKO_USER_TOKEN="${AMIKO_USER_TOKEN}" \
-  -e OPENCLAW_STATE_DIR=/data/.openclaw \
-  -e OPENCLAW_WORKSPACE_DIR=/data/workspace \
+  -e OPENCLAW_HOME=/data \
   -v "$(pwd):/app" \
   -v "${DATA_DIR}:/data" \
   -w /app \

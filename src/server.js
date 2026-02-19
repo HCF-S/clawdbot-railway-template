@@ -21,10 +21,12 @@ const PORT = Number.parseInt(
 
 // State/workspace
 // OpenClaw defaults to ~/.openclaw. Keep CLAWDBOT_* as backward-compat aliases.
+// OPENCLAW_HOME (https://docs.openclaw.ai/help/environment) sets effective home; state is $OPENCLAW_HOME/.openclaw
+const OPENCLAW_HOME = process.env.OPENCLAW_HOME?.trim();
 const STATE_DIR =
   process.env.OPENCLAW_STATE_DIR?.trim() ||
   process.env.CLAWDBOT_STATE_DIR?.trim() ||
-  path.join(os.homedir(), ".openclaw");
+  (OPENCLAW_HOME ? path.join(OPENCLAW_HOME, ".openclaw") : path.join(os.homedir(), ".openclaw"));
 
 const WORKSPACE_DIR =
   process.env.OPENCLAW_WORKSPACE_DIR?.trim() ||
@@ -323,13 +325,78 @@ function buildOnboardArgs(payload) {
   return args;
 }
 
+/** Dummy OpenRouter key used by auto-onboard at startup; /init replaces it with the real key. */
+const DUMMY_OPENROUTER_KEY = "test";
+
 /** Env var for OpenRouter API key; when set and no config exists, bootstrap so gateway can auto-start on first run. */
 const OPENROUTER_API_KEY_ENV =
   process.env.OPENROUTER_API_KEY?.trim() || process.env.OPENCLAW_OPENROUTER_API_KEY?.trim() || "";
 
 /**
+ * If not configured, run onboard once with a dummy OpenRouter key so .openclaw is fully created.
+ * Platform then calls POST /setup/api/init with the real key; we replace the dummy in auth-profiles.json.
+ */
+async function bootstrapWithDummyKey() {
+  if (isConfigured()) return;
+
+  console.log("[wrapper] auto-onboard with dummy OpenRouter key (will be replaced on /init)");
+  fs.mkdirSync(STATE_DIR, { recursive: true });
+  fs.mkdirSync(WORKSPACE_DIR, { recursive: true });
+
+  const onboardArgs = [
+    "onboard",
+    "--non-interactive",
+    "--accept-risk",
+    "--json",
+    "--no-install-daemon",
+    "--skip-health",
+    "--workspace",
+    WORKSPACE_DIR,
+    "--gateway-bind",
+    "loopback",
+    "--gateway-port",
+    String(INTERNAL_GATEWAY_PORT),
+    "--gateway-auth",
+    "token",
+    "--gateway-token",
+    OPENCLAW_GATEWAY_TOKEN,
+    "--flow",
+    "quickstart",
+    "--auth-choice",
+    "openrouter-api-key",
+    "--openrouter-api-key",
+    DUMMY_OPENROUTER_KEY,
+  ];
+
+  const onboard = await runCmd(OPENCLAW_NODE, clawArgs(onboardArgs));
+  if (onboard.code !== 0 || !isConfigured()) {
+    console.error("[wrapper] bootstrap onboard failed:", onboard.output);
+    return;
+  }
+
+  await runCmd(OPENCLAW_NODE, clawArgs(["config", "set", "gateway.auth.mode", "token"]));
+  await runCmd(OPENCLAW_NODE, clawArgs(["config", "set", "gateway.auth.token", OPENCLAW_GATEWAY_TOKEN]));
+  await runCmd(OPENCLAW_NODE, clawArgs(["config", "set", "gateway.bind", "loopback"]));
+  await runCmd(OPENCLAW_NODE, clawArgs(["config", "set", "gateway.port", String(INTERNAL_GATEWAY_PORT)]));
+  await runCmd(
+    OPENCLAW_NODE,
+    clawArgs(["config", "set", "gateway.trustedProxies", '["127.0.0.1","::1","10.0.0.0/8","172.16.0.0/12","192.168.0.0/16"]']),
+  );
+
+  const handlers = { runCmd, OPENCLAW_NODE, clawArgs };
+  await setGatewayControlUiAllowedOrigins(handlers);
+
+  const setModel = await runCmd(OPENCLAW_NODE, clawArgs(["models", "set", "openrouter/auto"]));
+  if (setModel.code !== 0) {
+    console.warn("[wrapper] bootstrap default model set:", setModel.output);
+  }
+
+  console.log("[wrapper] bootstrap complete (dummy key); call /init with real OpenRouter key to activate");
+}
+
+/**
  * If not configured but OPENROUTER_API_KEY (or OPENCLAW_OPENROUTER_API_KEY) is set, run
- * non-interactive onboarding and gateway config so the gateway can auto-start on first run.
+ * non-interactive onboarding with that key so the gateway can auto-start on first run.
  */
 async function bootstrapFromEnv() {
   if (isConfigured() || !OPENROUTER_API_KEY_ENV) return;
@@ -509,23 +576,26 @@ app.use(async (req, res) => {
   return proxy.web(req, res, { target: GATEWAY_TARGET });
 });
 
-// Start gateway before accepting traffic only when all essential envs are set.
-// Otherwise start server without gateway; user runs /setup and init to onboard.
+// On start: if not configured, auto-onboard (with env key if set, else dummy key "test").
+// Then start gateway if configured. /init replaces dummy key with real one when called.
 (async function startServer() {
-  const missingEnv = checkEssentialEnv();
-  if (!missingEnv) {
-    await bootstrapFromEnv();
-    if (isConfigured()) {
-      try {
-        await ensureGatewayRunning();
-        console.log("[wrapper] gateway ready before listening");
-      } catch (err) {
-        console.error("[wrapper] boot gateway start failed:", err);
-        // Continue anyway so /setup is reachable; proxy will 503 until gateway is up.
-      }
+  if (!isConfigured()) {
+    if (OPENROUTER_API_KEY_ENV) {
+      await bootstrapFromEnv();
+    } else {
+      await bootstrapWithDummyKey();
+    }
+  }
+  if (isConfigured()) {
+    try {
+      await ensureGatewayRunning();
+      console.log("[wrapper] gateway ready before listening");
+    } catch (err) {
+      console.error("[wrapper] boot gateway start failed:", err);
+      // Continue anyway so /setup is reachable; proxy will 503 until gateway is up.
     }
   } else {
-    console.log("[wrapper] Some essential envs missing; gateway will not auto-start. Use /setup and run init to configure.");
+    console.log("[wrapper] Not configured; use /setup and run init to configure.");
   }
 
   const server = app.listen(PORT, "0.0.0.0", () => {
