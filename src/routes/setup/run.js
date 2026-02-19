@@ -6,13 +6,13 @@ export function createRunRouter(handlers) {
   const { requireApiToken } = handlers;
   const router = express.Router();
 
-  router.post("/run", requireApiToken, async (req, res) => {
+  router.post("/onboard", requireApiToken, async (req, res) => {
     try {
       const payload = req.body || {};
       const result = await runOnboarding(payload, handlers);
       return res.status(result.ok ? 200 : 500).json(result);
     } catch (err) {
-      console.error("[/setup/api/run] error:", err);
+      console.error("[/setup/api/onboard] error:", err);
       return res.status(500).json({ ok: false, output: `Internal error: ${String(err)}` });
     }
   });

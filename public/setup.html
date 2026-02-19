@@ -39,32 +39,60 @@
 
       <div class="panels">
         <section class="card panel" data-section="onboarding">
-          <h2 id="onboardingHeading">Onboarding</h2>
-          <p class="muted">Runs the same onboarding flow as the CLI, but from the browser.</p>
+          <h2 id="onboardingHeading">Onboard</h2>
+          <p class="muted">Choose a full provider/channels setup, or a quick OpenRouter-only init.</p>
 
-          <div class="field-grid">
-            <label for="authGroup">Provider group</label>
-            <select id="authGroup"></select>
-
-            <label for="authChoice">Auth method</label>
-            <select id="authChoice"></select>
-
-            <label for="authSecret">Key / Token (if required)</label>
-            <input id="authSecret" type="password" placeholder="Paste API key or token" />
-
-            <label for="flow">Wizard flow</label>
-            <select id="flow">
-              <option value="quickstart">quickstart</option>
-              <option value="advanced">advanced</option>
-              <option value="manual">manual</option>
-            </select>
+          <div class="onboard-mode">
+            <button class="btn ghost is-active" data-onboard-mode="full">Full onboard</button>
+            <button class="btn ghost" data-onboard-mode="quick">Quick onboard</button>
           </div>
 
-          <div class="action-row">
-            <button id="run" class="btn primary">Run setup</button>
-            <button id="reset" class="btn danger">Reset setup</button>
+          <div data-onboard-section="full">
+            <p class="muted" style="margin-top:0.75rem;">Runs the full onboarding flow (same as the CLI), including provider selection and channels.</p>
+
+            <div class="field-grid">
+              <label for="authGroup">Provider group</label>
+              <select id="authGroup"></select>
+
+              <label for="authChoice">Auth method</label>
+              <select id="authChoice"></select>
+
+              <label for="authSecret">Key / Token (if required)</label>
+              <input id="authSecret" type="password" placeholder="Paste API key or token" />
+
+              <label for="flow">Wizard flow</label>
+              <select id="flow">
+                <option value="quickstart">quickstart</option>
+                <option value="advanced">advanced</option>
+                <option value="manual">manual</option>
+              </select>
+            </div>
+
+            <div class="action-row">
+              <button id="run" class="btn primary">Full onboard</button>
+              <button id="reset" class="btn danger">Reset setup</button>
+            </div>
+            <pre id="log" class="log" hidden></pre>
           </div>
-          <pre id="log" class="log" hidden></pre>
+
+          <div data-onboard-section="quick" hidden>
+            <p class="muted" style="margin-top:0.75rem;">
+              Use this after the container auto-onboards with a dummy key. It plugs in the real OpenRouter API key and sets the default model.
+            </p>
+
+            <div class="field-grid">
+              <label for="initAuthSecret">OpenRouter API key</label>
+              <input id="initAuthSecret" type="password" placeholder="sk-or-..." />
+
+              <label for="initModel">Default model (provider/model)</label>
+              <input id="initModel" placeholder="e.g. openrouter/auto" />
+            </div>
+
+            <div class="action-row">
+              <button id="initRun" class="btn primary">Quick onboard</button>
+            </div>
+            <pre id="initLog" class="log" hidden></pre>
+          </div>
         </section>
 
         <section class="card panel" data-section="channels" hidden>

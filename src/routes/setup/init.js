@@ -165,7 +165,7 @@ export function createInitRouter(handlers) {
   router.post("/init", requireApiToken, async (req, res) => {
     try {
       const payload = req.body || {};
-      const { isConfigured, restartGateway } = handlers;
+      const { isConfigured, restartGateway, runCmd, clawArgs, OPENCLAW_NODE } = handlers;
       let output = "";
 
       if (!isConfigured()) {
@@ -191,6 +191,12 @@ export function createInitRouter(handlers) {
           if (replaceResult.ok) {
             await restartGateway();
             output += "[gateway] Restarted to pick up new OpenRouter key.\n";
+
+            const model = String(payload.model ?? "").trim();
+            if (model) {
+              const r = await runCmd(OPENCLAW_NODE, clawArgs(["models", "set", model]));
+              output += `[models] Set default model to ${model} (exit=${r.code})\n${r.output || ""}\n`;
+            }
           } else {
             return res.status(500).json({ ok: false, output: replaceResult.output });
           }
@@ -207,54 +213,6 @@ export function createInitRouter(handlers) {
       return await finishInit(output, handlers, res);
     } catch (err) {
       console.error("[/setup/api/init] error:", err);
-      return res.status(500).json({ ok: false, output: `Internal error: ${String(err)}` });
-    }
-  });
-
-  /** Alias for /init: same behavior (key replace when configured, full onboarding when not). */
-  router.post("/init-template", requireApiToken, async (req, res) => {
-    try {
-      const payload = req.body || {};
-      const { isConfigured, restartGateway } = handlers;
-      let output = "";
-
-      if (!isConfigured()) {
-        const onboardResult = await runOnboarding(payload, handlers);
-        if (!onboardResult.ok) {
-          return res.status(500).json(onboardResult);
-        }
-        output = onboardResult.output;
-        try {
-          await setGatewayControlUiAllowedOrigins(handlers);
-          await restartGateway();
-          output += "[gateway] Allowed origins set and gateway restarted.\n";
-        } catch (err) {
-          output += `[gateway] Warning: ${String(err)}\n`;
-        }
-      } else {
-        const realKey = String(payload.authSecret ?? "").trim();
-        if (realKey) {
-          const replaceResult = replaceOpenRouterKeyInAuthProfiles(handlers, realKey);
-          output = replaceResult.ok ? `${replaceResult.output}\n` : replaceResult.output;
-          if (replaceResult.ok) {
-            await restartGateway();
-            output += "[gateway] Restarted to pick up new OpenRouter key.\n";
-          } else {
-            return res.status(500).json({ ok: false, output: replaceResult.output });
-          }
-        } else {
-          output = "Already configured; no authSecret provided. Running data sync only.\n";
-          try {
-            await handlers.ensureGatewayRunning();
-          } catch {
-            // ignore
-          }
-        }
-      }
-
-      return await finishInit(output, handlers, res);
-    } catch (err) {
-      console.error("[/setup/api/init-template] error:", err);
       return res.status(500).json({ ok: false, output: `Internal error: ${String(err)}` });
     }
   });

@@ -64,6 +64,10 @@
   var sectionKey = 'openclaw_setup_section';
   var menuOnboardingEl = document.getElementById('menuOnboarding');
   var onboardingHeadingEl = document.getElementById('onboardingHeading');
+  var initRunEl = document.getElementById('initRun');
+  var initLogEl = document.getElementById('initLog');
+  var onboardModeButtons = document.querySelectorAll('[data-onboard-mode]');
+  var onboardSections = document.querySelectorAll('[data-onboard-section]');
 
   var tokenKey = 'openclaw_setup_api_token';
   var apiToken = '';
@@ -243,9 +247,8 @@ function showSection(id) {
     var ver = j.openclawVersion ? (' - OpenClaw ' + j.openclawVersion) : '';
     setStatus((j.configured ? 'Configured' : 'Not configured - run setup below') + ver);
       setStatusMeta(apiToken ? 'API auth saved' : 'API auth missing');
-      var label = j.configured ? 'Model provider' : 'Onboarding';
-      if (menuOnboardingEl) menuOnboardingEl.textContent = label;
-      if (onboardingHeadingEl) onboardingHeadingEl.textContent = label;
+      if (menuOnboardingEl) menuOnboardingEl.textContent = 'Onboard';
+      if (onboardingHeadingEl) onboardingHeadingEl.textContent = 'Onboard';
       renderAuth(j.authGroups || []);
       if (j.channelsAddHelp && j.channelsAddHelp.indexOf('telegram') === -1) {
         if (logEl) logEl.textContent += '\nNote: this openclaw build does not list telegram in `channels add --help`. Telegram auto-add will be skipped.\n';
@@ -259,7 +262,29 @@ function showSection(id) {
     });
   }
 
-  // Run onboarding
+  function switchOnboardMode(mode) {
+    if (!onboardSections || !onboardModeButtons) return;
+    onboardSections.forEach(function (sec) {
+      var id = sec.getAttribute('data-onboard-section');
+      if (id === mode) sec.removeAttribute('hidden');
+      else sec.setAttribute('hidden', 'hidden');
+    });
+    onboardModeButtons.forEach(function (btn) {
+      btn.classList.toggle('is-active', btn.getAttribute('data-onboard-mode') === mode);
+    });
+  }
+
+  if (onboardModeButtons && onboardModeButtons.length) {
+    onboardModeButtons.forEach(function (btn) {
+      btn.onclick = function () {
+        var mode = btn.getAttribute('data-onboard-mode') || 'full';
+        switchOnboardMode(mode);
+      };
+    });
+    switchOnboardMode('full');
+  }
+
+  // Run full onboard
   var runBtn = document.getElementById('run');
   if (runBtn) {
     runBtn.onclick = function () {
@@ -278,7 +303,7 @@ function showSection(id) {
       logEl.textContent = 'Running...\n';
     }
 
-      authorizedFetch('/setup/api/run', {
+      authorizedFetch('/setup/api/onboard', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(payload)
@@ -293,6 +318,37 @@ function showSection(id) {
       if (logEl) logEl.textContent += '\nError: ' + String(e) + '\n';
     });
   };
+  }
+
+  // Run init (plug real OpenRouter key + model)
+  if (initRunEl) {
+    initRunEl.onclick = function () {
+      var payload = {
+        authSecret: document.getElementById('initAuthSecret').value,
+        model: document.getElementById('initModel').value
+      };
+
+      if (!payload.authSecret) {
+        alert('Enter an OpenRouter API key (authSecret)');
+        return;
+      }
+
+      if (initLogEl) {
+        initLogEl.removeAttribute('hidden');
+        initLogEl.textContent = 'Running init...\n';
+      }
+
+      httpJson('/setup/api/init', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(payload)
+      }).then(function (j) {
+        if (initLogEl) initLogEl.textContent += (j.output || JSON.stringify(j, null, 2));
+        return refreshStatus();
+      }).catch(function (e) {
+        if (initLogEl) initLogEl.textContent += '\nError: ' + String(e) + '\n';
+      });
+    };
   }
 
   // Debug console runner

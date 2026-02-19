@@ -7,7 +7,7 @@ All `/setup/*` endpoints require the `x-api-token` header (set to your `SETUP_PA
 When creating **pooled** instances (unassigned, no user/twin yet), set only minimal env so the container can start and persist state under `/data`:
 
 - **Required**: `OPENCLAW_HOME=/data` (or `OPENCLAW_STATE_DIR=/data/.openclaw`) so OpenClaw state lives on persistent storage.
-- **Required for setup UI**: `SETUP_PASSWORD`, `OPENCLAW_GATEWAY_TOKEN`, `PORT` (e.g. `3000`), `OPENCLAW_PUBLIC_PORT`, `OPENCLAW_CONTROL_UI_ALLOWED_ORIGINS`.
+- **Required for setup UI**: `SETUP_PASSWORD`, `OPENCLAW_GATEWAY_TOKEN`, `PORT` (e.g. `3000`), `OPENCLAW_PUBLIC_PORT`.
 - **Do not set** at create time: `AMIKO_USER_ID`, `AMIKO_TWIN_ID`, `AMIKO_USER_TOKEN`, `OPENROUTER_API_KEY`. On first start the wrapper **auto-runs onboard with a dummy OpenRouter key** (`"test"`) so `.openclaw` is fully created and the gateway can start. When the instance is assigned to a user, the platform calls `POST /setup/api/init` with `authSecret` (user’s real OpenRouter key); the wrapper **replaces the dummy key** in `/data/.openclaw/agents/main/agent/auth-profiles.json` and restarts the gateway, then runs Amiko sync + skill + SYS + version. The browser / SPA stores the token in `localStorage` under `openclaw_setup_api_token`; other clients must set `x-api-token`. The only endpoint that still uses Basic auth is `GET /setup` itself.
 
 ## Health & static assets
@@ -29,9 +29,8 @@ When creating **pooled** instances (unassigned, no user/twin yet), set only mini
 
 | Method | Endpoint | Description | Request body |
 | --- | --- | --- | --- |
-| `POST` | `/setup/api/init` | **Recommended.** When already configured (e.g. after auto-onboard at startup): replaces the dummy OpenRouter key in `agents/main/agent/auth-profiles.json` with `authSecret`, restarts the gateway, then runs Amiko sync + skill + SYS + version. When not configured: runs full onboarding then the same. | JSON body with keys `flow`, `authChoice`, `authSecret`, `telegramToken`, `discordToken`, `slackBotToken`, `slackAppToken`. `authSecret` = real OpenRouter API key. |
-| `POST` | `/setup/api/init-template` | Alias for `/init`: same behavior (replace key when configured, full onboarding when not). | Same body as `/init`. |
-| `POST` | `/setup/api/run` | Core onboarding endpoint (without Amiko sync). Runs `openclaw onboard ...` with the selected `authChoice` + secret + flow, writes gateway auth (token, bind, port, trusted proxies), applies default model based on provider, and optionally writes Telegram/Discord/Slack config objects. | JSON body with keys `flow`, `authChoice`, `authSecret`, `telegramToken`, `discordToken`, `slackBotToken`, `slackAppToken`. |
+| `POST` | `/setup/api/init` | **Recommended.** Replace the dummy OpenRouter key created at startup with `authSecret`, optionally set the default model, restart the gateway, then run Amiko sync + skill + SYS + version. When not configured (rare), runs full onboarding first and then the same steps. | JSON body `{ authSecret: string, model?: "provider/model" }`. `authSecret` = real OpenRouter API key. |
+| `POST` | `/setup/api/onboard` | Core onboarding endpoint (without Amiko sync). Runs `openclaw onboard ...` with the selected `authChoice` + secret + flow, writes gateway auth (token, bind, port, trusted proxies), applies default model based on provider, and optionally writes Telegram/Discord/Slack config objects. | JSON body with keys `flow`, `authChoice`, `authSecret`, `telegramToken`, `discordToken`, `slackBotToken`, `slackAppToken`. |
 | `GET` | `/setup/api/config/raw` | Returns the raw `openclaw.json` so the UI can edit it. | Response `{ ok, path, exists, content }`. |
 | `POST` | `/setup/api/config/raw` | Overwrite the entire config. Creates a timestamped `.bak` of the previous file and restarts the gateway immediately. | Body `{ content: string }` (max `500000` chars). |
 
@@ -76,7 +75,7 @@ When creating **pooled** instances (unassigned, no user/twin yet), set only mini
 
 | Method | Endpoint | Description | Request body |
 | --- | --- | --- | --- |
-| `POST` | `/setup/api/add-agent` | Runs `openclaw agents add <agentId>` in non-interactive mode. | `agentId` (required), `name` (required), `workspace` (optional, default `/data/workspace-${agentId}`), `model` (optional), `agentDir` (optional), `bind` (optional, string or array e.g. `"whatsapp:+1234567890"`), `json` (optional boolean to request CLI JSON output). |
+| `POST` | `/setup/api/add-agent` | Runs `openclaw agents add <agentId>` in non-interactive mode. | `agentId` (required), `name` (required), `workspace` (optional, default `/data/.openclaw/workspace-${agentId}` when `OPENCLAW_HOME=/data`), `model` (optional), `agentDir` (optional), `bind` (optional, string or array e.g. `"whatsapp:+1234567890"`), `json` (optional boolean to request CLI JSON output). |
 
 ## Backup helpers
 

@@ -1,4 +1,5 @@
 import express from "express";
+import path from "node:path";
 
 /**
  * POST /setup/api/add-agent
@@ -7,14 +8,14 @@ import express from "express";
  * Body:
  * - agentId (string, required)
  * - name (string, required)
- * - workspace (string, optional) - default: /data/workspace-${agentId}
+ * - workspace (string, optional) - default: `${WORKSPACE_DIR}-${agentId}` (e.g. `/data/.openclaw/workspace-${agentId}`)
  * - model (string, optional) - e.g. claude-sonnet-4
  * - agentDir (string, optional) - custom agent directory
  * - bind (string | string[], optional) - channel bindings e.g. "whatsapp:+1234567890"
  * - json (boolean, optional) - request CLI --json output
  */
 export function createAgentsRouter(handlers) {
-  const { requireApiToken, runCmd, clawArgs, OPENCLAW_NODE } = handlers;
+  const { requireApiToken, runCmd, clawArgs, OPENCLAW_NODE, WORKSPACE_DIR } = handlers;
   const router = express.Router();
 
   router.post("/add-agent", requireApiToken, async (req, res) => {
@@ -33,7 +34,7 @@ export function createAgentsRouter(handlers) {
       const workspace =
         typeof body.workspace === "string" && body.workspace.trim()
           ? body.workspace.trim()
-          : `/data/workspace-${agentId}`;
+          : `${WORKSPACE_DIR}-${agentId}`;
 
       const args = [
         "agents",
