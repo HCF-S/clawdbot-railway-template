@@ -82,6 +82,7 @@ When creating **pooled** instances (unassigned, no user/twin yet), set only mini
 | Method | Endpoint | Description |
 | --- | --- | --- |
 | `POST` | `/setup/import` | Uploads a `.tar.gz` backup (content type `application/gzip`), extracts it under `/data`, and restarts the gateway. Only permitted when both state/workspace are under `/data`. |
+| `POST` | `/setup/api/import` | **Amiko import.** Accepts a ZIP (`Content-Type: application/zip`) with top-level `workspace/` and `sessions/` folders. Extracts `workspace/` into the OpenClaw workspace dir and `sessions/` into `agents/main/sessions/`, then restarts the gateway. Auth: `x-api-token` (setup password). Used by the platform after deploy to push imported OpenClaw data. |
 | `GET` | `/setup/api/export` | Streams a `.tar.gz` of the state/workspace dirs, with `Content-Disposition` forcing a download. |
 
 ## Gateway helpers

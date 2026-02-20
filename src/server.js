@@ -507,7 +507,17 @@ const ALLOWED_CONSOLE_COMMANDS = new Set([
 
 const app = express();
 app.disable("x-powered-by");
-app.use(express.json({ limit: "1mb" }));
+// Amiko import: raw zip body for POST /setup/api/import (run before json so body is preserved)
+app.use((req, res, next) => {
+  if (req.path === "/setup/api/import" && req.method === "POST") {
+    return express.raw({ type: "application/zip", limit: "100mb" })(req, res, next);
+  }
+  next();
+});
+app.use((req, res, next) => {
+  if (req.path === "/setup/api/import" && req.method === "POST") return next();
+  return express.json({ limit: "1mb" })(req, res, next);
+});
 const PUBLIC_DIR = path.join(process.cwd(), "public");
 
 // Minimal health endpoint for Railway.
