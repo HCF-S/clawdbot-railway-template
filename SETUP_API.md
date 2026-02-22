@@ -98,6 +98,7 @@ The gateway **auto-starts when the container starts** (when the wrapper is confi
 | Method | Endpoint | Description |
 | --- | --- | --- |
 | `POST` | `/setup/api/deploy/amiko-skill` | Install/update the Amiko skill to `skills/amiko/` in the workspace. See Deploy section for details. |
+| `POST` | `/setup/api/deploy/composio-skill` | Install/update the Composio skill to `skills/composio/` (SKILL.md and docs). Does **not** set `COMPOSIO_*` on the instance; the Composio MCP proxy runs on `127.0.0.1:3099` when `AMIKO_PLATFORM_URL` is set. |
 
 ## File Management
 
@@ -177,6 +178,7 @@ These endpoints allow the platform to push updates to existing instances without
 | Method | Endpoint | Description |
 | --- | --- | --- |
 | `POST` | `/setup/api/deploy/amiko-skill` | Deploy/update the Amiko skill to an existing instance. Copies the latest skill files to `skills/amiko/`. |
+| `POST` | `/setup/api/deploy/composio-skill` | Deploy/update the Composio skill to `skills/composio/`. When the platform has set `AMIKO_PLATFORM_URL` (on Composio activation), a local MCP proxy listens on `127.0.0.1:3099` and forwards to Composio using the user's platform session (no `COMPOSIO_API_KEY` on the instance). OpenClaw can connect to `http://127.0.0.1:3099` as the Composio MCP server. |
 | `POST` | `/setup/api/deploy/sys` | Deploy/update `SYS.md` and `/data/sys/` structure for system persistence. Creates the persistence directories and files if they don't exist. |
 | `POST` | `/setup/api/deploy/amiko-data` | Re-sync Amiko data (twin info + docs) to an existing instance. Same as calling `/amiko/pull` + `/amiko/docs`. |
 | `POST` | `/setup/api/deploy/memories` | **Optional.** Sync memories to `amiko-memories.md`. Separate endpoint because data quality may vary. |
