@@ -199,10 +199,12 @@ export function createInitRouter(handlers) {
           output = "Already configured; no authSecret provided to replace key.\n";
         }
 
-        // Persist Amiko config if provided
+        // Persist Amiko config to main agent's workspace (per-agent .amiko.json)
         if (amikoUserId || amikoTwinId || amikoUserToken) {
           try {
-            const cfgPath = "/data/.amiko.json";
+            const { WORKSPACE_DIR } = handlers;
+            fs.mkdirSync(WORKSPACE_DIR, { recursive: true });
+            const cfgPath = path.join(WORKSPACE_DIR, ".amiko.json");
             let current = {};
             if (fs.existsSync(cfgPath)) {
               try {
@@ -218,9 +220,9 @@ export function createInitRouter(handlers) {
               AMIKO_USER_TOKEN: amikoUserToken || current.AMIKO_USER_TOKEN || "",
             };
             fs.writeFileSync(cfgPath, JSON.stringify(next, null, 2), { encoding: "utf8", mode: 0o600 });
-            output += "[amiko] Saved Amiko config to /data/.amiko.json\n";
+            output += `[amiko] Saved Amiko config to ${cfgPath}\n`;
           } catch (err) {
-            output += `[amiko] WARNING: Failed to write /data/.amiko.json: ${String(err)}\n`;
+            output += `[amiko] WARNING: Failed to write .amiko.json: ${String(err)}\n`;
           }
         }
 
