@@ -1,0 +1,58 @@
+# --- Next.js & Build Artifacts ---
+.next/
+out/
+build/
+dist/
+.vercel/
+
+# --- Dependencies ---
+node_modules/
+# Lock files consume massive tokens and usually aren't needed for code logic
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+bun.lockb
+
+# --- Static Assets (Binary files usually confuse the LLM or are too large) ---
+public/images/
+public/fonts/
+public/**/*.png
+public/**/*.jpg
+public/**/*.jpeg
+public/**/*.gif
+public/**/*.svg
+public/**/*.ico
+public/**/*.pdf
+public/**/*.mp4
+
+# --- Environment & Secrets (Safety first!) ---
+.env
+.env.local
+.env.production
+.env.development
+# Keep example env files so Claude knows which keys exist
+!*.env.example
+!*.env.local.example
+
+# --- Testing & Coverage ---
+coverage/
+__snapshots__/
+
+# --- Editor & System ---
+.git/
+.vscode/
+.idea/
+.DS_Store
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# --- Misc ---
+# Large data files
+*.csv
+*.jsonl
+# Minified code
+*.min.js
+*.min.css
+*.map

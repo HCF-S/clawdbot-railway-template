@@ -22,7 +22,7 @@ export function createRunRouter(handlers) {
 
 /** Default allowed origins for gateway control UI when env is not set */
 const DEFAULT_CONTROL_UI_ALLOWED_ORIGINS =
-  "https://platform.heyamiko.com,https://amiko-platform.vercel.app,http://localhost:3000,http://localhost,http://127.0.0.1:3000,http://127.0.0.1";
+  "https://platform.heyamiko.com,https://amiko-platform.vercel.app,http://localhost:3000,http://localhost,http://127.0.0.1:3000,http://127.0.0.1,http://localhost:8080,http://127.0.0.1:8080,wss://amiko-chat.up.railway.app,https://amiko-chat.up.railway.app";
 
 /**
  * Set gateway.controlUi.allowedOrigins in OpenClaw config.
