@@ -7,20 +7,38 @@ import http from "node:http";
 import https from "node:https";
 import fs from "node:fs";
 
-const AMIKO_CONFIG_PATH = "/data/.amiko.json";
+const LEGACY_AMIKO_CONFIG_PATH = "/data/.amiko.json";
 const PROXY_PORT = Number.parseInt(process.env.COMPOSIO_MCP_PROXY_PORT ?? "3099", 10);
 const SESSION_CACHE_TTL_MS = 4 * 60 * 1000; // 4 minutes (Composio sessions may last ~5–15 min)
 
+function getMainWorkspaceDir() {
+  const env =
+    process.env.OPENCLAW_WORKSPACE_DIR?.trim() ||
+    process.env.CLAWDBOT_WORKSPACE_DIR?.trim() ||
+    "";
+  if (env) return env;
+  const state =
+    process.env.OPENCLAW_STATE_DIR?.trim() || process.env.CLAWDBOT_STATE_DIR?.trim() || "";
+  if (state) return `${state}/workspace`;
+  return "/data/.openclaw/workspace";
+}
+
 function readAmikoToken() {
-  try {
-    if (fs.existsSync(AMIKO_CONFIG_PATH)) {
-      const raw = fs.readFileSync(AMIKO_CONFIG_PATH, "utf8");
-      const data = JSON.parse(raw);
-      const token = String(data.AMIKO_USER_TOKEN ?? "").trim();
-      if (token) return token;
+  const pathsToTry = [
+    `${getMainWorkspaceDir()}/.amiko.json`,
+    LEGACY_AMIKO_CONFIG_PATH,
+  ];
+  for (const cfgPath of pathsToTry) {
+    try {
+      if (fs.existsSync(cfgPath)) {
+        const raw = fs.readFileSync(cfgPath, "utf8");
+        const data = JSON.parse(raw);
+        const token = String(data.AMIKO_USER_TOKEN ?? "").trim();
+        if (token) return token;
+      }
+    } catch (err) {
+      console.warn("[composio-mcp-proxy] failed to read", cfgPath, err?.message);
     }
-  } catch (err) {
-    console.warn("[composio-mcp-proxy] failed to read .amiko.json:", err?.message);
   }
   return process.env.AMIKO_USER_TOKEN?.trim() ?? "";
 }
@@ -59,7 +77,7 @@ async function getSession() {
   if (!platformUrl) throw new Error("AMIKO_PLATFORM_URL is not set");
 
   const token = readAmikoToken();
-  if (!token) throw new Error("AMIKO_USER_TOKEN not found in /data/.amiko.json or env");
+  if (!token) throw new Error("AMIKO_USER_TOKEN not found in workspace .amiko.json or env");
 
   const key = getSessionCacheKey();
   const now = Date.now();

@@ -12,7 +12,7 @@ This skill exposes **Composio** tools to your agent via a local MCP proxy. The p
 ## How it works
 
 - The wrapper runs a **Composio MCP proxy** on `http://127.0.0.1:3099` when `AMIKO_PLATFORM_URL` is set (e.g. after you enable Composio for this Clawd from the Amiko platform).
-- The proxy fetches a session from the platform (`GET /api/composio-mcp/session`) using the token in `/data/.amiko.json`, then forwards MCP requests to Composio’s session URL.
+- The proxy fetches a session from the platform (`GET /api/composio-mcp/session`) using the token in the main workspace's `.amiko.json`, then forwards MCP requests to Composio’s session URL.
 - **OpenClaw** can connect to this proxy as an MCP server so the agent can use Composio tools.
 
 ## MCP server URL
@@ -37,7 +37,7 @@ Exact tools depend on which apps you’ve connected in the Amiko platform Compos
 ## Requirements
 
 - **AMIKO_PLATFORM_URL** – Set by the platform when Composio is activated for this instance.
-- **AMIKO_USER_TOKEN** – Stored in `/data/.amiko.json` (written by `/setup/api/init` or deploy flow).
+- **AMIKO_USER_TOKEN** – Stored in **workspace/.amiko.json** (per-agent; written by `/setup/api/init` or `/setup/api/amiko/write-all`).
 
 No `COMPOSIO_API_KEY` or `COMPOSIO_ENTITY_ID` is required on this instance; the platform holds the API key and creates sessions per user.
 

@@ -1,4 +1,5 @@
 import express from "express";
+import fs from "node:fs";
 import path from "node:path";
 
 /**
@@ -67,6 +68,20 @@ export function createAgentsRouter(handlers) {
       }
 
       const r = await runCmd(OPENCLAW_NODE, clawArgs(args));
+      if (r.code === 0) {
+        // Copy .amiko.json from main workspace into this agent's workspace so the new agent has the same twin config
+        const mainCfgPath = path.join(WORKSPACE_DIR, ".amiko.json");
+        const agentCfgPath = path.join(workspace, ".amiko.json");
+        try {
+          if (fs.existsSync(mainCfgPath)) {
+            fs.mkdirSync(path.dirname(agentCfgPath), { recursive: true });
+            fs.copyFileSync(mainCfgPath, agentCfgPath);
+            fs.chmodSync(agentCfgPath, 0o600);
+          }
+        } catch (copyErr) {
+          console.warn("[add-agent] failed to copy .amiko.json to agent workspace:", copyErr?.message);
+        }
+      }
       const status = r.code === 0 ? 200 : 500;
       const payload = body.json && r.code === 0 && r.output?.trim() ? { ok: true, output: r.output, json: tryParseJson(r.output) } : { ok: r.code === 0, output: r.output };
       return res.status(status).json(payload);
