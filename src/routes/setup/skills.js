@@ -127,6 +127,57 @@ Read \`skills/amiko/SKILL.md\` for full documentation.
 }
 
 /**
+ * Install the composio-skill into the workspace.
+ * Copies template (SKILL.md, etc.) to workspace/skills/composio/.
+ * The Composio MCP proxy (127.0.0.1:3099) is started by the wrapper when AMIKO_PLATFORM_URL is set;
+ * OpenClaw can connect to http://127.0.0.1:3099 for Composio tools (Gmail, Calendar, Calendly, etc.).
+ */
+export async function installComposioSkill(handlers) {
+  const { WORKSPACE_DIR } = handlers;
+
+  const templateDir = path.join(TEMPLATES_DIR, "composio-skill");
+
+  if (!fs.existsSync(templateDir)) {
+    return {
+      ok: false,
+      error: `Template not found: ${templateDir}`,
+    };
+  }
+
+  const skillsDir = path.join(WORKSPACE_DIR, "skills");
+  const targetDir = path.join(skillsDir, "composio");
+
+  try {
+    fs.mkdirSync(skillsDir, { recursive: true });
+    fs.mkdirSync(targetDir, { recursive: true });
+
+    const files = fs.readdirSync(templateDir);
+    const copiedFiles = [];
+
+    for (const file of files) {
+      const srcPath = path.join(templateDir, file);
+      const destPath = path.join(targetDir, file);
+      const stat = fs.statSync(srcPath);
+      if (stat.isDirectory()) continue;
+      fs.copyFileSync(srcPath, destPath);
+      copiedFiles.push(file);
+    }
+
+    console.log("[installComposioSkill] installed to", targetDir, "files:", copiedFiles.join(", "));
+
+    return {
+      ok: true,
+      path: targetDir,
+      files: copiedFiles,
+      output: `Installed composio skill to: ${targetDir} (${copiedFiles.length} files)`,
+    };
+  } catch (err) {
+    console.error("[installComposioSkill] error:", err);
+    return { ok: false, error: String(err) };
+  }
+}
+
+/**
  * Create the skills router
  * Note: The main skill installation endpoint is now at /setup/api/deploy/amiko-skill
  * This router is kept for potential future skill management endpoints

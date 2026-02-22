@@ -2,8 +2,8 @@ import express from "express";
 import fs from "node:fs";
 import path from "node:path";
 import { renderAmikoMd, renderDocMd, renderMemoriesMd } from "../../templates/render.js";
-const AMIKO_CONFIG_PATH = "/data/.amiko.json";
 
+const LEGACY_AMIKO_CONFIG_PATH = "/data/.amiko.json";
 const PLATFORM_BASE_URL = "https://platform.heyamiko.com";
 //const PLATFORM_BASE_URL = "http://host.docker.internal:3001";
 
@@ -12,29 +12,38 @@ const PLATFORM_BASE_URL = "https://platform.heyamiko.com";
 // ============================================================
 
 /**
- * Pull twin data from Amiko platform and save to AMIKO.md
- * @returns {{ ok: boolean, path?: string, error?: string, output?: string }}
+ * Read Amiko config from workspace .amiko.json (per-agent), with fallback to legacy /data/.amiko.json.
+ * @param {string} [workspaceDir] - Main workspace dir (e.g. WORKSPACE_DIR); if set, read workspaceDir/.amiko.json first
+ * @returns {{ userId: string, twinId: string, userToken: string }}
  */
-function readAmikoConfig() {
-  try {
-    if (fs.existsSync(AMIKO_CONFIG_PATH)) {
-      const raw = fs.readFileSync(AMIKO_CONFIG_PATH, "utf8");
-      const data = JSON.parse(raw);
-      return {
-        userId: String(data.AMIKO_USER_ID || "").trim(),
-        twinId: String(data.AMIKO_TWIN_ID || "").trim(),
-        userToken: String(data.AMIKO_USER_TOKEN || "").trim(),
-      };
+function readAmikoConfig(workspaceDir) {
+  const pathsToTry = [];
+  if (workspaceDir && typeof workspaceDir === "string") {
+    pathsToTry.push(path.join(workspaceDir.trim(), ".amiko.json"));
+  }
+  pathsToTry.push(LEGACY_AMIKO_CONFIG_PATH);
+
+  for (const cfgPath of pathsToTry) {
+    try {
+      if (fs.existsSync(cfgPath)) {
+        const raw = fs.readFileSync(cfgPath, "utf8");
+        const data = JSON.parse(raw);
+        return {
+          userId: String(data.AMIKO_USER_ID || "").trim(),
+          twinId: String(data.AMIKO_TWIN_ID || "").trim(),
+          userToken: String(data.AMIKO_USER_TOKEN || "").trim(),
+        };
+      }
+    } catch (err) {
+      console.warn("[amiko] failed to read config from", cfgPath, err?.message);
     }
-  } catch (err) {
-    console.warn("[amiko] failed to read config:", err);
   }
   return { userId: "", twinId: "", userToken: "" };
 }
 
 export async function pullTwinData(handlers) {
   const { WORKSPACE_DIR, AMIKO_TWIN_ID, AMIKO_USER_TOKEN } = handlers;
-  const fileCfg = readAmikoConfig();
+  const fileCfg = readAmikoConfig(WORKSPACE_DIR);
 
   const twinId = String(fileCfg.twinId || AMIKO_TWIN_ID || "").trim();
   if (!twinId) {
@@ -184,7 +193,7 @@ const DOCS_BATCH_SIZE = 50;
  */
 export async function pullDocs(handlers) {
   const { WORKSPACE_DIR, AMIKO_TWIN_ID, AMIKO_USER_TOKEN } = handlers;
-  const fileCfg = readAmikoConfig();
+  const fileCfg = readAmikoConfig(WORKSPACE_DIR);
 
   const twinId = String(fileCfg.twinId || AMIKO_TWIN_ID || "").trim();
   if (!twinId) {
@@ -388,8 +397,8 @@ export async function pullDocs(handlers) {
  * @returns {string} Output log
  */
 export async function syncAmikoData(handlers) {
-  const { AMIKO_TWIN_ID, AMIKO_USER_TOKEN } = handlers;
-  const fileCfg = readAmikoConfig();
+  const { WORKSPACE_DIR, AMIKO_TWIN_ID, AMIKO_USER_TOKEN } = handlers;
+  const fileCfg = readAmikoConfig(WORKSPACE_DIR);
   
   let output = "";
   
@@ -427,7 +436,7 @@ export async function syncAmikoData(handlers) {
  */
 export async function pullMemories(handlers) {
   const { WORKSPACE_DIR, AMIKO_TWIN_ID, AMIKO_USER_TOKEN } = handlers;
-  const fileCfg = readAmikoConfig();
+  const fileCfg = readAmikoConfig(WORKSPACE_DIR);
   
   const twinId = String(fileCfg.twinId || AMIKO_TWIN_ID || "").trim();
   if (!twinId) {
@@ -560,6 +569,64 @@ export function createTwinRouter(handlers) {
     } catch (err) {
       console.error("[/setup/api/amiko/memories] error:", err);
       return res.status(500).json({ ok: false, error: `Internal error: ${String(err)}` });
+    }
+  });
+
+  /**
+   * POST /setup/api/amiko/write
+   * Write .amiko.json for a single agent's workspace.
+   * Body: { agentId: string, amikoUserId?: string, amikoTwinId?: string, amikoUserToken?: string }
+   * agentId = "main" for main workspace, or the OpenClaw agent id (e.g. workspace-<id>).
+   */
+  router.post("/amiko/write", requireApiToken, async (req, res) => {
+    try {
+      const { WORKSPACE_DIR } = handlers;
+      const body = req.body || {};
+      const agentId = String(body.agentId ?? "").trim() || "main";
+      const amikoUserId = String(body.amikoUserId ?? "").trim();
+      const amikoTwinId = String(body.amikoTwinId ?? "").trim();
+      const amikoUserToken = String(body.amikoUserToken ?? "").trim();
+
+      if (!amikoUserId && !amikoTwinId && !amikoUserToken) {
+        return res.status(400).json({
+          ok: false,
+          error: "At least one of amikoUserId, amikoTwinId, amikoUserToken is required",
+        });
+      }
+
+      const workspaceDir =
+        agentId === "main" ? WORKSPACE_DIR : `${WORKSPACE_DIR}-${agentId}`;
+      const cfgPath = path.join(workspaceDir, ".amiko.json");
+
+      fs.mkdirSync(workspaceDir, { recursive: true });
+      let existing = {};
+      if (fs.existsSync(cfgPath)) {
+        try {
+          existing = JSON.parse(fs.readFileSync(cfgPath, "utf8"));
+        } catch {
+          existing = {};
+        }
+      }
+      const next = {
+        ...existing,
+        AMIKO_USER_ID: amikoUserId || existing.AMIKO_USER_ID || "",
+        AMIKO_TWIN_ID: amikoTwinId || existing.AMIKO_TWIN_ID || "",
+        AMIKO_USER_TOKEN: amikoUserToken || existing.AMIKO_USER_TOKEN || "",
+      };
+      fs.writeFileSync(cfgPath, JSON.stringify(next, null, 2), {
+        encoding: "utf8",
+        mode: 0o600,
+      });
+
+      return res.json({
+        ok: true,
+        message: `Wrote .amiko.json for agent ${agentId}`,
+        agentId,
+        path: cfgPath,
+      });
+    } catch (err) {
+      console.error("[/setup/api/amiko/write] error:", err);
+      return res.status(500).json({ ok: false, error: String(err) });
     }
   });
 

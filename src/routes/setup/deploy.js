@@ -1,5 +1,5 @@
 import express from "express";
-import { installAmikoSkill } from "./skills.js";
+import { installAmikoSkill, installComposioSkill } from "./skills.js";
 import { installSysConfig } from "./init.js";
 import { syncAmikoData, pullMemories } from "./amiko.js";
 import { CURRENT_SETUP_VERSION, setInstalledVersion } from "./version.js";
@@ -31,6 +31,29 @@ export function createDeployRouter(handlers) {
       }
     } catch (err) {
       console.error("[/setup/api/deploy/amiko-skill] error:", err);
+      return res.status(500).json({ ok: false, error: `Internal error: ${String(err)}` });
+    }
+  });
+
+  /**
+   * POST /setup/api/deploy/composio-skill
+   * Deploy/update the composio-skill (SKILL.md + docs). Composio MCP proxy runs on 127.0.0.1:3099 when AMIKO_PLATFORM_URL is set.
+   */
+  router.post("/deploy/composio-skill", requireApiToken, async (_req, res) => {
+    try {
+      const result = await installComposioSkill(handlers);
+      if (result.ok) {
+        return res.json({
+          ok: true,
+          message: "Composio skill deployed successfully",
+          path: result.path,
+          files: result.files,
+        });
+      } else {
+        return res.status(500).json({ ok: false, error: result.error });
+      }
+    } catch (err) {
+      console.error("[/setup/api/deploy/composio-skill] error:", err);
       return res.status(500).json({ ok: false, error: `Internal error: ${String(err)}` });
     }
   });

@@ -3,10 +3,23 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import * as tar from "tar";
+import AdmZip from "adm-zip";
 
 export function createImportRouter(handlers) {
   const { requireApiToken, STATE_DIR, WORKSPACE_DIR, isConfigured, restartGateway, gatewayProcRef, sleep } = handlers;
   const router = express.Router();
+
+  const MAX_ZIP_BYTES = 100 * 1024 * 1024; // 100 MB
+
+  function resolveAgentDirs(agentId) {
+    const safe = String(agentId ?? "main").trim() || "main";
+    if (/[^a-z0-9-]/.test(safe) || safe.includes("..")) {
+      return { workspaceDir: WORKSPACE_DIR, sessionsDir: path.join(STATE_DIR, "agents", "main", "sessions") };
+    }
+    const workspaceDir = safe === "main" ? WORKSPACE_DIR : `${WORKSPACE_DIR}-${safe}`;
+    const sessionsDir = path.join(STATE_DIR, "agents", safe, "sessions");
+    return { workspaceDir, sessionsDir };
+  }
 
   function isUnderDir(p, root) {
     const abs = path.resolve(p);
@@ -81,6 +94,68 @@ export function createImportRouter(handlers) {
     } catch (err) {
       console.error("[import]", err);
       res.status(500).type("text/plain").send(String(err));
+    }
+  });
+
+  /**
+   * POST /api/import
+   * Amiko import: accept ZIP with workspace/ and sessions/, extract to the target agent's dirs.
+   * Query: agentId (optional) - OpenClaw agent id (default "main"). For reused instances use the twin's openclaw_agent_id.
+   * Requires x-api-token. Body: raw application/zip.
+   */
+  router.post("/api/import", requireApiToken, async (req, res) => {
+    try {
+      const buf = req.body;
+      if (!buf || !Buffer.isBuffer(buf) || buf.length === 0) {
+        return res.status(400).json({ ok: false, error: "Empty or invalid body (expect application/zip)" });
+      }
+      if (buf.length > MAX_ZIP_BYTES) {
+        return res.status(413).json({ ok: false, error: "Payload too large" });
+      }
+
+      const agentId = (req.query.agentId || req.get("x-openclaw-agent-id") || "main").trim() || "main";
+      const { workspaceDir, sessionsDir } = resolveAgentDirs(agentId);
+
+      const zip = new AdmZip(buf);
+      const entries = zip.getEntries();
+
+      fs.mkdirSync(workspaceDir, { recursive: true });
+      fs.mkdirSync(sessionsDir, { recursive: true });
+
+      for (const entry of entries) {
+        const name = entry.entryName.replace(/\\/g, "/");
+        if (name.includes("..")) continue;
+        if (name.startsWith("workspace/")) {
+          const rel = name.slice("workspace/".length);
+          if (!rel) continue;
+          const full = path.join(workspaceDir, rel);
+          if (entry.isDirectory) {
+            fs.mkdirSync(full, { recursive: true });
+          } else {
+            fs.mkdirSync(path.dirname(full), { recursive: true });
+            fs.writeFileSync(full, entry.getData());
+          }
+        } else if (name.startsWith("sessions/")) {
+          const rel = name.slice("sessions/".length);
+          if (!rel) continue;
+          const full = path.join(sessionsDir, rel);
+          if (entry.isDirectory) {
+            fs.mkdirSync(full, { recursive: true });
+          } else {
+            fs.mkdirSync(path.dirname(full), { recursive: true });
+            fs.writeFileSync(full, entry.getData());
+          }
+        }
+      }
+
+      if (isConfigured()) {
+        await restartGateway();
+      }
+
+      res.json({ ok: true, message: "Workspace and sessions imported.", agentId });
+    } catch (err) {
+      console.error("[api/import]", err);
+      res.status(500).json({ ok: false, error: String(err) });
     }
   });
 

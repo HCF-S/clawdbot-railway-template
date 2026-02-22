@@ -29,7 +29,7 @@ When creating **pooled** instances (unassigned, no user/twin yet), set only mini
 
 | Method | Endpoint | Description | Request body |
 | --- | --- | --- | --- |
-| `POST` | `/setup/api/init` | **Recommended.** Replace the dummy OpenRouter key created at startup with `authSecret`, optionally set the default model, and persist Amiko IDs/tokens for later sync, then restart the gateway and run Amiko sync + skill + SYS + version. When not configured (rare), runs full onboarding first and then the same steps. | JSON body `{ authSecret: string, model?: "provider/model", amikoUserId?: string, amikoTwinId?: string, amikoUserToken?: string }`. `authSecret` = real OpenRouter API key. When provided, `amikoUserId`/`amikoTwinId`/`amikoUserToken` are stored in `/data/.amiko.json`. |
+| `POST` | `/setup/api/init` | **Recommended.** Replace the dummy OpenRouter key created at startup with `authSecret`, optionally set the default model, and persist Amiko IDs/tokens for later sync, then restart the gateway and run Amiko sync + skill + SYS + version. When not configured (rare), runs full onboarding first and then the same steps. | JSON body `{ authSecret: string, model?: "provider/model", amikoUserId?: string, amikoTwinId?: string, amikoUserToken?: string }`. `authSecret` = real OpenRouter API key. When provided, `amikoUserId`/`amikoTwinId`/`amikoUserToken` are stored in the **main agent's workspace** as `workspace/.amiko.json` (per-agent config). |
 | `POST` | `/setup/api/onboard` | Core onboarding endpoint (without Amiko sync). Runs `openclaw onboard ...` with the selected `authChoice` + secret + flow, writes gateway auth (token, bind, port, trusted proxies), applies default model based on provider, and optionally writes Telegram/Discord/Slack config objects. | JSON body with keys `flow`, `authChoice`, `authSecret`, `telegramToken`, `discordToken`, `slackBotToken`, `slackAppToken`. |
 | `GET` | `/setup/api/config/raw` | Returns the raw `openclaw.json` so the UI can edit it. | Response `{ ok, path, exists, content }`. |
 | `POST` | `/setup/api/config/raw` | Overwrite the entire config. Creates a timestamped `.bak` of the previous file and restarts the gateway immediately. | Body `{ content: string }` (max `500000` chars). |
@@ -38,9 +38,10 @@ When creating **pooled** instances (unassigned, no user/twin yet), set only mini
 
 | Method | Endpoint | Description | Request body / headers |
 | --- | --- | --- | --- |
-| `POST` | `/setup/api/amiko/pull` | Fetches twin data from the platform API and writes a markdown snapshot to `AMIKO.md` in the workspace. | Uses `AMIKO_TWIN_ID` + `AMIKO_USER_TOKEN` from `/data/.amiko.json` (written by `/init`), falling back to env if the file is missing. |
-| `POST` | `/setup/api/amiko/docs` | Trigger to sync all documents from the platform API. Automatically fetches all docs in batches (50 per batch) and writes markdown files to `amiko-docs/` folder. **Supports incremental sync** — only writes files that are new or updated (based on `updated_at`), skipping unchanged docs. | No body required. Uses `AMIKO_TWIN_ID` + `AMIKO_USER_TOKEN` from `/data/.amiko.json` (or env as fallback). Response includes `created`, `updated`, `skipped` counts. |
-| `POST` | `/setup/api/amiko/memories` | **Optional.** Sync memories from the platform API to `amiko-memories.md`. Data quality may vary. | No body required. Uses `AMIKO_TWIN_ID` + `AMIKO_USER_TOKEN` from `/data/.amiko.json` (or env as fallback). |
+| `POST` | `/setup/api/amiko/pull` | Fetches twin data from the platform API and writes a markdown snapshot to `AMIKO.md` in the workspace. | Uses config from **workspace/.amiko.json** (per-agent), falling back to env if missing. |
+| `POST` | `/setup/api/amiko/docs` | Trigger to sync all documents from the platform API. Automatically fetches all docs in batches (50 per batch) and writes markdown files to `amiko-docs/` folder. **Supports incremental sync** — only writes files that are new or updated (based on `updated_at`), skipping unchanged docs. | No body required. Uses config from **workspace/.amiko.json** (or env as fallback). Response includes `created`, `updated`, `skipped` counts. |
+| `POST` | `/setup/api/amiko/memories` | **Optional.** Sync memories from the platform API to `amiko-memories.md`. Data quality may vary. | No body required. Uses config from **workspace/.amiko.json** (or env as fallback). |
+| `POST` | `/setup/api/amiko/write` | Write `.amiko.json` for **one agent's workspace**. Used by the platform to sync Amiko config per agent. | JSON body `{ agentId: string, amikoUserId?: string, amikoTwinId?: string, amikoUserToken?: string }`. `agentId` = `"main"` for main workspace, or the OpenClaw agent id. Writes to `workspace/.amiko.json` (main) or `workspace-<agentId>/.amiko.json`. |
 
 ## Channel helpers
 
@@ -82,6 +83,7 @@ When creating **pooled** instances (unassigned, no user/twin yet), set only mini
 | Method | Endpoint | Description |
 | --- | --- | --- |
 | `POST` | `/setup/import` | Uploads a `.tar.gz` backup (content type `application/gzip`), extracts it under `/data`, and restarts the gateway. Only permitted when both state/workspace are under `/data`. |
+| `POST` | `/setup/api/import` | **Amiko import.** Accepts a ZIP (`Content-Type: application/zip`) with top-level `workspace/` and `sessions/` folders. Extracts into the target agent's dirs. Query: `agentId` (optional, default `main`) — use the twin's `openclaw_agent_id` for reused instances so import goes to that agent's workspace and sessions (e.g. `workspace-{agentId}`, `agents/{agentId}/sessions/`). Auth: `x-api-token` (setup password). |
 | `GET` | `/setup/api/export` | Streams a `.tar.gz` of the state/workspace dirs, with `Content-Disposition` forcing a download. |
 
 ## Gateway helpers
@@ -97,6 +99,7 @@ The gateway **auto-starts when the container starts** (when the wrapper is confi
 | Method | Endpoint | Description |
 | --- | --- | --- |
 | `POST` | `/setup/api/deploy/amiko-skill` | Install/update the Amiko skill to `skills/amiko/` in the workspace. See Deploy section for details. |
+| `POST` | `/setup/api/deploy/composio-skill` | Install/update the Composio skill to `skills/composio/` (SKILL.md and docs). Does **not** set `COMPOSIO_*` on the instance; the Composio MCP proxy runs on `127.0.0.1:3099` when `AMIKO_PLATFORM_URL` is set. |
 
 ## File Management
 
@@ -176,6 +179,7 @@ These endpoints allow the platform to push updates to existing instances without
 | Method | Endpoint | Description |
 | --- | --- | --- |
 | `POST` | `/setup/api/deploy/amiko-skill` | Deploy/update the Amiko skill to an existing instance. Copies the latest skill files to `skills/amiko/`. |
+| `POST` | `/setup/api/deploy/composio-skill` | Deploy/update the Composio skill to `skills/composio/`. When the platform has set `AMIKO_PLATFORM_URL` (on Composio activation), a local MCP proxy listens on `127.0.0.1:3099` and forwards to Composio using the user's platform session (no `COMPOSIO_API_KEY` on the instance). OpenClaw can connect to `http://127.0.0.1:3099` as the Composio MCP server. |
 | `POST` | `/setup/api/deploy/sys` | Deploy/update `SYS.md` and `/data/sys/` structure for system persistence. Creates the persistence directories and files if they don't exist. |
 | `POST` | `/setup/api/deploy/amiko-data` | Re-sync Amiko data (twin info + docs) to an existing instance. Same as calling `/amiko/pull` + `/amiko/docs`. |
 | `POST` | `/setup/api/deploy/memories` | **Optional.** Sync memories to `amiko-memories.md`. Separate endpoint because data quality may vary. |
