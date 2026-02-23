@@ -8,8 +8,13 @@ import https from "node:https";
 import fs from "node:fs";
 
 const LEGACY_AMIKO_CONFIG_PATH = "/data/.amiko.json";
+const DEFAULT_AMIKO_PLATFORM_URL = "https://platform.heyamiko.com";
 const PROXY_PORT = Number.parseInt(process.env.COMPOSIO_MCP_PROXY_PORT ?? "3099", 10);
 const SESSION_CACHE_TTL_MS = 4 * 60 * 1000; // 4 minutes (Composio sessions may last ~5–15 min)
+
+function getPlatformUrl() {
+  return process.env.AMIKO_PLATFORM_URL?.trim() || DEFAULT_AMIKO_PLATFORM_URL;
+}
 
 function getMainWorkspaceDir() {
   const env =
@@ -66,16 +71,14 @@ async function fetchSession(platformUrl, token) {
 
 function getSessionCacheKey() {
   return readAmikoToken()
-    ? `${process.env.AMIKO_PLATFORM_URL ?? ""}:${readAmikoToken().slice(0, 12)}`
+    ? `${getPlatformUrl()}:${readAmikoToken().slice(0, 12)}`
     : "";
 }
 
 let sessionCache = { key: "", session: null, expiresAt: 0 };
 
 async function getSession() {
-  const platformUrl = process.env.AMIKO_PLATFORM_URL?.trim();
-  if (!platformUrl) throw new Error("AMIKO_PLATFORM_URL is not set");
-
+  const platformUrl = getPlatformUrl();
   const token = readAmikoToken();
   if (!token) throw new Error("AMIKO_USER_TOKEN not found in workspace .amiko.json or env");
 
@@ -125,13 +128,6 @@ async function proxyRequest(req, res, upstreamRes) {
 }
 
 async function handleRequest(req, res) {
-  const platformUrl = process.env.AMIKO_PLATFORM_URL?.trim();
-  if (!platformUrl) {
-    res.writeHead(503, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ error: "Composio MCP proxy not configured (AMIKO_PLATFORM_URL)" }));
-    return;
-  }
-
   let session;
   try {
     session = await getSession();
@@ -201,12 +197,14 @@ async function handleRequest(req, res) {
 }
 
 export function startComposioMcpProxy() {
-  const platformUrl = process.env.AMIKO_PLATFORM_URL?.trim();
-  if (!platformUrl) {
-    console.log("[composio-mcp-proxy] AMIKO_PLATFORM_URL not set; proxy not started");
-    return null;
+  const platformUrl = getPlatformUrl();
+  const isDefault = !process.env.AMIKO_PLATFORM_URL?.trim();
+  if (isDefault) {
+    console.log(
+      "[composio-mcp-proxy] AMIKO_PLATFORM_URL not set; using default",
+      DEFAULT_AMIKO_PLATFORM_URL
+    );
   }
-
   const server = http.createServer(handleRequest);
   server.listen(PROXY_PORT, "127.0.0.1", () => {
     console.log(`[composio-mcp-proxy] listening on 127.0.0.1:${PROXY_PORT}`);
