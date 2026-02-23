@@ -179,12 +179,12 @@ These endpoints allow the platform to push updates to existing instances without
 | Method | Endpoint | Description |
 | --- | --- | --- |
 | `POST` | `/setup/api/deploy/amiko-skill` | Deploy/update the Amiko skill to an existing instance. Copies the latest skill files to `skills/amiko/`. |
-| `POST` | `/setup/api/deploy/composio-skill` | Deploy/update the Composio skill to `skills/composio/` and **merge the openclaw-mcp-bridge config** into `openclaw.json` so OpenClaw connects to the Composio MCP proxy at `http://127.0.0.1:3099`. When the platform has set `AMIKO_PLATFORM_URL`, the local proxy forwards to Composio using the user's platform session. Gateway is restarted after config update. |
+| `POST` | `/setup/api/deploy/composio-skill` | Deploy/update the Composio skill: installs only `SKILL.md` to `skills/composio/`. Does not modify `openclaw.json`. The Composio MCP proxy runs on `http://127.0.0.1:3099` when `AMIKO_PLATFORM_URL` is set; add that URL to your MCP config manually if your OpenClaw build includes the mcp-bridge plugin. |
 | `POST` | `/setup/api/deploy/sys` | Deploy/update `SYS.md` and `/data/sys/` structure for system persistence. Creates the persistence directories and files if they don't exist. |
 
-### Connecting OpenClaw to the Composio MCP proxy (mcp-bridge)
+### Connecting OpenClaw to the Composio MCP proxy (optional)
 
-When you deploy the Composio skill via `POST /setup/api/deploy/composio-skill`, the wrapper **automatically** merges the openclaw-mcp-bridge config into `openclaw.json` (adds the Composio server entry and restarts the gateway). You only need to edit config manually if you want to change the entry or add other MCP servers.
+The deploy endpoint installs only `skills/composio/SKILL.md`; it does **not** modify `openclaw.json`. If your OpenClaw build includes the openclaw-mcp-bridge plugin and you want the agent to use Composio tools, add the Composio server to your config manually:
 
 If you need to configure the bridge by hand (e.g. before a deploy or for a custom setup):
 

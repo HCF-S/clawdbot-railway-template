@@ -160,6 +160,23 @@ async function startGateway() {
   if (gatewayProcRef.current) return;
   if (!isConfigured()) throw new Error("Gateway cannot start: not configured");
 
+  // Remove openclaw-mcp-bridge from config if present; this build may not have that plugin,
+  // and OpenClaw validates that every plugins.entries key refers to an installed plugin.
+  try {
+    const p = configPath();
+    if (fs.existsSync(p)) {
+      const raw = fs.readFileSync(p, "utf8");
+      const config = JSON.parse(raw);
+      if (config.plugins?.entries?.["openclaw-mcp-bridge"] !== undefined) {
+        delete config.plugins.entries["openclaw-mcp-bridge"];
+        fs.writeFileSync(p, JSON.stringify(config, null, 2), { encoding: "utf8", mode: 0o600 });
+        console.log("[wrapper] removed openclaw-mcp-bridge from config (plugin not in this build)");
+      }
+    }
+  } catch (err) {
+    console.warn("[wrapper] config repair (openclaw-mcp-bridge):", err?.message);
+  }
+
   fs.mkdirSync(STATE_DIR, { recursive: true });
   fs.mkdirSync(WORKSPACE_DIR, { recursive: true });
 

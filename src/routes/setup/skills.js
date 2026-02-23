@@ -130,88 +130,23 @@ const COMPOSIO_MCP_PROXY_PORT = Number.parseInt(
   process.env.COMPOSIO_MCP_PROXY_PORT ?? "3099",
   10
 );
-const COMPOSIO_MCP_BRIDGE_CONFIG = {
-  name: "composio",
-  url: `http://127.0.0.1:${COMPOSIO_MCP_PROXY_PORT}`,
-  prefix: "composio",
-  healthCheck: true,
-};
 
 /**
- * Merge openclaw-mcp-bridge config with Composio server into openclaw.json.
- * Ensures plugins.entries["openclaw-mcp-bridge"].config.servers includes the Composio proxy entry.
- * Creates backup, writes config, and restarts gateway if configured.
- */
-export async function ensureComposioMcpBridgeInOpenclawConfig(handlers) {
-  const { configPath, STATE_DIR, isConfigured, restartGateway } = handlers;
-  const p = configPath();
-
-  try {
-    let config = {};
-    if (fs.existsSync(p)) {
-      const raw = fs.readFileSync(p, "utf8");
-      try {
-        config = JSON.parse(raw);
-      } catch (parseErr) {
-        console.warn("[ensureComposioMcpBridge] config parse error:", parseErr?.message);
-        return { ok: false, error: "Invalid openclaw.json", updated: false };
-      }
-    }
-
-    if (!config.plugins) config.plugins = {};
-    if (config.plugins.enabled !== true) config.plugins.enabled = true;
-    if (!config.plugins.entries) config.plugins.entries = {};
-    if (!config.plugins.entries["openclaw-mcp-bridge"]) {
-      config.plugins.entries["openclaw-mcp-bridge"] = { config: { servers: [], timeout: 30000, retries: 1 } };
-    }
-    const bridge = config.plugins.entries["openclaw-mcp-bridge"];
-    if (!bridge.config) bridge.config = {};
-    if (!Array.isArray(bridge.config.servers)) bridge.config.servers = [];
-    bridge.config.timeout = bridge.config.timeout ?? 30000;
-    bridge.config.retries = bridge.config.retries ?? 1;
-
-    const composioUrl = COMPOSIO_MCP_BRIDGE_CONFIG.url;
-    const hasComposio = bridge.config.servers.some(
-      (s) => s.url === composioUrl || (s.name && s.name === "composio")
-    );
-    if (!hasComposio) {
-      bridge.config.servers.push({ ...COMPOSIO_MCP_BRIDGE_CONFIG });
-    }
-
-    fs.mkdirSync(STATE_DIR, { recursive: true });
-    if (fs.existsSync(p)) {
-      const backupPath = `${p}.bak-${new Date().toISOString().replace(/[:.]/g, "-")}`;
-      fs.copyFileSync(p, backupPath);
-    }
-    fs.writeFileSync(p, JSON.stringify(config, null, 2), { encoding: "utf8", mode: 0o600 });
-
-    if (isConfigured()) {
-      await restartGateway();
-    }
-
-    return { ok: true, updated: !hasComposio };
-  } catch (err) {
-    console.error("[ensureComposioMcpBridge] error:", err);
-    return { ok: false, error: String(err), updated: false };
-  }
-}
-
-/**
- * Install the composio-skill into the workspace.
- * Copies template (SKILL.md, etc.) to workspace/skills/composio/.
- * The Composio MCP proxy (127.0.0.1:3099) is started by the wrapper when AMIKO_PLATFORM_URL is set;
- * OpenClaw can connect to http://127.0.0.1:3099 for Composio tools (Gmail, Calendar, Calendly, etc.).
- * Also merges openclaw-mcp-bridge config into openclaw.json so OpenClaw connects to the proxy.
+ * Install the Composio skill into the workspace.
+ * Copies only SKILL.md to workspace/skills/composio/. Does not modify openclaw.json.
+ * The Composio MCP proxy (127.0.0.1:3099) is started by the wrapper when AMIKO_PLATFORM_URL is set.
  */
 export async function installComposioSkill(handlers) {
   const { WORKSPACE_DIR } = handlers;
 
   const templateDir = path.join(TEMPLATES_DIR, "composio-skill");
+  const skillMd = "SKILL.md";
+  const srcPath = path.join(templateDir, skillMd);
 
-  if (!fs.existsSync(templateDir)) {
+  if (!fs.existsSync(srcPath)) {
     return {
       ok: false,
-      error: `Template not found: ${templateDir}`,
+      error: `Template not found: ${srcPath}`,
     };
   }
 
@@ -222,28 +157,16 @@ export async function installComposioSkill(handlers) {
     fs.mkdirSync(skillsDir, { recursive: true });
     fs.mkdirSync(targetDir, { recursive: true });
 
-    const files = fs.readdirSync(templateDir);
-    const copiedFiles = [];
+    const destPath = path.join(targetDir, skillMd);
+    fs.copyFileSync(srcPath, destPath);
 
-    for (const file of files) {
-      const srcPath = path.join(templateDir, file);
-      const destPath = path.join(targetDir, file);
-      const stat = fs.statSync(srcPath);
-      if (stat.isDirectory()) continue;
-      fs.copyFileSync(srcPath, destPath);
-      copiedFiles.push(file);
-    }
-
-    console.log("[installComposioSkill] installed to", targetDir, "files:", copiedFiles.join(", "));
-
-    const mcpResult = await ensureComposioMcpBridgeInOpenclawConfig(handlers);
+    console.log("[installComposioSkill] installed", skillMd, "to", targetDir);
 
     return {
       ok: true,
       path: targetDir,
-      files: copiedFiles,
-      mcpBridgeConfig: mcpResult,
-      output: `Installed composio skill to: ${targetDir} (${copiedFiles.length} files)` + (mcpResult.updated ? "; openclaw-mcp-bridge config updated." : ""),
+      files: [skillMd],
+      output: `Installed composio skill ${skillMd} to ${targetDir}. MCP URL: http://127.0.0.1:${COMPOSIO_MCP_PROXY_PORT}`,
     };
   } catch (err) {
     console.error("[installComposioSkill] error:", err);
