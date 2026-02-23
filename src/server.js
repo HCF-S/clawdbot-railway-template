@@ -8,6 +8,9 @@ import express from "express";
 import httpProxy from "http-proxy";
 import { createSetupRouter } from "./routes/setup/index.js";
 import { setGatewayControlUiAllowedOrigins } from "./routes/setup/run.js";
+import { installAmikoSkill, installComposioSkill } from "./routes/setup/skills.js";
+import { installSysConfig } from "./routes/setup/init.js";
+import { CURRENT_SETUP_VERSION, setInstalledVersion } from "./routes/setup/version.js";
 import { startComposioMcpProxy } from "./composio-mcp-proxy.js";
 
 // Railway deployments sometimes inject PORT=3000 by default. We want the wrapper to
@@ -381,15 +384,59 @@ async function bootstrapWithDummyKey() {
   await runCmd(OPENCLAW_NODE, clawArgs(["config", "set", "gateway.port", String(INTERNAL_GATEWAY_PORT)]));
   await runCmd(
     OPENCLAW_NODE,
-    clawArgs(["config", "set", "gateway.trustedProxies", '["127.0.0.1","::1","10.0.0.0/8","172.16.0.0/12","192.168.0.0/16"]']),
+    clawArgs(["config", "set", "gateway.trustedProxies", '["127.0.0.0/8","172.16.0.0/12","192.168.0.0/16"]']),
   );
 
-  const handlers = { runCmd, OPENCLAW_NODE, clawArgs };
-  await setGatewayControlUiAllowedOrigins(handlers);
+  const handlers = {
+    WORKSPACE_DIR,
+    STATE_DIR,
+    configPath,
+    isConfigured,
+    restartGateway,
+  };
+
+  await setGatewayControlUiAllowedOrigins({ runCmd, OPENCLAW_NODE, clawArgs });
 
   const setModel = await runCmd(OPENCLAW_NODE, clawArgs(["models", "set", "openrouter/auto"]));
   if (setModel.code !== 0) {
     console.warn("[wrapper] bootstrap default model set:", setModel.output);
+  }
+
+  // After initial onboarding, install default skills and SYS config once on container start.
+  try {
+    console.log("[wrapper] installing default Amiko skill after bootstrap...");
+    const amikoResult = await installAmikoSkill(handlers);
+    if (!amikoResult.ok) {
+      console.warn("[wrapper] Amiko skill install warning:", amikoResult.error);
+    }
+  } catch (err) {
+    console.warn("[wrapper] Amiko skill install failed:", err);
+  }
+
+  try {
+    console.log("[wrapper] installing default Composio skill after bootstrap...");
+    const composioResult = await installComposioSkill(handlers);
+    if (!composioResult.ok) {
+      console.warn("[wrapper] Composio skill install warning:", composioResult.error);
+    }
+  } catch (err) {
+    console.warn("[wrapper] Composio skill install failed:", err);
+  }
+
+  try {
+    console.log("[wrapper] installing SYS config after bootstrap...");
+    const sysResult = await installSysConfig(handlers);
+    if (!sysResult.ok) {
+      console.warn("[wrapper] SYS config install warning:", sysResult.error);
+    }
+  } catch (err) {
+    console.warn("[wrapper] SYS config install failed:", err);
+  }
+
+  try {
+    setInstalledVersion(CURRENT_SETUP_VERSION);
+  } catch (err) {
+    console.warn("[wrapper] Failed to set setup version after bootstrap:", err);
   }
 
   console.log("[wrapper] bootstrap complete (dummy key); call /init with real OpenRouter key to activate");
@@ -443,15 +490,59 @@ async function bootstrapFromEnv() {
   await runCmd(OPENCLAW_NODE, clawArgs(["config", "set", "gateway.port", String(INTERNAL_GATEWAY_PORT)]));
   await runCmd(
     OPENCLAW_NODE,
-    clawArgs(["config", "set", "gateway.trustedProxies", '["127.0.0.1","::1","10.0.0.0/8","172.16.0.0/12","192.168.0.0/16"]']),
+    clawArgs(["config", "set", "gateway.trustedProxies", '["127.0.0.0/8","172.16.0.0/12","192.168.0.0/16"]']),
   );
 
-  const handlers = { runCmd, OPENCLAW_NODE, clawArgs };
-  await setGatewayControlUiAllowedOrigins(handlers);
+  const handlers = {
+    WORKSPACE_DIR,
+    STATE_DIR,
+    configPath,
+    isConfigured,
+    restartGateway,
+  };
+
+  await setGatewayControlUiAllowedOrigins({ runCmd, OPENCLAW_NODE, clawArgs });
 
   const setModel = await runCmd(OPENCLAW_NODE, clawArgs(["models", "set", "openrouter/auto"]));
   if (setModel.code !== 0) {
     console.warn("[wrapper] bootstrap default model set:", setModel.output);
+  }
+
+  // After initial onboarding, install default skills and SYS config once on container start.
+  try {
+    console.log("[wrapper] installing default Amiko skill after bootstrap-from-env...");
+    const amikoResult = await installAmikoSkill(handlers);
+    if (!amikoResult.ok) {
+      console.warn("[wrapper] Amiko skill install warning:", amikoResult.error);
+    }
+  } catch (err) {
+    console.warn("[wrapper] Amiko skill install failed:", err);
+  }
+
+  try {
+    console.log("[wrapper] installing default Composio skill after bootstrap-from-env...");
+    const composioResult = await installComposioSkill(handlers);
+    if (!composioResult.ok) {
+      console.warn("[wrapper] Composio skill install warning:", composioResult.error);
+    }
+  } catch (err) {
+    console.warn("[wrapper] Composio skill install failed:", err);
+  }
+
+  try {
+    console.log("[wrapper] installing SYS config after bootstrap-from-env...");
+    const sysResult = await installSysConfig(handlers);
+    if (!sysResult.ok) {
+      console.warn("[wrapper] SYS config install warning:", sysResult.error);
+    }
+  } catch (err) {
+    console.warn("[wrapper] SYS config install failed:", err);
+  }
+
+  try {
+    setInstalledVersion(CURRENT_SETUP_VERSION);
+  } catch (err) {
+    console.warn("[wrapper] Failed to set setup version after bootstrap-from-env:", err);
   }
 
   console.log("[wrapper] bootstrap complete; gateway can auto-start");
