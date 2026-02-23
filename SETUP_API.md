@@ -179,8 +179,56 @@ These endpoints allow the platform to push updates to existing instances without
 | Method | Endpoint | Description |
 | --- | --- | --- |
 | `POST` | `/setup/api/deploy/amiko-skill` | Deploy/update the Amiko skill to an existing instance. Copies the latest skill files to `skills/amiko/`. |
-| `POST` | `/setup/api/deploy/composio-skill` | Deploy/update the Composio skill to `skills/composio/`. When the platform has set `AMIKO_PLATFORM_URL` (on Composio activation), a local MCP proxy listens on `127.0.0.1:3099` and forwards to Composio using the user's platform session (no `COMPOSIO_API_KEY` on the instance). OpenClaw can connect to `http://127.0.0.1:3099` as the Composio MCP server. |
+| `POST` | `/setup/api/deploy/composio-skill` | Deploy/update the Composio skill to `skills/composio/` and **merge the openclaw-mcp-bridge config** into `openclaw.json` so OpenClaw connects to the Composio MCP proxy at `http://127.0.0.1:3099`. When the platform has set `AMIKO_PLATFORM_URL`, the local proxy forwards to Composio using the user's platform session. Gateway is restarted after config update. |
 | `POST` | `/setup/api/deploy/sys` | Deploy/update `SYS.md` and `/data/sys/` structure for system persistence. Creates the persistence directories and files if they don't exist. |
+
+### Connecting OpenClaw to the Composio MCP proxy (mcp-bridge)
+
+When you deploy the Composio skill via `POST /setup/api/deploy/composio-skill`, the wrapper **automatically** merges the openclaw-mcp-bridge config into `openclaw.json` (adds the Composio server entry and restarts the gateway). You only need to edit config manually if you want to change the entry or add other MCP servers.
+
+If you need to configure the bridge by hand (e.g. before a deploy or for a custom setup):
+
+**Config location:** OpenClaw reads `openclaw.json` from the state directory. When `OPENCLAW_HOME=/data` or `OPENCLAW_STATE_DIR=/data/.openclaw`, the file is `/data/.openclaw/openclaw.json` (or `~/.clawdbot/clawdbot.json5` on newer installs).
+
+**Official docs:** [Mcp Bridge – OpenClaw Plugin](https://openclawdir.com/plugins/mcp-bridge-1volrr) (config format, fields, and behavior).
+
+**Add the Composio server** under the plugin’s `servers` array. Example merge into existing `openclaw.json`:
+
+```json
+{
+  "plugins": {
+    "enabled": true,
+    "entries": {
+      "openclaw-mcp-bridge": {
+        "config": {
+          "servers": [
+            {
+              "name": "composio",
+              "url": "http://127.0.0.1:3099",
+              "prefix": "composio",
+              "healthCheck": true
+            }
+          ],
+          "timeout": 30000,
+          "retries": 1
+        }
+      }
+    }
+  }
+}
+```
+
+- **url:** Composio MCP proxy URL (default port `3099`; override with `COMPOSIO_MCP_PROXY_PORT`).
+- **prefix:** Tool name prefix (e.g. `composio_search_emails`). Change if you prefer another prefix.
+- **healthCheck:** Optional; if `true`, the bridge checks the server at startup and skips it if down.
+
+**Ways to apply config:**
+
+1. **Edit via setup API:** Use `GET /setup/api/config/raw` to read the current `openclaw.json`, merge in the `plugins.entries["openclaw-mcp-bridge"]` block above (or add the Composio entry to an existing `servers` array), then `POST /setup/api/config/raw` with the full updated JSON. Restart the gateway (e.g. `POST /setup/api/gateway/restart` or Restart in the setup UI).
+2. **Write file directly:** If you have filesystem access to the instance, edit `/data/.openclaw/openclaw.json` (or the state dir in use), add the block, then restart the gateway.
+3. **Platform automation:** From the Amiko platform, you can use the setup API to read config, inject the Composio MCP server entry, write it back, and restart the gateway so the Clawd gets Composio tools without manual steps.
+
+After restart, the bridge will call `tools/list` on `http://127.0.0.1:3099` and register the Composio tools with the chosen prefix.
 | `POST` | `/setup/api/deploy/amiko-data` | Re-sync Amiko data (twin info + docs) to an existing instance. Same as calling `/amiko/pull` + `/amiko/docs`. |
 | `POST` | `/setup/api/deploy/memories` | **Optional.** Sync memories to `amiko-memories.md`. Separate endpoint because data quality may vary. |
 | `POST` | `/setup/api/deploy/all` | Deploy all updates at once: amiko-data + amiko-skill + sys config. **Automatically updates version** after successful deployment. Body: `{ includeMemories?: boolean }` to optionally include memories sync. |
