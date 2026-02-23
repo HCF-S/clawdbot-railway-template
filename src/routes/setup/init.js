@@ -3,9 +3,6 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { runOnboarding, replaceOpenRouterKeyInAuthProfiles, setGatewayControlUiAllowedOrigins } from "./run.js";
-import { syncAmikoData } from "./amiko.js";
-import { installAmikoSkill } from "./skills.js";
-import { CURRENT_SETUP_VERSION, setInstalledVersion } from "./version.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -245,7 +242,11 @@ export function createInitRouter(handlers) {
         }
       }
 
-      return await finishInit(output, handlers, res);
+      // Keep /init lightweight: it now only ensures the instance is configured,
+      // updates OpenRouter credentials/model, writes .amiko.json, and makes sure
+      // the gateway is running. Feature deployments (skills, sys config, data
+      // sync, etc.) are handled by POST /setup/api/deploy/* endpoints instead.
+      return res.json({ ok: true, output });
     } catch (err) {
       console.error("[/setup/api/init] error:", err);
       return res.status(500).json({ ok: false, output: `Internal error: ${String(err)}` });
@@ -253,45 +254,4 @@ export function createInitRouter(handlers) {
   });
 
   return router;
-}
-
-async function finishInit(output, handlers, res) {
-  try {
-    // Step 2: Sync Amiko data
-    output += "\n\n[amiko] Starting Amiko data sync...\n";
-    const amikoOutput = await syncAmikoData(handlers);
-    output += amikoOutput;
-
-    // Step 3: Install Amiko skill
-    output += "\n[amiko] Installing Amiko skill...\n";
-    const skillResult = await installAmikoSkill(handlers);
-    if (skillResult.ok) {
-      output += `[amiko/skill] ${skillResult.output}\n`;
-    } else {
-      output += `[amiko/skill] Warning: ${skillResult.error}\n`;
-    }
-
-    // Step 4: Install SYS.md and create /data/sys structure
-    output += "\n[sys] Setting up system persistence...\n";
-    const sysResult = await installSysConfig(handlers);
-    if (sysResult.ok) {
-      output += `[sys] ${sysResult.output}\n`;
-    } else {
-      output += `[sys] Warning: ${sysResult.error}\n`;
-    }
-
-    // Step 5: Set setup version
-    output += "\n[version] Setting setup version...\n";
-    const versionSet = setInstalledVersion(CURRENT_SETUP_VERSION);
-    if (versionSet) {
-      output += `[version] Set to ${CURRENT_SETUP_VERSION}\n`;
-    } else {
-      output += `[version] Warning: Failed to set version\n`;
-    }
-
-    return res.json({ ok: true, version: CURRENT_SETUP_VERSION, output });
-  } catch (err) {
-    console.error("[finishInit] error:", err);
-    return res.status(500).json({ ok: false, output: `Internal error: ${String(err)}` });
-  }
 }
