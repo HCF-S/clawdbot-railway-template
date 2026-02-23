@@ -48,7 +48,6 @@ export function createDeployRouter(handlers) {
           message: "Composio skill deployed successfully",
           path: result.path,
           files: result.files,
-          mcpBridgeConfig: result.mcpBridgeConfig,
         });
       } else {
         return res.status(500).json({ ok: false, error: result.error });
