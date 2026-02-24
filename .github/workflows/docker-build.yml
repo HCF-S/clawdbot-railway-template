@@ -26,3 +26,27 @@ jobs:
           tags: openclaw-railway-template:ci
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  docker-e2e:
+    runs-on: ubuntu-latest
+    needs: docker-build
+    env:
+      SETUP_PASSWORD: ${{ secrets.E2E_SETUP_PASSWORD }}
+      AMIKO_USER_ID: ${{ secrets.E2E_AMIKO_USER_ID }}
+      AMIKO_TWIN_ID: ${{ secrets.E2E_AMIKO_TWIN_ID }}
+      AMIKO_USER_TOKEN: ${{ secrets.E2E_AMIKO_USER_TOKEN }}
+      OPENROUTER_API_KEY: ${{ secrets.E2E_OPENROUTER_API_KEY }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run Docker e2e test
+        run: npm run test:e2e:docker
