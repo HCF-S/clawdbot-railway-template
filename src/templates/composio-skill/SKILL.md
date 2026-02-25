@@ -47,6 +47,29 @@ No `COMPOSIO_API_KEY` or `COMPOSIO_ENTITY_ID` is required on this instance; the 
 - On 401/403 from Composio, the proxy clears its session cache; the next request will fetch a new session automatically.
 - Read `skills/composio/SKILL.md` (this file) from the workspace for agent-facing documentation.
 
+## Using mcporter inside this container
+
+This container includes the **mcporter** CLI preinstalled globally. When the Composio skill is deployed, a mcporter config file is created at **workspace `config/mcporter.json`** with the Composio MCP proxy registered as the named server **`composio`**. Run mcporter from the workspace directory (or with `--root` pointing at the workspace) so it picks up that config.
+
+### Use the named `composio` MCP server
+
+- **List all configured servers (including composio):**  
+  `mcporter list`
+- **List Composio tools:**  
+  `mcporter list composio`
+- **Call a Composio tool:**  
+  `mcporter call composio.tool_name arg:value`
+
+Example:
+
+```bash
+cd /data   # or your workspace root
+mcporter list composio
+mcporter call composio.some_tool_name arg1:value1
+```
+
+Config location: `config/mcporter.json` in the workspace (created/updated when this skill is deployed). For more mcporter options (ad‑hoc URLs, OAuth, TypeScript clients), see the upstream MCPorter documentation.
+
 ---
 
 **Status:** Use MCP URL `http://127.0.0.1:3099` in OpenClaw to enable Composio tools.
