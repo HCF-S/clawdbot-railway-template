@@ -1,52 +1,40 @@
 ---
 name: composio
-description: Composio tools (Gmail, Google Calendar, Calendly, etc.) via Amiko platform session proxy
+description: Connects the agent to Composio tools (Gmail, Google Calendar, Calendly, etc.) via an MCP server.
 homepage: https://composio.dev
-metadata: {"openclaw":{"emoji":"📧","mcp":{"url":"http://127.0.0.1:3099"}}}
+metadata:
+  { "openclaw": { "emoji": "📧", "mcp": { "url": "http://127.0.0.1:3099" } } }
 ---
 
-# Composio Skill
+# Composio MCP Skill
 
-This skill exposes **Composio** tools to your agent via a local MCP proxy. The proxy uses your Amiko user token to obtain a short-lived Composio session from the platform—no API key is stored on this instance.
+This skill grants you access to various external applications via the **Composio** platform. You will connect to these tools through a local Model Context Protocol (MCP) server that acts as a proxy.
 
-## How it works
+## Connection Details
 
-- The wrapper runs a **Composio MCP proxy** on `http://127.0.0.1:3099` when `AMIKO_PLATFORM_URL` is set (e.g. after you enable Composio for this Clawd from the Amiko platform).
-- The proxy fetches a session from the platform (`GET /api/composio-mcp/session`) using the token in the main workspace's `.amiko.json`, then forwards MCP requests to Composio’s session URL.
-- **OpenClaw** can connect to this proxy as an MCP server so the agent can use Composio tools.
+To use Composio tools, route your MCP requests to the following local proxy server:
 
-## MCP server URL
+- **Default MCP Server URL:** `http://127.0.0.1:3099`
 
-Use this URL in your OpenClaw MCP / mcp-bridge configuration:
+> **Note:** If the environment variable `COMPOSIO_MCP_PROXY_PORT` is set, replace `3099` with that custom port. Otherwise, assume the default URL.
 
-- **URL:** `http://127.0.0.1:3099`
+## Available Capabilities
 
-Port can be overridden with `COMPOSIO_MCP_PROXY_PORT` (default `3099`).
+By connecting to this MCP server, you can interface with any apps the user has authenticated with via Composio. Depending on the user's setup, this may include:
 
-## Available toolkits (examples)
+- **Gmail:** Read, search, and send emails.
+- **Google Calendar:** List schedules, check availability, and create events.
+- **Calendly:** Manage scheduling links and availability.
+- **Slack / Notion:** Read and write workspace data.
 
-Once connected, the agent can use tools from Composio toolkits such as:
+_When a user asks you to perform a task involving third-party apps, immediately check this MCP server for the relevant available tools._
 
-- **Gmail** – Read, send, search email
-- **Google Calendar** – List and create events
-- **Calendly** – Scheduling and availability
-- **Slack**, **Notion**, and others (depending on platform configuration)
+## ⚠️ Important Agent Directives
 
-Exact tools depend on which apps you’ve connected in the Amiko platform Composio integration.
-
-## Requirements
-
-- **AMIKO_PLATFORM_URL** – Set by the platform when Composio is activated for this instance.
-- **AMIKO_USER_TOKEN** – Stored in **workspace/.amiko.json** (per-agent; written by `/setup/api/init` or `/setup/api/amiko/write-all`).
-
-No `COMPOSIO_API_KEY` or `COMPOSIO_ENTITY_ID` is required on this instance; the platform holds the API key and creates sessions per user.
-
-## Troubleshooting
-
-- If the proxy is not listening, ensure Composio was enabled for this Clawd from the Amiko platform (so `AMIKO_PLATFORM_URL` is set) and the instance was restarted or env vars applied.
-- On 401/403 from Composio, the proxy clears its session cache; the next request will fetch a new session automatically.
-- Read `skills/composio/SKILL.md` (this file) from the workspace for agent-facing documentation.
+1.  **Zero-Auth Required:** Do **not** ask the user for a `COMPOSIO_API_KEY`, `AMIKO_PLATFORM_URL`, or any auth tokens. The local proxy automatically handles all session management and authentication in the background.
+2.  **Troubleshooting:** If an action fails with a 401/403 error, the proxy will automatically clear its cache and fetch a new session. Simply retry your request.
+3.  **Scope:** Focus solely on calling the available tools exposed at the MCP URL. Do not attempt to interact with the Amiko platform's backend APIs.
 
 ---
 
-**Status:** Use MCP URL `http://127.0.0.1:3099` in OpenClaw to enable Composio tools.
+**Status:** Ready. Use `http://127.0.0.1:3099` to access Composio tools.
