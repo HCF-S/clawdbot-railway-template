@@ -189,7 +189,7 @@ export async function injectAmikoOnboardingPrompt(handlers) {
 
     const amikoId = String(AMIKO_TWIN_ID || "").trim();
     const profileUrl = amikoId
-      ? `https://platform.heyamiko.com/${amikoId}`
+      ? `https://platform.heyamiko.com/amiko/${amikoId}`
       : "https://platform.heyamiko.com/amikos";
 
     const injectionText = [
