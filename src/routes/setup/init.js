@@ -2,7 +2,11 @@ import express from "express";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { runOnboarding, replaceOpenRouterKeyInAuthProfiles, setGatewayControlUiAllowedOrigins } from "./run.js";
+import {
+  runOnboarding,
+  replaceOpenRouterKeyInAuthProfiles,
+  setGatewayControlUiAllowedOrigins,
+} from "./run.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -13,12 +17,15 @@ const __dirname = path.dirname(__filename);
  */
 export async function installSysConfig(handlers) {
   const { WORKSPACE_DIR } = handlers;
-  
+
   try {
     // Copy SYS.md template to workspace (template lives under workspace/ = final position)
-    const templatePath = path.join(__dirname, "../../templates/workspace/SYS.md.tmpl");
+    const templatePath = path.join(
+      __dirname,
+      "../../templates/workspace/SYS.md.tmpl",
+    );
     const destPath = path.join(WORKSPACE_DIR, "SYS.md");
-    
+
     if (fs.existsSync(templatePath)) {
       const content = fs.readFileSync(templatePath, "utf8");
       fs.writeFileSync(destPath, content, "utf8");
@@ -26,18 +33,18 @@ export async function installSysConfig(handlers) {
     } else {
       console.warn("[installSysConfig] SYS.md.tmpl not found, skipping");
     }
-    
+
     // Create /data/sys directory structure
     const sysDir = "/data/sys";
     const subDirs = ["bin", "mirror", "install-log", "npm-global"];
-    
-    for (const dir of [sysDir, ...subDirs.map(d => path.join(sysDir, d))]) {
+
+    for (const dir of [sysDir, ...subDirs.map((d) => path.join(sysDir, d))]) {
       if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir, { recursive: true });
         console.log("[installSysConfig] created directory:", dir);
       }
     }
-    
+
     // Create initial MANIFEST.md if not exists
     const manifestPath = path.join(sysDir, "MANIFEST.md");
     if (!fs.existsSync(manifestPath)) {
@@ -63,7 +70,7 @@ See SYS.md in workspace for the full persistence guide.
       fs.writeFileSync(manifestPath, manifestContent, "utf8");
       console.log("[installSysConfig] created MANIFEST.md");
     }
-    
+
     // Create initial restore.sh if not exists
     const restorePath = path.join(sysDir, "restore.sh");
     if (!fs.existsSync(restorePath)) {
@@ -144,13 +151,84 @@ echo "For apt packages, check /data/sys/install-log/apt-packages.md"
       fs.chmodSync(restorePath, 0o755);
       console.log("[installSysConfig] created restore.sh");
     }
-    
-    return { 
-      ok: true, 
-      output: `Installed SYS.md and created /data/sys structure` 
+
+    return {
+      ok: true,
+      output: `Installed SYS.md and created /data/sys structure`,
     };
   } catch (err) {
     console.error("[installSysConfig] error:", err);
+    return { ok: false, error: String(err) };
+  }
+}
+
+/**
+ * Inject a friendly Amiko onboarding prompt into BOOTSTRAP.md, above "## The Conversation".
+ * Invites the user to configure personality, voice, and avatar on the Amiko platform.
+ * @returns {{ ok: boolean, output?: string, error?: string }}
+ */
+export async function injectAmikoOnboardingPrompt(handlers) {
+  const { WORKSPACE_DIR, AMIKO_TWIN_ID } = handlers;
+
+  try {
+    const bootstrapPath = path.join(WORKSPACE_DIR, "BOOTSTRAP.md");
+    if (!fs.existsSync(bootstrapPath)) {
+      console.warn(
+        "[injectAmikoOnboardingPrompt] BOOTSTRAP.md not found, skipping",
+      );
+      return { ok: true, output: "BOOTSTRAP.md not found, skipping" };
+    }
+
+    let content = fs.readFileSync(bootstrapPath, "utf8");
+
+    // Skip if already injected
+    if (content.includes("platform.heyamiko.com")) {
+      console.log("[injectAmikoOnboardingPrompt] already injected, skipping");
+      return { ok: true, output: "Already injected" };
+    }
+
+    const amikoId = String(AMIKO_TWIN_ID || "").trim();
+    const profileUrl = amikoId
+      ? `https://platform.heyamiko.com/${amikoId}`
+      : "https://platform.heyamiko.com/amikos";
+
+    const injectionText = [
+      "## ✨ Personalise Your Amiko First",
+      "",
+      "Before jumping into the conversation, warmly invite the user to customise their Amiko on the platform. Make it feel exciting — this is where they bring you to life! Keep the tone friendly and enthusiastic.",
+      "",
+      `You can say something like: *"Hey! Before we get started, why not pop over to [your Amiko profile](${profileUrl}) and give me a personality, voice, and avatar? It only takes a few minutes and makes everything so much more personal — I'd love to know who you want me to be! 😊"*`,
+      "",
+      `👉 **[Customise your Amiko here](${profileUrl})**`,
+      "",
+      "Once they're happy with the setup (or if they'd rather skip for now and come back later), move on to the conversation below.",
+      "",
+    ].join("\n");
+
+    const marker = "## The Conversation";
+    const markerIndex = content.indexOf(marker);
+
+    if (markerIndex !== -1) {
+      content =
+        content.slice(0, markerIndex) +
+        injectionText +
+        "\n" +
+        content.slice(markerIndex);
+    } else {
+      // Fallback: append at end
+      content = content.trimEnd() + "\n\n" + injectionText + "\n";
+    }
+
+    fs.writeFileSync(bootstrapPath, content, "utf8");
+    console.log(
+      "[injectAmikoOnboardingPrompt] injected onboarding prompt into BOOTSTRAP.md",
+    );
+    return {
+      ok: true,
+      output: "Injected Amiko onboarding prompt into BOOTSTRAP.md",
+    };
+  } catch (err) {
+    console.error("[injectAmikoOnboardingPrompt] error:", err);
     return { ok: false, error: String(err) };
   }
 }
@@ -162,7 +240,8 @@ export function createInitRouter(handlers) {
   router.post("/init", requireApiToken, async (req, res) => {
     try {
       const payload = req.body || {};
-      const { isConfigured, restartGateway, runCmd, clawArgs, OPENCLAW_NODE } = handlers;
+      const { isConfigured, restartGateway, runCmd, clawArgs, OPENCLAW_NODE } =
+        handlers;
       let output = "";
 
       if (!isConfigured()) {
@@ -187,13 +266,21 @@ export function createInitRouter(handlers) {
         const amikoUserToken = String(payload.amikoUserToken ?? "").trim();
 
         if (realKey) {
-          const replaceResult = replaceOpenRouterKeyInAuthProfiles(handlers, realKey);
-          output = replaceResult.ok ? `${replaceResult.output}\n` : `${replaceResult.output}\n`;
+          const replaceResult = replaceOpenRouterKeyInAuthProfiles(
+            handlers,
+            realKey,
+          );
+          output = replaceResult.ok
+            ? `${replaceResult.output}\n`
+            : `${replaceResult.output}\n`;
           if (!replaceResult.ok) {
-            return res.status(500).json({ ok: false, output: replaceResult.output });
+            return res
+              .status(500)
+              .json({ ok: false, output: replaceResult.output });
           }
         } else {
-          output = "Already configured; no authSecret provided to replace key.\n";
+          output =
+            "Already configured; no authSecret provided to replace key.\n";
         }
 
         // Persist Amiko config to main agent's workspace (per-agent .amiko.json)
@@ -214,9 +301,13 @@ export function createInitRouter(handlers) {
               ...current,
               AMIKO_USER_ID: amikoUserId || current.AMIKO_USER_ID || "",
               AMIKO_TWIN_ID: amikoTwinId || current.AMIKO_TWIN_ID || "",
-              AMIKO_USER_TOKEN: amikoUserToken || current.AMIKO_USER_TOKEN || "",
+              AMIKO_USER_TOKEN:
+                amikoUserToken || current.AMIKO_USER_TOKEN || "",
             };
-            fs.writeFileSync(cfgPath, JSON.stringify(next, null, 2), { encoding: "utf8", mode: 0o600 });
+            fs.writeFileSync(cfgPath, JSON.stringify(next, null, 2), {
+              encoding: "utf8",
+              mode: 0o600,
+            });
             output += `[amiko] Saved Amiko config to ${cfgPath}\n`;
           } catch (err) {
             output += `[amiko] WARNING: Failed to write .amiko.json: ${String(err)}\n`;
@@ -226,11 +317,15 @@ export function createInitRouter(handlers) {
         // Restart gateway after key/model changes
         if (realKey || payload.model) {
           await restartGateway();
-          output += "[gateway] Restarted to pick up new OpenRouter key/model.\n";
+          output +=
+            "[gateway] Restarted to pick up new OpenRouter key/model.\n";
 
           const model = String(payload.model ?? "").trim();
           if (model) {
-            const r = await runCmd(OPENCLAW_NODE, clawArgs(["models", "set", model]));
+            const r = await runCmd(
+              OPENCLAW_NODE,
+              clawArgs(["models", "set", model]),
+            );
             output += `[models] Set default model to ${model} (exit=${r.code})\n${r.output || ""}\n`;
           }
         } else {
@@ -249,7 +344,9 @@ export function createInitRouter(handlers) {
       return res.json({ ok: true, output });
     } catch (err) {
       console.error("[/setup/api/init] error:", err);
-      return res.status(500).json({ ok: false, output: `Internal error: ${String(err)}` });
+      return res
+        .status(500)
+        .json({ ok: false, output: `Internal error: ${String(err)}` });
     }
   });
 

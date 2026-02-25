@@ -9,7 +9,7 @@ import httpProxy from "http-proxy";
 import { createSetupRouter } from "./routes/setup/index.js";
 import { setGatewayControlUiAllowedOrigins } from "./routes/setup/run.js";
 import { installAmikoSkill, installComposioSkill } from "./routes/setup/skills.js";
-import { installSysConfig } from "./routes/setup/init.js";
+import { installSysConfig, injectAmikoOnboardingPrompt } from "./routes/setup/init.js";
 import { CURRENT_SETUP_VERSION, setInstalledVersion } from "./routes/setup/version.js";
 import { startComposioMcpProxy } from "./composio-mcp-proxy.js";
 
@@ -451,6 +451,16 @@ async function bootstrapWithDummyKey() {
   }
 
   try {
+    console.log("[wrapper] injecting Amiko onboarding prompt into BOOTSTRAP.md...");
+    const promptResult = await injectAmikoOnboardingPrompt({ WORKSPACE_DIR, AMIKO_TWIN_ID });
+    if (!promptResult.ok) {
+      console.warn("[wrapper] Amiko onboarding prompt warning:", promptResult.error);
+    }
+  } catch (err) {
+    console.warn("[wrapper] Amiko onboarding prompt failed:", err);
+  }
+
+  try {
     setInstalledVersion(CURRENT_SETUP_VERSION);
   } catch (err) {
     console.warn("[wrapper] Failed to set setup version after bootstrap:", err);
@@ -554,6 +564,16 @@ async function bootstrapFromEnv() {
     }
   } catch (err) {
     console.warn("[wrapper] SYS config install failed:", err);
+  }
+
+  try {
+    console.log("[wrapper] injecting Amiko onboarding prompt into BOOTSTRAP.md...");
+    const promptResult = await injectAmikoOnboardingPrompt({ WORKSPACE_DIR, AMIKO_TWIN_ID });
+    if (!promptResult.ok) {
+      console.warn("[wrapper] Amiko onboarding prompt warning:", promptResult.error);
+    }
+  } catch (err) {
+    console.warn("[wrapper] Amiko onboarding prompt failed:", err);
   }
 
   try {
