@@ -160,13 +160,33 @@ export async function installComposioSkill(handlers) {
     const destPath = path.join(targetDir, skillMd);
     fs.copyFileSync(srcPath, destPath);
 
+    // Create or update workspace mcporter config so the composio MCP server is named and discoverable
+    const configDir = path.join(WORKSPACE_DIR, "config");
+    const mcporterConfigPath = path.join(configDir, "mcporter.json");
+    fs.mkdirSync(configDir, { recursive: true });
+    const composioUrl = `http://127.0.0.1:${COMPOSIO_MCP_PROXY_PORT}`;
+    let config = { mcpServers: {} };
+    if (fs.existsSync(mcporterConfigPath)) {
+      try {
+        config = JSON.parse(fs.readFileSync(mcporterConfigPath, "utf8"));
+        if (!config.mcpServers || typeof config.mcpServers !== "object") {
+          config.mcpServers = {};
+        }
+      } catch (_) {
+        // ignore parse errors; overwrite with minimal config
+      }
+    }
+    config.mcpServers.composio = { url: composioUrl };
+    fs.writeFileSync(mcporterConfigPath, JSON.stringify(config, null, 2), "utf8");
+    console.log("[installComposioSkill] wrote", mcporterConfigPath, "with composio server");
+
     console.log("[installComposioSkill] installed", skillMd, "to", targetDir);
 
     return {
       ok: true,
       path: targetDir,
       files: [skillMd],
-      output: `Installed composio skill ${skillMd} to ${targetDir}. MCP URL: http://127.0.0.1:${COMPOSIO_MCP_PROXY_PORT}`,
+      output: `Installed composio skill ${skillMd} to ${targetDir}. MCP URL: ${composioUrl}. mcporter config: ${mcporterConfigPath}`,
     };
   } catch (err) {
     console.error("[installComposioSkill] error:", err);
