@@ -32,8 +32,7 @@ ENV NODE_ENV=production
 RUN apt-get update \
   && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
     ca-certificates \
-  && rm -rf /var/lib/apt/lists/* \
-  && npm install -g mcporter@0.7.4
+  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
@@ -49,6 +48,8 @@ COPY . .
 
 # Install wrapper dependencies
 RUN npm install --omit=dev && npm cache clean --force
+
+RUN npm install -g mcporter@0.7.4
 
 # The wrapper listens on this port.
 ENV OPENCLAW_PUBLIC_PORT=3000
