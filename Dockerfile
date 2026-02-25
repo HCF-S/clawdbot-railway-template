@@ -49,7 +49,7 @@ COPY . .
 # Install wrapper dependencies
 RUN npm install --omit=dev && npm cache clean --force
 
-RUN npm install -g mcporter@0.7.4
+RUN npm install -g mcporter@0.7.3
 
 # The wrapper listens on this port.
 ENV OPENCLAW_PUBLIC_PORT=3000
