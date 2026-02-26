@@ -1,6 +1,85 @@
 import express from "express";
 import fs from "node:fs";
 import path from "node:path";
+import { installAmikoSkill, installComposioSkill } from "./skills";
+import { injectAmikoOnboardingPrompt, installSysConfig } from "./init";
+
+/**
+ * Copy .amiko.json from the main workspace into the agent workspace and run all
+ * post-creation setup steps (Amiko skill, Composio skill, SYS config, onboarding prompt).
+ * Each step is isolated so a failure in one does not prevent the others from running.
+ *
+ * @param {object} handlers - the shared handlers object (will be cloned with the agent workspace)
+ * @param {string} mainWorkspaceDir - path to the main workspace (source of .amiko.json)
+ * @param {string} agentWorkspaceDir - path to the newly created agent workspace
+ * @returns {Promise<{ ok: boolean, output: string }>}
+ */
+async function setupAgentWorkspace(handlers, mainWorkspaceDir, agentWorkspaceDir) {
+  const agentHandlers = { ...handlers, WORKSPACE_DIR: agentWorkspaceDir };
+  let output = "";
+
+  // 1. Copy .amiko.json so the agent shares the same twin config
+  const mainCfgPath = path.join(mainWorkspaceDir, ".amiko.json");
+  const agentCfgPath = path.join(agentWorkspaceDir, ".amiko.json");
+
+  try {
+    if (fs.existsSync(mainCfgPath)) {
+      fs.mkdirSync(path.dirname(agentCfgPath), { recursive: true });
+      fs.copyFileSync(mainCfgPath, agentCfgPath);
+      fs.chmodSync(agentCfgPath, 0o600);
+      output += "[add-agent/setup] Copied .amiko.json to agent workspace\n";
+    }
+  } catch (err) {
+    console.warn("[add-agent/setup] failed to copy .amiko.json:", err?.message);
+    output += `[add-agent/setup] Warning: failed to copy .amiko.json: ${err?.message}\n`;
+  }
+
+  // 2. Install Amiko skill
+  try {
+    const result = await installAmikoSkill(agentHandlers);
+    output += result.ok
+      ? `[add-agent/amiko-skill] ${result.output ?? "Installed"}\n`
+      : `[add-agent/amiko-skill] Warning: ${result.error}\n`;
+  } catch (err) {
+    console.warn("[add-agent/setup] Amiko skill install failed:", err);
+    output += `[add-agent/amiko-skill] Warning: ${String(err)}\n`;
+  }
+
+  // 3. Install Composio skill
+  try {
+    const result = await installComposioSkill(agentHandlers);
+    output += result.ok
+      ? `[add-agent/composio-skill] ${result.output ?? "Installed"}\n`
+      : `[add-agent/composio-skill] Warning: ${result.error}\n`;
+  } catch (err) {
+    console.warn("[add-agent/setup] Composio skill install failed:", err);
+    output += `[add-agent/composio-skill] Warning: ${String(err)}\n`;
+  }
+
+  // 4. Install SYS config
+  try {
+    const result = await installSysConfig(agentHandlers);
+    output += result.ok
+      ? `[add-agent/sys] ${result.output ?? "Installed"}\n`
+      : `[add-agent/sys] Warning: ${result.error}\n`;
+  } catch (err) {
+    console.warn("[add-agent/setup] SYS config install failed:", err);
+    output += `[add-agent/sys] Warning: ${String(err)}\n`;
+  }
+
+  // 5. Inject Amiko onboarding prompt into BOOTSTRAP.md
+  try {
+    const result = await injectAmikoOnboardingPrompt(agentHandlers);
+    output += result.ok
+      ? `[add-agent/bootstrap] ${result.output ?? "Injected"}\n`
+      : `[add-agent/bootstrap] Warning: ${result.error}\n`;
+  } catch (err) {
+    console.warn("[add-agent/setup] Amiko onboarding prompt failed:", err);
+    output += `[add-agent/bootstrap] Warning: ${String(err)}\n`;
+  }
+
+  return { ok: true, output };
+}
 
 /**
  * POST /setup/api/add-agent
@@ -16,7 +95,8 @@ import path from "node:path";
  * - json (boolean, optional) - request CLI --json output
  */
 export function createAgentsRouter(handlers) {
-  const { requireApiToken, runCmd, clawArgs, OPENCLAW_NODE, WORKSPACE_DIR } = handlers;
+  const { requireApiToken, runCmd, clawArgs, OPENCLAW_NODE, WORKSPACE_DIR } =
+    handlers;
   const router = express.Router();
 
   router.post("/add-agent", requireApiToken, async (req, res) => {
@@ -29,7 +109,12 @@ export function createAgentsRouter(handlers) {
         return res.status(400).json({ ok: false, error: "Missing agentId" });
       }
       if (!name) {
-        return res.status(400).json({ ok: false, error: "Missing name (required in non-interactive mode)" });
+        return res
+          .status(400)
+          .json({
+            ok: false,
+            error: "Missing name (required in non-interactive mode)",
+          });
       }
 
       const workspace =
@@ -69,25 +154,19 @@ export function createAgentsRouter(handlers) {
 
       const r = await runCmd(OPENCLAW_NODE, clawArgs(args));
       if (r.code === 0) {
-        // Copy .amiko.json from main workspace into this agent's workspace so the new agent has the same twin config
-        const mainCfgPath = path.join(WORKSPACE_DIR, ".amiko.json");
-        const agentCfgPath = path.join(workspace, ".amiko.json");
-        try {
-          if (fs.existsSync(mainCfgPath)) {
-            fs.mkdirSync(path.dirname(agentCfgPath), { recursive: true });
-            fs.copyFileSync(mainCfgPath, agentCfgPath);
-            fs.chmodSync(agentCfgPath, 0o600);
-          }
-        } catch (copyErr) {
-          console.warn("[add-agent] failed to copy .amiko.json to agent workspace:", copyErr?.message);
-        }
+        await setupAgentWorkspace(handlers, WORKSPACE_DIR, workspace);
       }
       const status = r.code === 0 ? 200 : 500;
-      const payload = body.json && r.code === 0 && r.output?.trim() ? { ok: true, output: r.output, json: tryParseJson(r.output) } : { ok: r.code === 0, output: r.output };
+      const payload =
+        body.json && r.code === 0 && r.output?.trim()
+          ? { ok: true, output: r.output, json: tryParseJson(r.output) }
+          : { ok: r.code === 0, output: r.output };
       return res.status(status).json(payload);
     } catch (err) {
       console.error("[/setup/api/add-agent] error:", err);
-      return res.status(500).json({ ok: false, output: `Internal error: ${String(err)}` });
+      return res
+        .status(500)
+        .json({ ok: false, output: `Internal error: ${String(err)}` });
     }
   });
 

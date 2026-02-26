@@ -1,6 +1,6 @@
 import express from "express";
 import { installAmikoSkill, installComposioSkill } from "./skills.js";
-import { installSysConfig } from "./init.js";
+import { injectAmikoOnboardingPrompt, installSysConfig } from "./init.js";
 import { syncAmikoData, pullMemories } from "./amiko.js";
 import { CURRENT_SETUP_VERSION, setInstalledVersion } from "./version.js";
 
@@ -31,7 +31,9 @@ export function createDeployRouter(handlers) {
       }
     } catch (err) {
       console.error("[/setup/api/deploy/amiko-skill] error:", err);
-      return res.status(500).json({ ok: false, error: `Internal error: ${String(err)}` });
+      return res
+        .status(500)
+        .json({ ok: false, error: `Internal error: ${String(err)}` });
     }
   });
 
@@ -54,7 +56,9 @@ export function createDeployRouter(handlers) {
       }
     } catch (err) {
       console.error("[/setup/api/deploy/composio-skill] error:", err);
-      return res.status(500).json({ ok: false, error: `Internal error: ${String(err)}` });
+      return res
+        .status(500)
+        .json({ ok: false, error: `Internal error: ${String(err)}` });
     }
   });
 
@@ -76,7 +80,9 @@ export function createDeployRouter(handlers) {
       }
     } catch (err) {
       console.error("[/setup/api/deploy/sys] error:", err);
-      return res.status(500).json({ ok: false, error: `Internal error: ${String(err)}` });
+      return res
+        .status(500)
+        .json({ ok: false, error: `Internal error: ${String(err)}` });
     }
   });
 
@@ -94,7 +100,9 @@ export function createDeployRouter(handlers) {
       });
     } catch (err) {
       console.error("[/setup/api/deploy/amiko-data] error:", err);
-      return res.status(500).json({ ok: false, error: `Internal error: ${String(err)}` });
+      return res
+        .status(500)
+        .json({ ok: false, error: `Internal error: ${String(err)}` });
     }
   });
 
@@ -118,7 +126,34 @@ export function createDeployRouter(handlers) {
       }
     } catch (err) {
       console.error("[/setup/api/deploy/memories] error:", err);
-      return res.status(500).json({ ok: false, error: `Internal error: ${String(err)}` });
+      return res
+        .status(500)
+        .json({ ok: false, error: `Internal error: ${String(err)}` });
+    }
+  });
+
+  /**
+   * POST /setup/api/deploy/bootstrap
+   * Inject Amiko onboarding prompt into BOOTSTRAP.md
+   */
+
+  router.post("/deploy/bootstrap", requireApiToken, async (req, res) => {
+    try {
+      const result = await injectAmikoOnboardingPrompt(handlers);
+      if (result.ok) {
+        return res.json({
+          ok: true,
+          message: "Amiko onboarding prompt deployed successfully",
+          output: result.output,
+        });
+      } else {
+        return res.status(500).json({ ok: false, error: result.error });
+      }
+    } catch (err) {
+      console.error("[/setup/api/deploy/bootstrap] error:", err);
+      return res
+        .status(500)
+        .json({ ok: false, error: `Internal error: ${String(err)}` });
     }
   });
 
@@ -131,7 +166,7 @@ export function createDeployRouter(handlers) {
   router.post("/deploy/all", requireApiToken, async (req, res) => {
     try {
       const { includeMemories = false } = req.body || {};
-      
+
       const results = {
         amikoData: null,
         amikoSkill: null,
@@ -156,7 +191,7 @@ export function createDeployRouter(handlers) {
       try {
         const skillResult = await installAmikoSkill(handlers);
         results.amikoSkill = skillResult;
-        output += skillResult.ok 
+        output += skillResult.ok
           ? `[deploy/amiko-skill] ${skillResult.output}\n`
           : `[deploy/amiko-skill] Error: ${skillResult.error}\n`;
       } catch (err) {
@@ -194,22 +229,41 @@ export function createDeployRouter(handlers) {
         output += "\n[deploy] Skipping memories sync (not requested)\n";
       }
 
+      // 5. Inject Amiko onboarding prompt
+      output += "\n[deploy] Injecting Amiko onboarding prompt...\n";
+      try {
+        const onboardingResult = await injectAmikoOnboardingPrompt(handlers);
+        results.onboarding = onboardingResult;
+        output += onboardingResult.ok
+          ? `[deploy/bootstrap] ${onboardingResult.output}\n`
+          : `[deploy/bootstrap] Error: ${onboardingResult.error}\n`;
+      } catch (err) {
+        results.onboarding = { ok: false, error: String(err) };
+        output += `[deploy/bootstrap] Error: ${err}\n`;
+      }
+
       // Check if core components succeeded (memories is optional)
-      const allOk = results.amikoData?.ok && results.amikoSkill?.ok && results.sys?.ok;
+      const allOk =
+        results.amikoData?.ok &&
+        results.amikoSkill?.ok &&
+        results.sys?.ok &&
+        results.onboarding?.ok;
 
       // Update version after successful deployment
       let versionUpdated = false;
       if (allOk) {
         output += "\n[deploy] Updating setup version...\n";
         versionUpdated = setInstalledVersion(CURRENT_SETUP_VERSION);
-        output += versionUpdated 
+        output += versionUpdated
           ? `[deploy/version] Updated to ${CURRENT_SETUP_VERSION}\n`
           : `[deploy/version] Warning: Failed to update version\n`;
       }
 
       return res.json({
         ok: allOk,
-        message: allOk ? "All updates deployed successfully" : "Some updates failed",
+        message: allOk
+          ? "All updates deployed successfully"
+          : "Some updates failed",
         results,
         version: allOk ? CURRENT_SETUP_VERSION : undefined,
         versionUpdated,
@@ -217,7 +271,9 @@ export function createDeployRouter(handlers) {
       });
     } catch (err) {
       console.error("[/setup/api/deploy/all] error:", err);
-      return res.status(500).json({ ok: false, error: `Internal error: ${String(err)}` });
+      return res
+        .status(500)
+        .json({ ok: false, error: `Internal error: ${String(err)}` });
     }
   });
 
