@@ -47,6 +47,8 @@ import {
   getUserSettings,
   // Twins API
   listUserTwins,
+  // Composio connections API
+  listComposioConnections,
 } from './lib.js';
 
 const args = process.argv.slice(2);
@@ -199,7 +201,12 @@ Commands:
   user:settings      Get detailed user settings
   
   twins              List all user's twins
-  
+
+  --- Composio Connections ---
+
+  composio:connections  List all Composio-connected services for this twin
+                       (Gmail, Slack, GitHub, Spotify, etc.)
+
   help               Show this help message
 
 Environment Variables:
@@ -670,7 +677,15 @@ async function main() {
         console.log(JSON.stringify(result, null, 2));
         break;
       }
-      
+
+      // ============== Composio Connections ==============
+
+      case 'composio:connections': {
+        const result = await listComposioConnections();
+        console.log(JSON.stringify(result, null, 2));
+        break;
+      }
+
       default:
         console.error(`Unknown command: ${command}`);
         printUsage();
