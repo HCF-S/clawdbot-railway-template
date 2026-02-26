@@ -155,14 +155,24 @@ export function createAgentsRouter(handlers) {
       }
 
       const r = await runCmd(OPENCLAW_NODE, clawArgs(args));
+      let setupResult = null;
       if (r.code === 0) {
-        await setupAgentWorkspace(handlers, WORKSPACE_DIR, workspace);
+        setupResult = await setupAgentWorkspace(
+          handlers,
+          WORKSPACE_DIR,
+          workspace,
+        );
       }
       const status = r.code === 0 ? 200 : 500;
       const payload =
         body.json && r.code === 0 && r.output?.trim()
-          ? { ok: true, output: r.output, json: tryParseJson(r.output) }
-          : { ok: r.code === 0, output: r.output };
+          ? {
+              ok: true,
+              output: r.output,
+              json: tryParseJson(r.output),
+              setup: setupResult,
+            }
+          : { ok: r.code === 0, output: r.output, setup: setupResult };
       return res.status(status).json(payload);
     } catch (err) {
       console.error("[/setup/api/add-agent] error:", err);
