@@ -21,6 +21,7 @@ async function setupAgentWorkspace(
 ) {
   const agentHandlers = { ...handlers, WORKSPACE_DIR: agentWorkspaceDir };
   let output = "";
+  let hadWarnings = false;
 
   // 1. Copy .amiko.json so the agent shares the same twin config
   const mainCfgPath = path.join(mainWorkspaceDir, ".amiko.json");
@@ -36,53 +37,62 @@ async function setupAgentWorkspace(
   } catch (err) {
     console.warn("[add-agent/setup] failed to copy .amiko.json:", err?.message);
     output += `[add-agent/setup] Warning: failed to copy .amiko.json: ${err?.message}\n`;
+    hadWarnings = true;
   }
 
   // 2. Install Amiko skill
   try {
     const result = await installAmikoSkill(agentHandlers);
+    if (!result.ok) hadWarnings = true;
     output += result.ok
       ? `[add-agent/amiko-skill] ${result.output ?? "Installed"}\n`
       : `[add-agent/amiko-skill] Warning: ${result.error}\n`;
   } catch (err) {
     console.warn("[add-agent/setup] Amiko skill install failed:", err);
     output += `[add-agent/amiko-skill] Warning: ${String(err)}\n`;
+    hadWarnings = true;
   }
 
   // 3. Install Composio skill
   try {
     const result = await installComposioSkill(agentHandlers);
+    if (!result.ok) hadWarnings = true;
     output += result.ok
       ? `[add-agent/composio-skill] ${result.output ?? "Installed"}\n`
       : `[add-agent/composio-skill] Warning: ${result.error}\n`;
   } catch (err) {
     console.warn("[add-agent/setup] Composio skill install failed:", err);
     output += `[add-agent/composio-skill] Warning: ${String(err)}\n`;
+    hadWarnings = true;
   }
 
   // 4. Install SYS config
   try {
     const result = await installSysConfig(agentHandlers);
+    if (!result.ok) hadWarnings = true;
     output += result.ok
       ? `[add-agent/sys] ${result.output ?? "Installed"}\n`
       : `[add-agent/sys] Warning: ${result.error}\n`;
   } catch (err) {
     console.warn("[add-agent/setup] SYS config install failed:", err);
     output += `[add-agent/sys] Warning: ${String(err)}\n`;
+    hadWarnings = true;
   }
 
   // 5. Inject Amiko onboarding prompt into BOOTSTRAP.md
   try {
     const result = await injectAmikoOnboardingPrompt(agentHandlers);
+    if (!result.ok) hadWarnings = true;
     output += result.ok
       ? `[add-agent/bootstrap] ${result.output ?? "Injected"}\n`
       : `[add-agent/bootstrap] Warning: ${result.error}\n`;
   } catch (err) {
     console.warn("[add-agent/setup] Amiko onboarding prompt failed:", err);
     output += `[add-agent/bootstrap] Warning: ${String(err)}\n`;
+    hadWarnings = true;
   }
 
-  return { ok: true, output };
+  return { ok: !hadWarnings, output };
 }
 
 /**
@@ -163,16 +173,17 @@ export function createAgentsRouter(handlers) {
           workspace,
         );
       }
-      const status = r.code === 0 ? 200 : 500;
+      const allOk = r.code === 0 && setupResult?.ok !== false;
+      const status = allOk ? 200 : 500;
       const payload =
         body.json && r.code === 0 && r.output?.trim()
           ? {
-              ok: true,
+              ok: allOk,
               output: r.output,
               json: tryParseJson(r.output),
               setup: setupResult,
             }
-          : { ok: r.code === 0, output: r.output, setup: setupResult };
+          : { ok: allOk, output: r.output, setup: setupResult };
       return res.status(status).json(payload);
     } catch (err) {
       console.error("[/setup/api/add-agent] error:", err);
