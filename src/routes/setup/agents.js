@@ -1,8 +1,8 @@
 import express from "express";
 import fs from "node:fs";
 import path from "node:path";
-import { installAmikoSkill, installComposioSkill } from "./skills";
-import { injectAmikoOnboardingPrompt, installSysConfig } from "./init";
+import { installAmikoSkill, installComposioSkill } from "./skills.js";
+import { injectAmikoOnboardingPrompt, installSysConfig } from "./init.js";
 
 /**
  * Copy .amiko.json from the main workspace into the agent workspace and run all
@@ -14,7 +14,11 @@ import { injectAmikoOnboardingPrompt, installSysConfig } from "./init";
  * @param {string} agentWorkspaceDir - path to the newly created agent workspace
  * @returns {Promise<{ ok: boolean, output: string }>}
  */
-async function setupAgentWorkspace(handlers, mainWorkspaceDir, agentWorkspaceDir) {
+async function setupAgentWorkspace(
+  handlers,
+  mainWorkspaceDir,
+  agentWorkspaceDir,
+) {
   const agentHandlers = { ...handlers, WORKSPACE_DIR: agentWorkspaceDir };
   let output = "";
 
@@ -109,12 +113,10 @@ export function createAgentsRouter(handlers) {
         return res.status(400).json({ ok: false, error: "Missing agentId" });
       }
       if (!name) {
-        return res
-          .status(400)
-          .json({
-            ok: false,
-            error: "Missing name (required in non-interactive mode)",
-          });
+        return res.status(400).json({
+          ok: false,
+          error: "Missing name (required in non-interactive mode)",
+        });
       }
 
       const workspace =
