@@ -47,6 +47,12 @@ import {
   getUserSettings,
   // Twins API
   listUserTwins,
+  // Agent friendships API (agent-level)
+  listAgentFriendships,
+  sendAgentFriendRequest,
+  acceptAgentFriendRequest,
+  rejectAgentFriendRequest,
+  removeAgentFriendship,
 } from './lib.js';
 
 const args = process.argv.slice(2);
@@ -180,6 +186,31 @@ Commands:
                        --query <q>      Search query (required)
   
   friends:suggestions Get friend suggestions
+  
+  --- Agent Friends Management (Agent-level, twin as actor) ---
+  
+  agent:friends      List friendships for this twin (agent)
+                     Options:
+                       --status <s>     Filter: 'accepted', 'pending', or 'blocked'
+                       --type <type>    Filter: 'user' or 'agent'
+                       --favorites      Only show favorites
+  
+  agent:friends:add  Send a friend request from this twin
+                     Options:
+                       --id <id>        Target user or agent ID (required)
+                       --type <type>    'user' or 'agent' (default: user)
+  
+  agent:friends:accept  Accept an incoming request for this twin
+                     Options:
+                       --id <id>        Friendship ID (required)
+  
+  agent:friends:reject  Reject an incoming request for this twin
+                     Options:
+                       --id <id>        Friendship ID (required)
+  
+  agent:friends:remove  Remove an existing friendship for this twin
+                     Options:
+                       --id <id>        Friendship ID (required)
   
   --- Notifications ---
   
@@ -478,6 +509,85 @@ async function main() {
           offset: parsed.offset ? parseInt(parsed.offset, 10) : 0,
         };
         const result = await listTrainingSessions(options);
+        console.log(JSON.stringify(result, null, 2));
+        break;
+      }
+      
+      // ============== Agent Friends Commands (agent-level) ==============
+      
+      case 'agent:friends': {
+        const parsed = parseArgs(args.slice(1));
+        const options = {};
+        if (parsed.status) options.status = parsed.status;
+        if (parsed.type) options.type = parsed.type;
+        if (parsed.favorites) options.favoritesOnly = true;
+
+        const result = await listAgentFriendships(options);
+        console.log(JSON.stringify(result, null, 2));
+        break;
+      }
+
+      case 'agent:friends:add': {
+        const parsed = parseArgs(args.slice(1));
+        if (!parsed.id) {
+          console.error('Error: --id is required');
+          console.error(
+            'Usage: cli.js agent:friends:add --id <user_or_agent_id> [--type user|agent]',
+          );
+          process.exit(1);
+        }
+
+        const data = {
+          targetId: parsed.id,
+          targetType: parsed.type || 'user',
+        };
+
+        const result = await sendAgentFriendRequest(data);
+        console.log(JSON.stringify(result, null, 2));
+        break;
+      }
+
+      case 'agent:friends:accept': {
+        const parsed = parseArgs(args.slice(1));
+        if (!parsed.id) {
+          console.error('Error: --id is required');
+          console.error(
+            'Usage: cli.js agent:friends:accept --id <friendship_id>',
+          );
+          process.exit(1);
+        }
+
+        const result = await acceptAgentFriendRequest(parsed.id);
+        console.log(JSON.stringify(result, null, 2));
+        break;
+      }
+
+      case 'agent:friends:reject': {
+        const parsed = parseArgs(args.slice(1));
+        if (!parsed.id) {
+          console.error('Error: --id is required');
+          console.error(
+            'Usage: cli.js agent:friends:reject --id <friendship_id>',
+          );
+          process.exit(1);
+        }
+
+        const result = await rejectAgentFriendRequest(parsed.id);
+        console.log(JSON.stringify(result, null, 2));
+        break;
+      }
+
+      case 'agent:friends:remove': {
+        const parsed = parseArgs(args.slice(1));
+        if (!parsed.id) {
+          console.error('Error: --id is required');
+          console.error(
+            'Usage: cli.js agent:friends:remove --id <friendship_id>',
+          );
+          process.exit(1);
+        }
+
+        const result = await removeAgentFriendship(parsed.id);
         console.log(JSON.stringify(result, null, 2));
         break;
       }

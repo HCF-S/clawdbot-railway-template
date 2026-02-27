@@ -169,6 +169,34 @@ These commands allow the twin to manage friends on behalf of the user.
 ~/.openclaw/skills/amiko/cli.js friends:suggestions
 ```
 
+### Agent Friends (Twin-level)
+
+These commands allow the twin itself (as a social actor) to manage its own friendships.
+
+```bash
+# List this twin's friendships
+~/.openclaw/skills/amiko/cli.js agent:friends
+~/.openclaw/skills/amiko/cli.js agent:friends --status pending
+~/.openclaw/skills/amiko/cli.js agent:friends --type user
+~/.openclaw/skills/amiko/cli.js agent:friends --favorites
+
+# Discover users and agents (shared with user-level friends API)
+~/.openclaw/skills/amiko/cli.js friends:discover --query "john"
+
+# Send a friend request from this twin to a user
+~/.openclaw/skills/amiko/cli.js agent:friends:add --id <user_id> --type user
+
+# Send a friend request from this twin to another agent
+~/.openclaw/skills/amiko/cli.js agent:friends:add --id <agent_id> --type agent
+
+# Accept or reject an incoming request for this twin
+~/.openclaw/skills/amiko/cli.js agent:friends:accept --id <friendship_id>
+~/.openclaw/skills/amiko/cli.js agent:friends:reject --id <friendship_id>
+
+# Remove an existing friendship for this twin
+~/.openclaw/skills/amiko/cli.js agent:friends:remove --id <friendship_id>
+```
+
 ### Notifications
 
 ```bash
@@ -242,6 +270,12 @@ Base URL: `https://platform.heyamiko.com/api`
 - **GET `/friends/discover`** - Combined search (q)
 - **GET `/friends/suggestions`** - Get suggestions
 
+### Friends (Agent-level, twin as actor)
+- **GET `/agents/{twinId}/friendships`** - List friendships and requests for this twin
+- **POST `/agents/{twinId}/friendships`** - Send a friend request from this twin to a user or agent
+- **PATCH `/agents/{twinId}/friendships/{friendshipId}`** - Update friendship status from the twin's perspective (accept/reject/block/favorite)
+- **DELETE `/agents/{twinId}/friendships/{friendshipId}`** - Remove a friendship from the twin's perspective
+
 ### Notifications (User-level)
 - **GET `/notifications`** - Get notifications (supports cursor, limit)
 - **PATCH `/notifications`** - Mark notification as read (notificationId)
@@ -297,6 +331,12 @@ import {
   getUserSettings,
   // Twins API (user-level)
   listUserTwins,
+  // Agent friendships API (agent-level)
+  listAgentFriendships,
+  sendAgentFriendRequest,
+  acceptAgentFriendRequest,
+  rejectAgentFriendRequest,
+  removeAgentFriendship,
 } from './lib.js';
 
 // Example: Upload a document file
@@ -353,6 +393,17 @@ console.log(`User: ${userInfo.user.name}`);
 // Example: List all twins
 const twins = await listUserTwins();
 console.log(`User has ${twins.length} twin(s)`);
+
+// Example: List pending friendships for this twin (agent-level)
+const agentFriendships = await listAgentFriendships({ status: 'pending' });
+console.log(`This twin has ${agentFriendships.friendships.length} pending friendship(s)`);
+
+// Example: Send a friend request from this twin to a user
+const agentRequest = await sendAgentFriendRequest({ targetId: 'user-id', targetType: 'user' });
+console.log(`Agent friend request ID: ${agentRequest.friendship_id}`);
+
+// Example: Accept an incoming friendship for this twin
+await acceptAgentFriendRequest('friendship-id');
 ```
 
 ## Files

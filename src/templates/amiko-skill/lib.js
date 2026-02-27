@@ -944,3 +944,154 @@ export async function listUserTwins() {
   
   return response.json();
 }
+
+// ============================================================================
+// AGENT FRIENDSHIPS API (Agent-level operations - twin acts as social actor)
+// ============================================================================
+
+/**
+ * List friendships for the twin (agent as social actor)
+ * @param {object} options - Options
+ * @param {string} options.status - Filter by status: 'accepted' | 'pending' | 'blocked' (optional)
+ * @param {string} options.type - Filter by type: 'user' | 'agent' (optional)
+ * @param {boolean} options.favoritesOnly - Only return favorites (optional)
+ * @returns {Promise<object>} - Friendships list from the agent's perspective
+ */
+export async function listAgentFriendships(options = {}) {
+  const config = getConfig();
+  const { status, type, favoritesOnly } = options;
+
+  const params = new URLSearchParams();
+  if (status) params.append('status', status);
+  if (type) params.append('type', type);
+  if (favoritesOnly) params.append('favorites_only', 'true');
+
+  const queryString = params.toString();
+  const url = `/api/agents/${config.twinId}/friendships${queryString ? `?${queryString}` : ''}`;
+
+  const response = await apiRequest(url);
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Failed to list agent friendships: ${response.status} - ${text}`);
+  }
+
+  return response.json();
+}
+
+/**
+ * Send a friend request from the twin (agent) to a user or another agent
+ * @param {object} data - Request data
+ * @param {string} data.targetId - ID of the user or agent to befriend
+ * @param {('user'|'agent')} data.targetType - Target type: 'user' or 'agent'
+ * @returns {Promise<object>} - Result with friendship_id
+ */
+export async function sendAgentFriendRequest(data) {
+  const config = getConfig();
+  const { targetId, targetType } = data;
+
+  if (!targetId) {
+    throw new Error('targetId is required');
+  }
+  if (!targetType || (targetType !== 'user' && targetType !== 'agent')) {
+    throw new Error("targetType must be 'user' or 'agent'");
+  }
+
+  const response = await apiRequest(`/api/agents/${config.twinId}/friendships`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      target_id: targetId,
+      target_type: targetType,
+    }),
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Failed to send agent friend request: ${response.status} - ${text}`);
+  }
+
+  return response.json();
+}
+
+/**
+ * Internal helper to update an agent friendship with a specific action
+ * @param {string} friendshipId - Friendship ID
+ * @param {('accept'|'reject'|'block'|'favorite'|'unfavorite')} action - Action to perform
+ * @returns {Promise<object>} - Result
+ */
+async function updateAgentFriendship(friendshipId, action) {
+  const config = getConfig();
+
+  if (!friendshipId) {
+    throw new Error('friendshipId is required');
+  }
+  if (!action) {
+    throw new Error('action is required');
+  }
+
+  const response = await apiRequest(
+    `/api/agents/${config.twinId}/friendships/${friendshipId}`,
+    {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action }),
+    },
+  );
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(
+      `Failed to update agent friendship (${action}): ${response.status} - ${text}`,
+    );
+  }
+
+  return response.json();
+}
+
+/**
+ * Accept an incoming friend request for the twin
+ * @param {string} friendshipId - Friendship ID to accept
+ * @returns {Promise<object>} - Result
+ */
+export async function acceptAgentFriendRequest(friendshipId) {
+  return updateAgentFriendship(friendshipId, 'accept');
+}
+
+/**
+ * Reject an incoming friend request for the twin
+ * @param {string} friendshipId - Friendship ID to reject
+ * @returns {Promise<object>} - Result
+ */
+export async function rejectAgentFriendRequest(friendshipId) {
+  return updateAgentFriendship(friendshipId, 'reject');
+}
+
+/**
+ * Remove an existing friendship for the twin (any status)
+ * @param {string} friendshipId - Friendship ID to remove
+ * @returns {Promise<object>} - Result
+ */
+export async function removeAgentFriendship(friendshipId) {
+  const config = getConfig();
+
+  if (!friendshipId) {
+    throw new Error('friendshipId is required');
+  }
+
+  const response = await apiRequest(
+    `/api/agents/${config.twinId}/friendships/${friendshipId}`,
+    {
+      method: 'DELETE',
+    },
+  );
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(
+      `Failed to remove agent friendship: ${response.status} - ${text}`,
+    );
+  }
+
+  return response.json();
+}
