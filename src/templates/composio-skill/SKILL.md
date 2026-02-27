@@ -29,10 +29,24 @@ Once connected, the agent can use tools from Composio toolkits such as:
 
 - **Gmail** – Read, send, search email
 - **Google Calendar** – List and create events
+- **Slack** – Read and send messages
+- **GitHub** – Repos, issues, PRs
+- **Spotify** – Playback, playlists
+- **Google Sheets** – Read and write spreadsheets
 - **Calendly** – Scheduling and availability
-- **Slack**, **Notion**, and others (depending on platform configuration)
+- **Notion**, **Discord**, **Linear**, and others (depending on platform configuration)
 
-Exact tools depend on which apps you’ve connected in the Amiko platform Composio integration.
+Exact tools depend on which apps you've connected in the Amiko platform Composio integration.
+
+## Check connected services
+
+To see which services are actually connected for this twin, run:
+
+```bash
+~/.openclaw/skills/amiko/cli.js composio:connections
+```
+
+This returns the authoritative list of connected services with their status. **Always use this command** when the user asks what services/tools are connected, rather than just listing MCP tools.
 
 ## Requirements
 

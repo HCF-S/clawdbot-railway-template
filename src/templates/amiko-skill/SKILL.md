@@ -193,6 +193,15 @@ These commands allow the twin to manage friends on behalf of the user.
 ~/.openclaw/skills/amiko/cli.js twins
 ```
 
+### Composio Connections
+
+```bash
+# List all connected Composio services (Gmail, Slack, GitHub, Spotify, etc.)
+~/.openclaw/skills/amiko/cli.js composio:connections
+```
+
+Use this to check which external services are connected for this twin. The response includes connection status, app names, and IDs. This is the authoritative source for what services are available — use it when asked about connected tools/services.
+
 ## API Endpoints
 
 Base URL: `https://platform.heyamiko.com/api`
@@ -251,6 +260,9 @@ Base URL: `https://platform.heyamiko.com/api`
 - **GET `/user/settings`** - Get user settings
 - **GET `/twins`** - List all user's twins
 
+### Composio Connections (Twin-level)
+- **GET `/agents/{twinId}/composio/connections`** - List all connected Composio services with status
+
 ## Library Functions (lib.js)
 
 ```javascript
@@ -297,6 +309,8 @@ import {
   getUserSettings,
   // Twins API (user-level)
   listUserTwins,
+  // Composio connections
+  listComposioConnections,
 } from './lib.js';
 
 // Example: Upload a document file
