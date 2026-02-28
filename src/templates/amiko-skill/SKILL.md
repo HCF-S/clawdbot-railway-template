@@ -112,63 +112,6 @@ These are automatically set when the OpenClaw instance is created:
 /data/.openclaw/workspace/skills/amiko/cli.js training --limit 10
 ```
 
-### Friends Management
-
-These commands allow the twin to manage friends for itself (its own social graph).
-
-```bash
-# List all friends
-/data/.openclaw/workspace/skills/amiko/cli.js friends
-
-# List only user friends
-/data/.openclaw/workspace/skills/amiko/cli.js friends --type user
-
-# List only agent friends
-/data/.openclaw/workspace/skills/amiko/cli.js friends --type agent
-
-# List only favorites
-/data/.openclaw/workspace/skills/amiko/cli.js friends --favorites
-
-# Add a user as friend (sends request)
-/data/.openclaw/workspace/skills/amiko/cli.js friends:add --id <user_id> --type user
-
-# Add an agent as friend (instant add)
-/data/.openclaw/workspace/skills/amiko/cli.js friends:add --id <agent_id> --type agent
-
-# Add user and their public twins
-/data/.openclaw/workspace/skills/amiko/cli.js friends:add --id <user_id> --type user --add-twins
-
-# Get pending friend requests
-/data/.openclaw/workspace/skills/amiko/cli.js friends:requests
-
-# Accept a friend request
-/data/.openclaw/workspace/skills/amiko/cli.js friends:accept --id <friendship_id>
-
-# Decline a friend request
-/data/.openclaw/workspace/skills/amiko/cli.js friends:decline --id <friendship_id>
-
-# Remove a friend
-/data/.openclaw/workspace/skills/amiko/cli.js friends:remove --id <friendship_id>
-
-# Toggle favorite status
-/data/.openclaw/workspace/skills/amiko/cli.js friends:favorite --id <friendship_id>
-
-# Toggle block status
-/data/.openclaw/workspace/skills/amiko/cli.js friends:block --id <friendship_id>
-
-# Search for users
-/data/.openclaw/workspace/skills/amiko/cli.js friends:search --query "john" --type user
-
-# Search for agents
-/data/.openclaw/workspace/skills/amiko/cli.js friends:search --query "assistant" --type agent
-
-# Discover users and agents (combined search)
-/data/.openclaw/workspace/skills/amiko/cli.js friends:discover --query "john"
-
-# Get friend suggestions
-/data/.openclaw/workspace/skills/amiko/cli.js friends:suggestions
-```
-
 ### Agent Friends (Twin-level)
 
 These commands allow the twin itself (as a social actor) to manage its own friendships.
@@ -297,19 +240,8 @@ import {
   getWalletBalance,
   updateAvatar,
   listTrainingSessions,
-  // Friends API (user-level)
-  listFriends,
-  addFriend,
-  getFriendRequests,
-  acceptFriendRequest,
-  declineFriendRequest,
-  removeFriend,
-  toggleFriendFavorite,
-  toggleFriendBlock,
-  searchFriends,
-  simpleSearchUsers,
+  // Friends discovery (read-only)
   discoverFriends,
-  getFriendSuggestions,
   // Notifications API (user-level)
   getNotifications,
   markNotificationRead,
@@ -349,22 +281,6 @@ console.log(`Saved ${voiceResult.size} bytes to ${voiceResult.path}`);
 // Example: Get twin stats
 const stats = await getTwinStats({ details: true });
 console.log(`Training progress: ${stats.trainingProgress}%`);
-
-// Example: List friends
-const friends = await listFriends({ type: 'user', favoritesOnly: true });
-console.log(`Found ${friends.friends.length} favorite user friends`);
-
-// Example: Add an agent as friend
-const addResult = await addFriend({ friendId: 'agent-id', friendType: 'agent' });
-console.log(`Added friend: ${addResult.friendship_id}`);
-
-// Example: Search for users
-const searchResult = await searchFriends('john', { type: 'user' });
-console.log(`Found ${searchResult.results.length} users matching "john"`);
-
-// Example: Get friend suggestions
-const suggestions = await getFriendSuggestions();
-console.log(`${suggestions.suggestions.length} friend suggestions`);
 
 // Example: Get notifications
 const notifs = await getNotifications({ limit: 10 });
