@@ -95,6 +95,36 @@ export async function pullTwinData(handlers) {
     fs.writeFileSync(outPath, markdown, "utf8");
     console.log("[pullTwinData] saved", { path: outPath });
 
+    const personality = typeof twin.personality === "string" ? twin.personality.trim() : "";
+    if (personality) {
+      const soulPath = path.join(WORKSPACE_DIR, "SOUL.md");
+      const soulContent = `# Soul\n\n${twin.name ? `My name is ${twin.name}.\n\n` : ""}${personality}\n`;
+      fs.writeFileSync(soulPath, soulContent, "utf8");
+      console.log("[pullTwinData] wrote SOUL.md");
+
+      const identityPath = path.join(WORKSPACE_DIR, "IDENTITY.md");
+      const twinType = twin.type === "COMPANION" ? "AI companion" : "AI twin";
+      const identityLines = [
+        "# Identity",
+        "",
+        `**Name:** ${twin.name || "unnamed"}`,
+        `**Creature:** ${twinType} from Amiko platform`,
+        `**Vibe:** Defined in SOUL.md`,
+      ];
+      if (twin.avatar_url) {
+        identityLines.push(`**Avatar:** ${twin.avatar_url}`);
+      }
+      identityLines.push("");
+      fs.writeFileSync(identityPath, identityLines.join("\n"), "utf8");
+      console.log("[pullTwinData] wrote IDENTITY.md");
+
+      const bootstrapPath = path.join(WORKSPACE_DIR, "BOOTSTRAP.md");
+      if (fs.existsSync(bootstrapPath)) {
+        fs.unlinkSync(bootstrapPath);
+        console.log("[pullTwinData] deleted BOOTSTRAP.md");
+      }
+    }
+
     // Inject AMIKO.md reference into BOOTSTRAP.md or AGENTS.md
     const bootstrapPath = path.join(WORKSPACE_DIR, "BOOTSTRAP.md");
     const agentsPath = path.join(WORKSPACE_DIR, "AGENTS.md");
