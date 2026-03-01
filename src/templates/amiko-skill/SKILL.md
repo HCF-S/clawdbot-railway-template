@@ -24,173 +24,144 @@ These are automatically set when the OpenClaw instance is created:
 
 ```bash
 # Get twin profile
-~/.openclaw/skills/amiko/cli.js info
+/data/.openclaw/workspace/skills/amiko/cli.js info
 
 # Get statistics (training progress, memory count, etc.)
-~/.openclaw/skills/amiko/cli.js stats
-~/.openclaw/skills/amiko/cli.js stats --details
+/data/.openclaw/workspace/skills/amiko/cli.js stats
+/data/.openclaw/workspace/skills/amiko/cli.js stats --details
 ```
 
 ### Documents
 
 ```bash
 # List documents
-~/.openclaw/skills/amiko/cli.js docs
-~/.openclaw/skills/amiko/cli.js docs --limit 10
+/data/.openclaw/workspace/skills/amiko/cli.js docs
+/data/.openclaw/workspace/skills/amiko/cli.js docs --limit 10
 
 # Create a new document (text content)
-~/.openclaw/skills/amiko/cli.js docs:create --title "My Note" --content "Hello world"
+/data/.openclaw/workspace/skills/amiko/cli.js docs:create --title "My Note" --content "Hello world"
 
 # Upload a document file (PDF, Word, images, etc.)
-~/.openclaw/skills/amiko/cli.js docs:upload --file /path/to/document.pdf
-~/.openclaw/skills/amiko/cli.js docs:upload --file notes.txt
+/data/.openclaw/workspace/skills/amiko/cli.js docs:upload --file /path/to/document.pdf
+/data/.openclaw/workspace/skills/amiko/cli.js docs:upload --file notes.txt
 ```
 
 ### Personality & Social
 
 ```bash
 # Get personality data
-~/.openclaw/skills/amiko/cli.js personality
+/data/.openclaw/workspace/skills/amiko/cli.js personality
 
 # Update personality
-~/.openclaw/skills/amiko/cli.js personality:update --text "Friendly and helpful"
+/data/.openclaw/workspace/skills/amiko/cli.js personality:update --text "Friendly and helpful"
 
 # Get social data
-~/.openclaw/skills/amiko/cli.js social
+/data/.openclaw/workspace/skills/amiko/cli.js social
 
 # Update Twitter handle
-~/.openclaw/skills/amiko/cli.js social:update --twitter "@myhandle"
+/data/.openclaw/workspace/skills/amiko/cli.js social:update --twitter "@myhandle"
 ```
 
 ### Voice
 
 ```bash
 # Get voice configuration
-~/.openclaw/skills/amiko/cli.js voice
+/data/.openclaw/workspace/skills/amiko/cli.js voice
 
 # Clone voice from an audio file (e.g., a voice message you received)
-~/.openclaw/skills/amiko/cli.js voice:clone --file /path/to/audio.mp3
-~/.openclaw/skills/amiko/cli.js voice:clone --file audio.mp3 --name "My Voice" --description "Cloned from audio message"
+/data/.openclaw/workspace/skills/amiko/cli.js voice:clone --file /path/to/audio.mp3
+/data/.openclaw/workspace/skills/amiko/cli.js voice:clone --file audio.mp3 --name "My Voice" --description "Cloned from audio message"
 
 # Design a voice from text description (generates previews)
-~/.openclaw/skills/amiko/cli.js voice:design "A warm, friendly female voice with a slight British accent, calm and reassuring"
-~/.openclaw/skills/amiko/cli.js voice:design --description "A deep male voice with an American accent, confident and professional"
+/data/.openclaw/workspace/skills/amiko/cli.js voice:design "A warm, friendly female voice with a slight British accent, calm and reassuring"
+/data/.openclaw/workspace/skills/amiko/cli.js voice:design --description "A deep male voice with an American accent, confident and professional"
 
 # Generate speech (output as base64)
-~/.openclaw/skills/amiko/cli.js voice:generate "Hello, this is my digital twin!"
+/data/.openclaw/workspace/skills/amiko/cli.js voice:generate "Hello, this is my digital twin!"
 
 # Generate speech and save to file
-~/.openclaw/skills/amiko/cli.js voice:generate "Hello world" --output hello.mp3
+/data/.openclaw/workspace/skills/amiko/cli.js voice:generate "Hello world" --output hello.mp3
 ```
 
 ### Wallets
 
 ```bash
 # List wallets
-~/.openclaw/skills/amiko/cli.js wallets
+/data/.openclaw/workspace/skills/amiko/cli.js wallets
 
 # Create a wallet
-~/.openclaw/skills/amiko/cli.js wallets:create --chain ethereum
-~/.openclaw/skills/amiko/cli.js wallets:create --chain solana-devnet --custodian amiko
+/data/.openclaw/workspace/skills/amiko/cli.js wallets:create --chain ethereum
+/data/.openclaw/workspace/skills/amiko/cli.js wallets:create --chain solana-devnet --custodian amiko
 
 # Get wallet balance
-~/.openclaw/skills/amiko/cli.js wallets:balance --address 0x123...
+/data/.openclaw/workspace/skills/amiko/cli.js wallets:balance --address 0x123...
 ```
 
 ### Avatar
 
 ```bash
 # Update avatar
-~/.openclaw/skills/amiko/cli.js avatar:update --url "https://example.com/avatar.png"
+/data/.openclaw/workspace/skills/amiko/cli.js avatar:update --url "https://example.com/avatar.png"
 ```
 
 ### Training
 
 ```bash
 # List training sessions
-~/.openclaw/skills/amiko/cli.js training
-~/.openclaw/skills/amiko/cli.js training --limit 10
+/data/.openclaw/workspace/skills/amiko/cli.js training
+/data/.openclaw/workspace/skills/amiko/cli.js training --limit 10
 ```
 
-### Friends Management
+### Agent Friends (Twin-level)
 
-These commands allow the twin to manage friends on behalf of the user.
+These commands allow the twin itself (as a social actor) to manage its own friendships.
 
 ```bash
-# List all friends
-~/.openclaw/skills/amiko/cli.js friends
+# List this twin's friendships
+/data/.openclaw/workspace/skills/amiko/cli.js agent:friends
+/data/.openclaw/workspace/skills/amiko/cli.js agent:friends --status pending
+/data/.openclaw/workspace/skills/amiko/cli.js agent:friends --type user
+/data/.openclaw/workspace/skills/amiko/cli.js agent:friends --favorites
 
-# List only user friends
-~/.openclaw/skills/amiko/cli.js friends --type user
+# Discover users and agents (shared with user-level friends API)
+/data/.openclaw/workspace/skills/amiko/cli.js friends:discover --query "john"
 
-# List only agent friends
-~/.openclaw/skills/amiko/cli.js friends --type agent
+# Send a friend request from this twin to a user
+/data/.openclaw/workspace/skills/amiko/cli.js agent:friends:add --id <user_id> --type user
 
-# List only favorites
-~/.openclaw/skills/amiko/cli.js friends --favorites
+# Send a friend request from this twin to another agent
+/data/.openclaw/workspace/skills/amiko/cli.js agent:friends:add --id <agent_id> --type agent
 
-# Add a user as friend (sends request)
-~/.openclaw/skills/amiko/cli.js friends:add --id <user_id> --type user
+# Accept or reject an incoming request for this twin
+/data/.openclaw/workspace/skills/amiko/cli.js agent:friends:accept --id <friendship_id>
+/data/.openclaw/workspace/skills/amiko/cli.js agent:friends:reject --id <friendship_id>
 
-# Add an agent as friend (instant add)
-~/.openclaw/skills/amiko/cli.js friends:add --id <agent_id> --type agent
-
-# Add user and their public twins
-~/.openclaw/skills/amiko/cli.js friends:add --id <user_id> --type user --add-twins
-
-# Get pending friend requests
-~/.openclaw/skills/amiko/cli.js friends:requests
-
-# Accept a friend request
-~/.openclaw/skills/amiko/cli.js friends:accept --id <friendship_id>
-
-# Decline a friend request
-~/.openclaw/skills/amiko/cli.js friends:decline --id <friendship_id>
-
-# Remove a friend
-~/.openclaw/skills/amiko/cli.js friends:remove --id <friendship_id>
-
-# Toggle favorite status
-~/.openclaw/skills/amiko/cli.js friends:favorite --id <friendship_id>
-
-# Toggle block status
-~/.openclaw/skills/amiko/cli.js friends:block --id <friendship_id>
-
-# Search for users
-~/.openclaw/skills/amiko/cli.js friends:search --query "john" --type user
-
-# Search for agents
-~/.openclaw/skills/amiko/cli.js friends:search --query "assistant" --type agent
-
-# Discover users and agents (combined search)
-~/.openclaw/skills/amiko/cli.js friends:discover --query "john"
-
-# Get friend suggestions
-~/.openclaw/skills/amiko/cli.js friends:suggestions
+# Remove an existing friendship for this twin
+/data/.openclaw/workspace/skills/amiko/cli.js agent:friends:remove --id <friendship_id>
 ```
 
 ### Notifications
 
 ```bash
 # Get notifications
-~/.openclaw/skills/amiko/cli.js notifications
-~/.openclaw/skills/amiko/cli.js notifications --limit 10
+/data/.openclaw/workspace/skills/amiko/cli.js notifications
+/data/.openclaw/workspace/skills/amiko/cli.js notifications --limit 10
 
 # Mark notification as read
-~/.openclaw/skills/amiko/cli.js notifications:read --id <notification_id>
+/data/.openclaw/workspace/skills/amiko/cli.js notifications:read --id <notification_id>
 ```
 
 ### User & Twins
 
 ```bash
 # Get current user info
-~/.openclaw/skills/amiko/cli.js user
+/data/.openclaw/workspace/skills/amiko/cli.js user
 
 # Get detailed user settings
-~/.openclaw/skills/amiko/cli.js user:settings
+/data/.openclaw/workspace/skills/amiko/cli.js user:settings
 
 # List all user's twins
-~/.openclaw/skills/amiko/cli.js twins
+/data/.openclaw/workspace/skills/amiko/cli.js twins
 ```
 
 ### Composio Connections
@@ -238,18 +209,11 @@ Base URL: `https://platform.heyamiko.com/api`
 ### Training
 - **GET `/agents/{twinId}/training_sessions`** - List sessions
 
-### Friends (User-level)
-- **GET `/friends`** - List friends (supports type, sub_type, favorites_only filters)
-- **POST `/friends`** - Add friend (friend_id, friend_type, also_add_twins)
-- **GET `/friends/requests`** - Get pending requests
-- **PATCH `/friends/{id}/accept`** - Accept request
-- **PATCH `/friends/{id}/decline`** - Decline request
-- **DELETE `/friends/{id}`** - Remove friend
-- **POST `/friends/{id}/favorite`** - Toggle favorite
-- **POST `/friends/{id}/block`** - Toggle block
-- **GET `/friends/search`** - Search users/agents (q, type)
-- **GET `/friends/discover`** - Combined search (q)
-- **GET `/friends/suggestions`** - Get suggestions
+### Friends (Agent-level, twin as actor)
+- **GET `/agents/{twinId}/friendships`** - List friendships and requests for this twin
+- **POST `/agents/{twinId}/friendships`** - Send a friend request from this twin to a user or agent
+- **PATCH `/agents/{twinId}/friendships/{friendshipId}`** - Update friendship status from the twin's perspective (accept/reject/block/favorite)
+- **DELETE `/agents/{twinId}/friendships/{friendshipId}`** - Remove a friendship from the twin's perspective
 
 ### Notifications (User-level)
 - **GET `/notifications`** - Get notifications (supports cursor, limit)
@@ -288,19 +252,8 @@ import {
   getWalletBalance,
   updateAvatar,
   listTrainingSessions,
-  // Friends API (user-level)
-  listFriends,
-  addFriend,
-  getFriendRequests,
-  acceptFriendRequest,
-  declineFriendRequest,
-  removeFriend,
-  toggleFriendFavorite,
-  toggleFriendBlock,
-  searchFriends,
-  simpleSearchUsers,
+  // Friends discovery (read-only)
   discoverFriends,
-  getFriendSuggestions,
   // Notifications API (user-level)
   getNotifications,
   markNotificationRead,
@@ -309,6 +262,12 @@ import {
   getUserSettings,
   // Twins API (user-level)
   listUserTwins,
+  // Agent friendships API (agent-level)
+  listAgentFriendships,
+  sendAgentFriendRequest,
+  acceptAgentFriendRequest,
+  rejectAgentFriendRequest,
+  removeAgentFriendship,
   // Composio connections
   listComposioConnections,
 } from './lib.js';
@@ -337,22 +296,6 @@ console.log(`Saved ${voiceResult.size} bytes to ${voiceResult.path}`);
 const stats = await getTwinStats({ details: true });
 console.log(`Training progress: ${stats.trainingProgress}%`);
 
-// Example: List friends
-const friends = await listFriends({ type: 'user', favoritesOnly: true });
-console.log(`Found ${friends.friends.length} favorite user friends`);
-
-// Example: Add an agent as friend
-const addResult = await addFriend({ friendId: 'agent-id', friendType: 'agent' });
-console.log(`Added friend: ${addResult.friendship_id}`);
-
-// Example: Search for users
-const searchResult = await searchFriends('john', { type: 'user' });
-console.log(`Found ${searchResult.results.length} users matching "john"`);
-
-// Example: Get friend suggestions
-const suggestions = await getFriendSuggestions();
-console.log(`${suggestions.suggestions.length} friend suggestions`);
-
 // Example: Get notifications
 const notifs = await getNotifications({ limit: 10 });
 console.log(`${notifs.notifications.length} notifications, ${notifs.unread_count} unread`);
@@ -367,6 +310,17 @@ console.log(`User: ${userInfo.user.name}`);
 // Example: List all twins
 const twins = await listUserTwins();
 console.log(`User has ${twins.length} twin(s)`);
+
+// Example: List pending friendships for this twin (agent-level)
+const agentFriendships = await listAgentFriendships({ status: 'pending' });
+console.log(`This twin has ${agentFriendships.friendships.length} pending friendship(s)`);
+
+// Example: Send a friend request from this twin to a user
+const agentRequest = await sendAgentFriendRequest({ targetId: 'user-id', targetType: 'user' });
+console.log(`Agent friend request ID: ${agentRequest.friendship_id}`);
+
+// Example: Accept an incoming friendship for this twin
+await acceptAgentFriendRequest('friendship-id');
 ```
 
 ## Files
