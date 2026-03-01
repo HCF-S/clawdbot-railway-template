@@ -133,7 +133,8 @@ const COMPOSIO_MCP_PROXY_PORT = Number.parseInt(
 
 /**
  * Install the Composio skill into the workspace.
- * Copies only SKILL.md to workspace/skills/composio/. Does not modify openclaw.json.
+ * Copies only SKILL.md to workspace/skills/composio/. Does not modify openclaw.json
+ * (OpenClaw accesses Composio via the skill's meta tools, not native MCP config).
  * The Composio MCP proxy (127.0.0.1:3099) is started by the wrapper when AMIKO_PLATFORM_URL is set.
  */
 export async function installComposioSkill(handlers) {

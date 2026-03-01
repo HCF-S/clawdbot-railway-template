@@ -124,17 +124,18 @@ export function createDeployRouter(handlers) {
 
   /**
    * POST /setup/api/deploy/all
-   * Deploy all updates (amiko-skill + sys + amiko-data) to an existing instance
+   * Deploy all updates (amiko-skill + composio-skill + sys + amiko-data) to an existing instance
    * This is useful for upgrading existing instances to latest features
    * Body: { includeMemories?: boolean } - optionally include memories sync
    */
   router.post("/deploy/all", requireApiToken, async (req, res) => {
     try {
       const { includeMemories = false } = req.body || {};
-      
+
       const results = {
         amikoData: null,
         amikoSkill: null,
+        composioSkill: null,
         sys: null,
         memories: null,
       };
@@ -156,7 +157,7 @@ export function createDeployRouter(handlers) {
       try {
         const skillResult = await installAmikoSkill(handlers);
         results.amikoSkill = skillResult;
-        output += skillResult.ok 
+        output += skillResult.ok
           ? `[deploy/amiko-skill] ${skillResult.output}\n`
           : `[deploy/amiko-skill] Error: ${skillResult.error}\n`;
       } catch (err) {
@@ -164,7 +165,20 @@ export function createDeployRouter(handlers) {
         output += `[deploy/amiko-skill] Error: ${err}\n`;
       }
 
-      // 3. Install SYS config
+      // 3. Install Composio skill
+      output += "\n[deploy] Installing Composio skill...\n";
+      try {
+        const composioResult = await installComposioSkill(handlers);
+        results.composioSkill = composioResult;
+        output += composioResult.ok
+          ? `[deploy/composio-skill] ${composioResult.output}\n`
+          : `[deploy/composio-skill] Error: ${composioResult.error}\n`;
+      } catch (err) {
+        results.composioSkill = { ok: false, error: String(err) };
+        output += `[deploy/composio-skill] Error: ${err}\n`;
+      }
+
+      // 4. Install SYS config
       output += "\n[deploy] Setting up system persistence...\n";
       try {
         const sysResult = await installSysConfig(handlers);
@@ -177,7 +191,7 @@ export function createDeployRouter(handlers) {
         output += `[deploy/sys] Error: ${err}\n`;
       }
 
-      // 4. Optionally sync memories
+      // 5. Optionally sync memories
       if (includeMemories) {
         output += "\n[deploy] Syncing memories (optional)...\n";
         try {
@@ -194,7 +208,7 @@ export function createDeployRouter(handlers) {
         output += "\n[deploy] Skipping memories sync (not requested)\n";
       }
 
-      // Check if core components succeeded (memories is optional)
+      // Check if core components succeeded (memories and composio are optional)
       const allOk = results.amikoData?.ok && results.amikoSkill?.ok && results.sys?.ok;
 
       // Update version after successful deployment

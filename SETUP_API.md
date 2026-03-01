@@ -179,14 +179,14 @@ These endpoints allow the platform to push updates to existing instances without
 | Method | Endpoint | Description |
 | --- | --- | --- |
 | `POST` | `/setup/api/deploy/amiko-skill` | Deploy/update the Amiko skill to an existing instance. Copies the latest skill files to `skills/amiko/`. |
-| `POST` | `/setup/api/deploy/composio-skill` | Deploy/update the Composio skill: installs only `SKILL.md` to `skills/composio/`. Does not modify `openclaw.json`. The Composio MCP proxy runs on `http://127.0.0.1:3099` when `AMIKO_PLATFORM_URL` is set; add that URL to your MCP config manually if your OpenClaw build includes the mcp-bridge plugin. |
+| `POST` | `/setup/api/deploy/composio-skill` | Deploy/update the Composio skill: installs `SKILL.md` to `skills/composio/`. The Composio MCP proxy runs on `http://127.0.0.1:3099` when `AMIKO_PLATFORM_URL` is set. OpenClaw accesses it through the composio skill's meta tools. |
 | `POST` | `/setup/api/deploy/sys` | Deploy/update `SYS.md` and `/data/sys/` structure for system persistence. Creates the persistence directories and files if they don't exist. |
 
 ### Connecting OpenClaw to the Composio MCP proxy (optional)
 
-The deploy endpoint installs only `skills/composio/SKILL.md`; it does **not** modify `openclaw.json`. If your OpenClaw build includes the openclaw-mcp-bridge plugin and you want the agent to use Composio tools, add the Composio server to your config manually:
+OpenClaw accesses Composio through the composio skill's meta tools (COMPOSIO_SEARCH_TOOLS, etc.) which talk to the local MCP proxy at `http://127.0.0.1:3099`. No config changes to `openclaw.json` are needed.
 
-If you need to configure the bridge by hand (e.g. before a deploy or for a custom setup):
+If you need to configure the bridge by hand (e.g. for a custom setup using the openclaw-mcp-bridge plugin):
 
 **Config location:** OpenClaw reads `openclaw.json` from the state directory. When `OPENCLAW_HOME=/data` or `OPENCLAW_STATE_DIR=/data/.openclaw`, the file is `/data/.openclaw/openclaw.json` (or `~/.clawdbot/clawdbot.json5` on newer installs).
 

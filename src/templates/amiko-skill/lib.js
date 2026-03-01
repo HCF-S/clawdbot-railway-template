@@ -740,6 +740,28 @@ export async function getUserSettings() {
 }
 
 // ============================================================================
+// COMPOSIO CONNECTIONS API (Twin-level - list connected services)
+// ============================================================================
+
+/**
+ * List Composio-connected services for this twin
+ * Returns all connected apps (Gmail, Slack, GitHub, Spotify, etc.) with status
+ * @returns {Promise<object>} - { connections: string[], details: Array<{appName, status, id, updatedAt}> }
+ */
+export async function listComposioConnections() {
+  const config = getConfig();
+
+  const response = await apiRequest(`/api/agents/${config.twinId}/composio/connections`);
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Failed to list Composio connections: ${response.status} - ${text}`);
+  }
+
+  return response.json();
+}
+
+// ============================================================================
 // TWINS API (User-level operations - list all user's twins)
 // ============================================================================
 
