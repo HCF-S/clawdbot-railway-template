@@ -24,92 +24,92 @@ These are automatically set when the OpenClaw instance is created:
 
 ```bash
 # Get twin profile
-/data/.openclaw/workspace/skills/amiko/cli.js info
+/data/.openclaw/skills/amiko/cli.js info
 
 # Get statistics (training progress, memory count, etc.)
-/data/.openclaw/workspace/skills/amiko/cli.js stats
-/data/.openclaw/workspace/skills/amiko/cli.js stats --details
+/data/.openclaw/skills/amiko/cli.js stats
+/data/.openclaw/skills/amiko/cli.js stats --details
 ```
 
 ### Documents
 
 ```bash
 # List documents
-/data/.openclaw/workspace/skills/amiko/cli.js docs
-/data/.openclaw/workspace/skills/amiko/cli.js docs --limit 10
+/data/.openclaw/skills/amiko/cli.js docs
+/data/.openclaw/skills/amiko/cli.js docs --limit 10
 
 # Create a new document (text content)
-/data/.openclaw/workspace/skills/amiko/cli.js docs:create --title "My Note" --content "Hello world"
+/data/.openclaw/skills/amiko/cli.js docs:create --title "My Note" --content "Hello world"
 
 # Upload a document file (PDF, Word, images, etc.)
-/data/.openclaw/workspace/skills/amiko/cli.js docs:upload --file /path/to/document.pdf
-/data/.openclaw/workspace/skills/amiko/cli.js docs:upload --file notes.txt
+/data/.openclaw/skills/amiko/cli.js docs:upload --file /path/to/document.pdf
+/data/.openclaw/skills/amiko/cli.js docs:upload --file notes.txt
 ```
 
 ### Personality & Social
 
 ```bash
 # Get personality data
-/data/.openclaw/workspace/skills/amiko/cli.js personality
+/data/.openclaw/skills/amiko/cli.js personality
 
 # Update personality
-/data/.openclaw/workspace/skills/amiko/cli.js personality:update --text "Friendly and helpful"
+/data/.openclaw/skills/amiko/cli.js personality:update --text "Friendly and helpful"
 
 # Get social data
-/data/.openclaw/workspace/skills/amiko/cli.js social
+/data/.openclaw/skills/amiko/cli.js social
 
 # Update Twitter handle
-/data/.openclaw/workspace/skills/amiko/cli.js social:update --twitter "@myhandle"
+/data/.openclaw/skills/amiko/cli.js social:update --twitter "@myhandle"
 ```
 
 ### Voice
 
 ```bash
 # Get voice configuration
-/data/.openclaw/workspace/skills/amiko/cli.js voice
+/data/.openclaw/skills/amiko/cli.js voice
 
 # Clone voice from an audio file (e.g., a voice message you received)
-/data/.openclaw/workspace/skills/amiko/cli.js voice:clone --file /path/to/audio.mp3
-/data/.openclaw/workspace/skills/amiko/cli.js voice:clone --file audio.mp3 --name "My Voice" --description "Cloned from audio message"
+/data/.openclaw/skills/amiko/cli.js voice:clone --file /path/to/audio.mp3
+/data/.openclaw/skills/amiko/cli.js voice:clone --file audio.mp3 --name "My Voice" --description "Cloned from audio message"
 
 # Design a voice from text description (generates previews)
-/data/.openclaw/workspace/skills/amiko/cli.js voice:design "A warm, friendly female voice with a slight British accent, calm and reassuring"
-/data/.openclaw/workspace/skills/amiko/cli.js voice:design --description "A deep male voice with an American accent, confident and professional"
+/data/.openclaw/skills/amiko/cli.js voice:design "A warm, friendly female voice with a slight British accent, calm and reassuring"
+/data/.openclaw/skills/amiko/cli.js voice:design --description "A deep male voice with an American accent, confident and professional"
 
 # Generate speech (output as base64)
-/data/.openclaw/workspace/skills/amiko/cli.js voice:generate "Hello, this is my digital twin!"
+/data/.openclaw/skills/amiko/cli.js voice:generate "Hello, this is my digital twin!"
 
 # Generate speech and save to file
-/data/.openclaw/workspace/skills/amiko/cli.js voice:generate "Hello world" --output hello.mp3
+/data/.openclaw/skills/amiko/cli.js voice:generate "Hello world" --output hello.mp3
 ```
 
 ### Wallets
 
 ```bash
 # List wallets
-/data/.openclaw/workspace/skills/amiko/cli.js wallets
+/data/.openclaw/skills/amiko/cli.js wallets
 
 # Create a wallet
-/data/.openclaw/workspace/skills/amiko/cli.js wallets:create --chain ethereum
-/data/.openclaw/workspace/skills/amiko/cli.js wallets:create --chain solana-devnet --custodian amiko
+/data/.openclaw/skills/amiko/cli.js wallets:create --chain ethereum
+/data/.openclaw/skills/amiko/cli.js wallets:create --chain solana-devnet --custodian amiko
 
 # Get wallet balance
-/data/.openclaw/workspace/skills/amiko/cli.js wallets:balance --address 0x123...
+/data/.openclaw/skills/amiko/cli.js wallets:balance --address 0x123...
 ```
 
 ### Avatar
 
 ```bash
 # Update avatar
-/data/.openclaw/workspace/skills/amiko/cli.js avatar:update --url "https://example.com/avatar.png"
+/data/.openclaw/skills/amiko/cli.js avatar:update --url "https://example.com/avatar.png"
 ```
 
 ### Training
 
 ```bash
 # List training sessions
-/data/.openclaw/workspace/skills/amiko/cli.js training
-/data/.openclaw/workspace/skills/amiko/cli.js training --limit 10
+/data/.openclaw/skills/amiko/cli.js training
+/data/.openclaw/skills/amiko/cli.js training --limit 10
 ```
 
 ### Agent Friends (Twin-level)
@@ -118,57 +118,57 @@ These commands allow the twin itself (as a social actor) to manage its own frien
 
 ```bash
 # List this twin's friendships
-/data/.openclaw/workspace/skills/amiko/cli.js agent:friends
-/data/.openclaw/workspace/skills/amiko/cli.js agent:friends --status pending
-/data/.openclaw/workspace/skills/amiko/cli.js agent:friends --type user
-/data/.openclaw/workspace/skills/amiko/cli.js agent:friends --favorites
+/data/.openclaw/skills/amiko/cli.js agent:friends
+/data/.openclaw/skills/amiko/cli.js agent:friends --status pending
+/data/.openclaw/skills/amiko/cli.js agent:friends --type user
+/data/.openclaw/skills/amiko/cli.js agent:friends --favorites
 
 # Discover users and agents (shared with user-level friends API)
-/data/.openclaw/workspace/skills/amiko/cli.js friends:discover --query "john"
+/data/.openclaw/skills/amiko/cli.js friends:discover --query "john"
 
 # Send a friend request from this twin to a user
-/data/.openclaw/workspace/skills/amiko/cli.js agent:friends:add --id <user_id> --type user
+/data/.openclaw/skills/amiko/cli.js agent:friends:add --id <user_id> --type user
 
 # Send a friend request from this twin to another agent
-/data/.openclaw/workspace/skills/amiko/cli.js agent:friends:add --id <agent_id> --type agent
+/data/.openclaw/skills/amiko/cli.js agent:friends:add --id <agent_id> --type agent
 
 # Accept or reject an incoming request for this twin
-/data/.openclaw/workspace/skills/amiko/cli.js agent:friends:accept --id <friendship_id>
-/data/.openclaw/workspace/skills/amiko/cli.js agent:friends:reject --id <friendship_id>
+/data/.openclaw/skills/amiko/cli.js agent:friends:accept --id <friendship_id>
+/data/.openclaw/skills/amiko/cli.js agent:friends:reject --id <friendship_id>
 
 # Remove an existing friendship for this twin
-/data/.openclaw/workspace/skills/amiko/cli.js agent:friends:remove --id <friendship_id>
+/data/.openclaw/skills/amiko/cli.js agent:friends:remove --id <friendship_id>
 ```
 
 ### Notifications
 
 ```bash
 # Get notifications
-/data/.openclaw/workspace/skills/amiko/cli.js notifications
-/data/.openclaw/workspace/skills/amiko/cli.js notifications --limit 10
+/data/.openclaw/skills/amiko/cli.js notifications
+/data/.openclaw/skills/amiko/cli.js notifications --limit 10
 
 # Mark notification as read
-/data/.openclaw/workspace/skills/amiko/cli.js notifications:read --id <notification_id>
+/data/.openclaw/skills/amiko/cli.js notifications:read --id <notification_id>
 ```
 
 ### User & Twins
 
 ```bash
 # Get current user info
-/data/.openclaw/workspace/skills/amiko/cli.js user
+/data/.openclaw/skills/amiko/cli.js user
 
 # Get detailed user settings
-/data/.openclaw/workspace/skills/amiko/cli.js user:settings
+/data/.openclaw/skills/amiko/cli.js user:settings
 
 # List all user's twins
-/data/.openclaw/workspace/skills/amiko/cli.js twins
+/data/.openclaw/skills/amiko/cli.js twins
 ```
 
 ### Composio Connections
 
 ```bash
 # List all connected Composio services (Gmail, Slack, GitHub, Spotify, etc.)
-~/.openclaw/skills/amiko/cli.js composio:connections
+/data/.openclaw/skills/amiko/cli.js composio:connections
 ```
 
 Use this to check which external services are connected for this twin. The response includes connection status, app names, and IDs. This is the authoritative source for what services are available — use it when asked about connected tools/services.
