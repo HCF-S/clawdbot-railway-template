@@ -10,11 +10,11 @@ const __dirname = path.dirname(__filename);
 const TEMPLATES_DIR = path.resolve(__dirname, "../../templates");
 
 /**
- * Install the amiko-skill into the workspace
- * Copies template files to /data/workspace/skills/amiko or /data/skills/amiko
+ * Install the amiko-skill into STATE_DIR/skills/amiko (shared across agents)
+ * Copies template files to STATE_DIR/skills/amiko (e.g. /data/.openclaw/skills/amiko)
  */
 export async function installAmikoSkill(handlers) {
-  const { WORKSPACE_DIR } = handlers;
+  const { WORKSPACE_DIR, STATE_DIR } = handlers;
   
   const templateDir = path.join(TEMPLATES_DIR, "amiko-skill");
   
@@ -26,8 +26,8 @@ export async function installAmikoSkill(handlers) {
     };
   }
   
-  // Determine target directory - prefer skills folder in workspace
-  const skillsDir = path.join(WORKSPACE_DIR, "skills");
+  // Determine target directory - prefer STATE_DIR/skills (shared across agents), fall back to workspace/skills for older setups
+  const skillsDir = STATE_DIR ? path.join(STATE_DIR, "skills") : path.join(WORKSPACE_DIR, "skills");
   const targetDir = path.join(skillsDir, "amiko");
   
   try {
@@ -126,19 +126,13 @@ Read \`skills/amiko/SKILL.md\` for full documentation.
   }
 }
 
-const COMPOSIO_MCP_PROXY_PORT = Number.parseInt(
-  process.env.COMPOSIO_MCP_PROXY_PORT ?? "3099",
-  10
-);
-
 /**
- * Install the Composio skill into the workspace.
- * Copies only SKILL.md to workspace/skills/composio/. Does not modify openclaw.json
+ * Install the Composio skill into STATE_DIR/skills/composio (shared across agents).
+ * Copies only SKILL.md to STATE_DIR/skills/composio/. Does not modify openclaw.json
  * (OpenClaw accesses Composio via the skill's meta tools, not native MCP config).
- * The Composio MCP proxy (127.0.0.1:3099) is started by the wrapper when AMIKO_PLATFORM_URL is set.
  */
 export async function installComposioSkill(handlers) {
-  const { WORKSPACE_DIR } = handlers;
+  const { WORKSPACE_DIR, STATE_DIR } = handlers;
 
   const templateDir = path.join(TEMPLATES_DIR, "composio-skill");
   const skillMd = "SKILL.md";
@@ -151,7 +145,7 @@ export async function installComposioSkill(handlers) {
     };
   }
 
-  const skillsDir = path.join(WORKSPACE_DIR, "skills");
+  const skillsDir = STATE_DIR ? path.join(STATE_DIR, "skills") : path.join(WORKSPACE_DIR, "skills");
   const targetDir = path.join(skillsDir, "composio");
 
   try {
@@ -165,7 +159,34 @@ export async function installComposioSkill(handlers) {
     const configDir = path.join(WORKSPACE_DIR, "config");
     const mcporterConfigPath = path.join(configDir, "mcporter.json");
     fs.mkdirSync(configDir, { recursive: true });
-    const composioUrl = `http://127.0.0.1:${COMPOSIO_MCP_PROXY_PORT}`;
+
+    // Read Amiko twin config for platform URL + clawd twin token
+    const amikoConfigPath = path.join(WORKSPACE_DIR, ".amiko.json");
+    let amikoConfig = {};
+    if (fs.existsSync(amikoConfigPath)) {
+      try {
+        amikoConfig = JSON.parse(fs.readFileSync(amikoConfigPath, "utf8"));
+      } catch (err) {
+        console.warn("[installComposioSkill] failed to parse .amiko.json:", err);
+      }
+    }
+
+    const rawPlatformUrl =
+      (amikoConfig.amikoPlatformUrl ? String(amikoConfig.amikoPlatformUrl).trim() : "") ||
+      process.env.AMIKO_PLATFORM_URL?.trim() ||
+      "https://platform.heyamiko.com";
+    const platformUrl = rawPlatformUrl.replace(/\/+$/, "");
+
+    const twinId =
+      (amikoConfig.amikoTwinId ? String(amikoConfig.amikoTwinId).trim() : "") ||
+      process.env.AMIKO_TWIN_ID?.trim() ||
+      "";
+    const clawdTwinToken =
+      (amikoConfig.amikoTwinToken ? String(amikoConfig.amikoTwinToken).trim() : "") ||
+      (amikoConfig.amikoUserToken ? String(amikoConfig.amikoUserToken).trim() : "") ||
+      process.env.AMIKO_USER_TOKEN?.trim() ||
+      "";
+
     let config = { mcpServers: {} };
     if (fs.existsSync(mcporterConfigPath)) {
       try {
@@ -177,9 +198,27 @@ export async function installComposioSkill(handlers) {
         // ignore parse errors; overwrite with minimal config
       }
     }
-    config.mcpServers.composio = { url: composioUrl };
-    fs.writeFileSync(mcporterConfigPath, JSON.stringify(config, null, 2), "utf8");
-    console.log("[installComposioSkill] wrote", mcporterConfigPath, "with composio server");
+
+    if (twinId && clawdTwinToken) {
+      const composioUrl = `${platformUrl}/api/agents/${twinId}/mcp`;
+      config.mcpServers.composio = {
+        url: composioUrl,
+        headers: {
+          Authorization: `Bearer ${clawdTwinToken}`,
+        },
+      };
+      fs.writeFileSync(mcporterConfigPath, JSON.stringify(config, null, 2), "utf8");
+      console.log(
+        "[installComposioSkill] wrote",
+        mcporterConfigPath,
+        "with composio server pointing to",
+        composioUrl
+      );
+    } else {
+      console.warn(
+        "[installComposioSkill] missing twinId or clawd twin token; skipping mcporter composio entry"
+      );
+    }
 
     console.log("[installComposioSkill] installed", skillMd, "to", targetDir);
 

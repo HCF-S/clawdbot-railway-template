@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { runOnboarding, replaceOpenRouterKeyInAuthProfiles, setGatewayControlUiAllowedOrigins } from "./run.js";
+import { writeAmikoConfigAndMcporter } from "./amiko-config.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -184,7 +185,7 @@ export function createInitRouter(handlers) {
         const realKey = String(payload.authSecret ?? "").trim();
         const amikoUserId = String(payload.amikoUserId ?? "").trim();
         const amikoTwinId = String(payload.amikoTwinId ?? "").trim();
-        const amikoUserToken = String(payload.amikoUserToken ?? "").trim();
+        const amikoTwinToken = String(payload.amikoTwinToken ?? "").trim();
 
         if (realKey) {
           const replaceResult = replaceOpenRouterKeyInAuthProfiles(handlers, realKey);
@@ -196,30 +197,23 @@ export function createInitRouter(handlers) {
           output = "Already configured; no authSecret provided to replace key.\n";
         }
 
-        // Persist Amiko config to main agent's workspace (per-agent .amiko.json)
-        if (amikoUserId || amikoTwinId || amikoUserToken) {
+        // Persist Amiko config to main agent's workspace (per-agent .amiko.json + mcporter.json)
+        if (amikoUserId || amikoTwinId || amikoTwinToken) {
           try {
             const { WORKSPACE_DIR } = handlers;
-            fs.mkdirSync(WORKSPACE_DIR, { recursive: true });
-            const cfgPath = path.join(WORKSPACE_DIR, ".amiko.json");
-            let current = {};
-            if (fs.existsSync(cfgPath)) {
-              try {
-                current = JSON.parse(fs.readFileSync(cfgPath, "utf8"));
-              } catch {
-                current = {};
-              }
+            const result = writeAmikoConfigAndMcporter({
+              workspaceDir: WORKSPACE_DIR,
+              amikoUserId,
+              amikoTwinId,
+              amikoTwinToken,
+            });
+            if (result.ok) {
+              output += `[amiko] ${result.output}\n`;
+            } else {
+              output += `[amiko] WARNING: Failed to write Amiko config: ${result.error}\n`;
             }
-            const next = {
-              ...current,
-              AMIKO_USER_ID: amikoUserId || current.AMIKO_USER_ID || "",
-              AMIKO_TWIN_ID: amikoTwinId || current.AMIKO_TWIN_ID || "",
-              AMIKO_USER_TOKEN: amikoUserToken || current.AMIKO_USER_TOKEN || "",
-            };
-            fs.writeFileSync(cfgPath, JSON.stringify(next, null, 2), { encoding: "utf8", mode: 0o600 });
-            output += `[amiko] Saved Amiko config to ${cfgPath}\n`;
           } catch (err) {
-            output += `[amiko] WARNING: Failed to write .amiko.json: ${String(err)}\n`;
+            output += `[amiko] WARNING: Failed to write .amiko.json / mcporter.json: ${String(err)}\n`;
           }
         }
 

@@ -11,7 +11,6 @@ import { setGatewayControlUiAllowedOrigins } from "./routes/setup/run.js";
 import { installAmikoSkill, installComposioSkill } from "./routes/setup/skills.js";
 import { installSysConfig } from "./routes/setup/init.js";
 import { CURRENT_SETUP_VERSION, setInstalledVersion } from "./routes/setup/version.js";
-import { startComposioMcpProxy } from "./composio-mcp-proxy.js";
 
 // Railway deployments sometimes inject PORT=3000 by default. We want the wrapper to
 // reliably listen on 8080 unless explicitly overridden.
@@ -716,8 +715,6 @@ app.use(async (req, res) => {
   } else {
     console.log("[wrapper] Not configured; use /setup and run init to configure.");
   }
-
-  startComposioMcpProxy();
 
   const server = app.listen(PORT, "0.0.0.0", () => {
     console.log(`[wrapper] listening on :${PORT}`);

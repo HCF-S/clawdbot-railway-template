@@ -1,6 +1,7 @@
 import express from "express";
 import fs from "node:fs";
 import path from "node:path";
+import { writeAmikoConfigAndMcporter } from "./amiko-config.js";
 
 /**
  * POST /setup/api/add-agent
@@ -24,6 +25,9 @@ export function createAgentsRouter(handlers) {
       const body = req.body || {};
       const agentId = String(body.agentId ?? "").trim();
       const name = String(body.name ?? "").trim();
+      const amikoUserId = String(body.amikoUserId ?? "").trim();
+      const amikoTwinId = String(body.amikoTwinId ?? "").trim();
+      const amikoTwinToken = String(body.amikoTwinToken ?? "").trim();
 
       if (!agentId) {
         return res.status(400).json({ ok: false, error: "Missing agentId" });
@@ -69,17 +73,70 @@ export function createAgentsRouter(handlers) {
 
       const r = await runCmd(OPENCLAW_NODE, clawArgs(args));
       if (r.code === 0) {
-        // Copy .amiko.json from main workspace into this agent's workspace so the new agent has the same twin config
+        // Prefer explicit Amiko config from request body; fall back to main workspace .amiko.json
+        let effectiveUserId = amikoUserId;
+        let effectiveTwinId = amikoTwinId;
+        let effectiveTwinToken = amikoTwinToken;
+        let effectivePlatformUrl = "";
+
         const mainCfgPath = path.join(WORKSPACE_DIR, ".amiko.json");
-        const agentCfgPath = path.join(workspace, ".amiko.json");
         try {
           if (fs.existsSync(mainCfgPath)) {
-            fs.mkdirSync(path.dirname(agentCfgPath), { recursive: true });
-            fs.copyFileSync(mainCfgPath, agentCfgPath);
-            fs.chmodSync(agentCfgPath, 0o600);
+            let mainCfg = {};
+            try {
+              mainCfg = JSON.parse(fs.readFileSync(mainCfgPath, "utf8"));
+            } catch {
+              mainCfg = {};
+            }
+
+            if (!effectiveUserId) {
+              effectiveUserId = String(
+                mainCfg.amikoUserId || mainCfg.AMIKO_USER_ID || "",
+              ).trim();
+            }
+            if (!effectiveTwinId) {
+              effectiveTwinId = String(
+                mainCfg.amikoTwinId || mainCfg.AMIKO_TWIN_ID || "",
+              ).trim();
+            }
+            if (!effectiveTwinToken) {
+              effectiveTwinToken = String(
+                mainCfg.amikoTwinToken ||
+                  mainCfg.AMIKO_TWIN_TOKEN ||
+                  mainCfg.AMIKO_USER_TOKEN ||
+                  "",
+              ).trim();
+            }
+            effectivePlatformUrl = String(
+              mainCfg.amikoPlatformUrl || mainCfg.AMIKO_PLATFORM_URL || "",
+            ).trim();
           }
         } catch (copyErr) {
-          console.warn("[add-agent] failed to copy .amiko.json to agent workspace:", copyErr?.message);
+          console.warn(
+            "[add-agent] failed to read main Amiko config; continuing with body values only:",
+            copyErr?.message,
+          );
+        }
+
+        if (effectiveTwinId && effectiveTwinToken) {
+          const result = writeAmikoConfigAndMcporter({
+            workspaceDir: workspace,
+            amikoUserId: effectiveUserId,
+            amikoTwinId: effectiveTwinId,
+            amikoTwinToken: effectiveTwinToken,
+            amikoPlatformUrl: effectivePlatformUrl,
+          });
+
+          if (!result.ok) {
+            console.warn(
+              "[add-agent] failed to write Amiko config for agent workspace:",
+              result.error,
+            );
+          }
+        } else {
+          console.warn(
+            "[add-agent] missing Amiko twinId/token; skipping .amiko.json / mcporter.json for agent workspace",
+          );
         }
       }
       const status = r.code === 0 ? 200 : 500;

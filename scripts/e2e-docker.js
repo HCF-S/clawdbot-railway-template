@@ -132,7 +132,7 @@ async function main() {
         flow: "quickstart",
         amikoUserId: process.env.AMIKO_USER_ID,
         amikoTwinId: process.env.AMIKO_TWIN_ID,
-        amikoUserToken: process.env.AMIKO_USER_TOKEN,
+        amikoTwinToken: process.env.AMIKO_USER_TOKEN,
       }),
     });
 

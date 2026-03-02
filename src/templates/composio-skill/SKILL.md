@@ -1,27 +1,25 @@
 ---
 name: composio
-description: Composio tools (Gmail, Google Calendar, Calendly, etc.) via Amiko platform session proxy
+description: Composio tools (Gmail, Google Calendar, Calendly, etc.) via Amiko platform MCP proxy on the Amiko web app
 homepage: https://composio.dev
-metadata: {"openclaw":{"emoji":"📧","mcp":{"url":"http://127.0.0.1:3099"}}}
+metadata: {"openclaw":{"emoji":"📧","mcp":{"url":"amiko-web-mcp"}}}
 ---
 
 # Composio Skill
 
-This skill exposes **Composio** tools to your agent via a local MCP proxy. The proxy uses your Amiko user token to obtain a short-lived Composio session from the platform—no API key is stored on this instance.
+This skill exposes **Composio** tools to your agent via the Amiko platform's MCP endpoint. The platform uses your twin-scoped Clawd token to obtain short-lived Composio sessions—no Composio API key is stored on this instance.
 
 ## How it works
 
-- The wrapper runs a **Composio MCP proxy** on `http://127.0.0.1:3099` when `AMIKO_PLATFORM_URL` is set (e.g. after you enable Composio for this Clawd from the Amiko platform).
-- The proxy fetches a session from the platform (`GET /api/composio-mcp/session`) using the token in the main workspace's `.amiko.json`, then forwards MCP requests to Composio’s session URL.
-- **OpenClaw** can connect to this proxy as an MCP server so the agent can use Composio tools.
+- The wrapper writes a `config/mcporter.json` file in the workspace that points the `composio` MCP server to the Amiko web app's endpoint `/api/agents/:id/mcp`.
+- The endpoint is authenticated with a **Clawd twin token** sent in the `Authorization: Bearer ...` header, sourced from the workspace `.amiko.json`.
+- **OpenClaw** (via mcporter) connects directly to this Amiko endpoint as an MCP server so the agent can use Composio tools.
 
 ## MCP server URL
 
-Use this URL in your OpenClaw MCP / mcp-bridge configuration:
+Use this URL in your OpenClaw MCP / mcp-bridge configuration (the wrapper will also write it into `config/mcporter.json`):
 
-- **URL:** `http://127.0.0.1:3099`
-
-Port can be overridden with `COMPOSIO_MCP_PROXY_PORT` (default `3099`).
+- **URL:** `https://platform.heyamiko.com/api/agents/<twinId>/mcp` (or your Amiko web base URL)
 
 ## Available toolkits (examples)
 
@@ -43,7 +41,7 @@ Exact tools depend on which apps you've connected in the Amiko platform Composio
 To see which services are actually connected for this twin, run:
 
 ```bash
-~/.openclaw/skills/amiko/cli.js composio:connections
+/data/.openclaw/skills/amiko/cli.js composio:connections
 ```
 
 This returns the authoritative list of connected services with their status. **Always use this command** when the user asks what services/tools are connected, rather than just listing MCP tools.

@@ -328,7 +328,7 @@ function showSection(id) {
         model: document.getElementById('initModel').value,
         amikoUserId: document.getElementById('initAmikoUserId').value,
         amikoTwinId: document.getElementById('initAmikoTwinId').value,
-        amikoUserToken: document.getElementById('initAmikoUserToken').value
+        amikoTwinToken: document.getElementById('initAmikoTwinToken').value
       };
 
       if (!payload.authSecret) {
