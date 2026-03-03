@@ -66,20 +66,12 @@ export function writeAmikoConfigAndMcporter(params) {
       process.env.AMIKO_PLATFORM_URL?.trim() ||
       "https://platform.heyamiko.com";
 
+    // Only write the 4 keys used by amiko-skill lib.js and readAmikoConfig
     const next = {
-      ...current,
-      // Legacy uppercase keys (env-style)
       AMIKO_USER_ID: amikoUserId || current.AMIKO_USER_ID || "",
       AMIKO_TWIN_ID: amikoTwinId || current.AMIKO_TWIN_ID || "",
-      AMIKO_TWIN_TOKEN: amikoTwinToken || current.AMIKO_TWIN_TOKEN || "",
-      // Keep AMIKO_USER_TOKEN for backward compatibility (same value as twin token)
-      AMIKO_USER_TOKEN: amikoTwinToken || current.AMIKO_USER_TOKEN || "",
+      AMIKO_TWIN_TOKEN: amikoTwinToken || current.AMIKO_TWIN_TOKEN || current.AMIKO_USER_TOKEN || "",
       AMIKO_PLATFORM_URL: resolvedPlatformUrl || current.AMIKO_PLATFORM_URL || "",
-      // New lowercase keys (script/skill-friendly)
-      amikoUserId: amikoUserId || current.amikoUserId || "",
-      amikoTwinId: amikoTwinId || current.amikoTwinId || "",
-      amikoTwinToken: amikoTwinToken || current.amikoTwinToken || "",
-      amikoPlatformUrl: resolvedPlatformUrl || current.amikoPlatformUrl || "",
     };
 
     fs.writeFileSync(cfgPath, JSON.stringify(next, null, 2), {

@@ -49,7 +49,7 @@ This returns the authoritative list of connected services with their status. **A
 ## Requirements
 
 - **AMIKO_PLATFORM_URL** – Set by the platform when Composio is activated for this instance.
-- **AMIKO_USER_TOKEN** – Stored in **workspace/.amiko.json** (per-agent; written by `/setup/api/init` or `/setup/api/amiko/write`).
+- **AMIKO_TWIN_TOKEN** – Stored in **workspace/.amiko.json** (per-agent; written by `/setup/api/init` or `/setup/api/amiko/write`).
 
 No `COMPOSIO_API_KEY` or `COMPOSIO_ENTITY_ID` is required on this instance; the platform holds the API key and creates sessions per user.
 

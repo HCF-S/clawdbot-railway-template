@@ -26,7 +26,7 @@ const STATE_DIR = "/data/.openclaw";
 const WORKSPACE_DIR = "/data/.openclaw/workspace";
 
 const AMIKO_TWIN_ID = process.env.AMIKO_TWIN_ID?.trim() || "";
-const AMIKO_USER_TOKEN = process.env.AMIKO_USER_TOKEN?.trim() || "";
+const AMIKO_TWIN_TOKEN = process.env.AMIKO_TWIN_TOKEN?.trim() || process.env.AMIKO_USER_TOKEN?.trim() || "";
 
 // Protect /setup + API with a user-provided token.
 const SETUP_PASSWORD = process.env.SETUP_PASSWORD?.trim();
@@ -129,7 +129,7 @@ function checkEssentialEnv() {
     ],
     ["AMIKO_USER_ID", () => process.env.AMIKO_USER_ID?.trim()],
     ["AMIKO_TWIN_ID", () => process.env.AMIKO_TWIN_ID?.trim()],
-    ["AMIKO_USER_TOKEN", () => process.env.AMIKO_USER_TOKEN?.trim()],
+    ["AMIKO_TWIN_TOKEN", () => process.env.AMIKO_TWIN_TOKEN?.trim() || process.env.AMIKO_USER_TOKEN?.trim()],
     [
       "OPENROUTER_API_KEY",
       () =>
@@ -672,7 +672,7 @@ app.use(
     OPENCLAW_ENTRY,
     PORT,
     AMIKO_TWIN_ID,
-    AMIKO_USER_TOKEN,
+    AMIKO_TWIN_TOKEN,
   }),
 );
 

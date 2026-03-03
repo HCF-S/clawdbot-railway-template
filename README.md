@@ -26,7 +26,7 @@ Deploy a personal **OpenClaw** AI gateway on Railway in one click — no command
 | `SETUP_PASSWORD` | ✅ | Password to access `/setup` |
 | `OPENCLAW_GATEWAY_TOKEN` | Optional | Auth token for the gateway. Auto-generated if not set — use a Railway secret for templates |
 | `AMIKO_TWIN_ID` | Optional | Your Amiko twin ID |
-| `AMIKO_USER_TOKEN` | Optional | Your Amiko user token |
+| `AMIKO_TWIN_TOKEN` | Optional | Your Amiko twin token (Clawd auth) |
 
 State and workspace paths are hardcoded: `/data/.openclaw` (state), `/data/.openclaw/workspace` (main agent), `/data/.openclaw/workspace-{agentId}` (other agents). No env overrides.
 

@@ -90,26 +90,17 @@ export function createAgentsRouter(handlers) {
             }
 
             if (!effectiveUserId) {
-              effectiveUserId = String(
-                mainCfg.amikoUserId || mainCfg.AMIKO_USER_ID || "",
-              ).trim();
+              effectiveUserId = String(mainCfg.AMIKO_USER_ID || "").trim();
             }
             if (!effectiveTwinId) {
-              effectiveTwinId = String(
-                mainCfg.amikoTwinId || mainCfg.AMIKO_TWIN_ID || "",
-              ).trim();
+              effectiveTwinId = String(mainCfg.AMIKO_TWIN_ID || "").trim();
             }
             if (!effectiveTwinToken) {
               effectiveTwinToken = String(
-                mainCfg.amikoTwinToken ||
-                  mainCfg.AMIKO_TWIN_TOKEN ||
-                  mainCfg.AMIKO_USER_TOKEN ||
-                  "",
+                mainCfg.AMIKO_TWIN_TOKEN || mainCfg.AMIKO_USER_TOKEN || "",
               ).trim();
             }
-            effectivePlatformUrl = String(
-              mainCfg.amikoPlatformUrl || mainCfg.AMIKO_PLATFORM_URL || "",
-            ).trim();
+            effectivePlatformUrl = String(mainCfg.AMIKO_PLATFORM_URL || "").trim();
           }
         } catch (copyErr) {
           console.warn(

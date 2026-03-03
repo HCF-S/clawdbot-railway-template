@@ -32,7 +32,7 @@ function readAmikoConfig(workspaceDir) {
         return {
           userId: String(data.AMIKO_USER_ID || "").trim(),
           twinId: String(data.AMIKO_TWIN_ID || "").trim(),
-          userToken: String(data.AMIKO_USER_TOKEN || "").trim(),
+          userToken: String(data.AMIKO_TWIN_TOKEN || data.AMIKO_USER_TOKEN || "").trim(),
         };
       }
     } catch (err) {
@@ -43,7 +43,7 @@ function readAmikoConfig(workspaceDir) {
 }
 
 export async function pullTwinData(handlers) {
-  const { WORKSPACE_DIR, AMIKO_TWIN_ID, AMIKO_USER_TOKEN } = handlers;
+  const { WORKSPACE_DIR, AMIKO_TWIN_ID, AMIKO_TWIN_TOKEN } = handlers;
   const fileCfg = readAmikoConfig(WORKSPACE_DIR);
 
   const twinId = String(fileCfg.twinId || AMIKO_TWIN_ID || "").trim();
@@ -51,7 +51,7 @@ export async function pullTwinData(handlers) {
     return { ok: false, error: "Missing twinId" };
   }
 
-  const userToken = String(fileCfg.userToken || AMIKO_USER_TOKEN || "").trim();
+  const userToken = String(fileCfg.userToken || AMIKO_TWIN_TOKEN || "").trim();
   if (!userToken) {
     return { ok: false, error: "Missing user token" };
   }
@@ -221,7 +221,7 @@ const DOCS_BATCH_SIZE = 50;
  * @returns {{ ok: boolean, count?: number, total?: number, created?: number, updated?: number, skipped?: number, docs?: Array, docsDir?: string, error?: string, output?: string }}
  */
 export async function pullDocs(handlers) {
-  const { WORKSPACE_DIR, AMIKO_TWIN_ID, AMIKO_USER_TOKEN } = handlers;
+  const { WORKSPACE_DIR, AMIKO_TWIN_ID, AMIKO_TWIN_TOKEN } = handlers;
   const fileCfg = readAmikoConfig(WORKSPACE_DIR);
 
   const twinId = String(fileCfg.twinId || AMIKO_TWIN_ID || "").trim();
@@ -229,7 +229,7 @@ export async function pullDocs(handlers) {
     return { ok: false, error: "Missing twinId" };
   }
 
-  const userToken = String(fileCfg.userToken || AMIKO_USER_TOKEN || "").trim();
+  const userToken = String(fileCfg.userToken || AMIKO_TWIN_TOKEN || "").trim();
   if (!userToken) {
     return { ok: false, error: "Missing user token" };
   }
@@ -426,16 +426,16 @@ export async function pullDocs(handlers) {
  * @returns {string} Output log
  */
 export async function syncAmikoData(handlers) {
-  const { WORKSPACE_DIR, AMIKO_TWIN_ID, AMIKO_USER_TOKEN } = handlers;
+  const { WORKSPACE_DIR, AMIKO_TWIN_ID, AMIKO_TWIN_TOKEN } = handlers;
   const fileCfg = readAmikoConfig(WORKSPACE_DIR);
   
   let output = "";
   
   const twinId = String(fileCfg.twinId || AMIKO_TWIN_ID || "").trim();
-  const userToken = String(fileCfg.userToken || AMIKO_USER_TOKEN || "").trim();
+  const userToken = String(fileCfg.userToken || AMIKO_TWIN_TOKEN || "").trim();
 
   if (!twinId || !userToken) {
-    output += "[amiko] WARNING: AMIKO_TWIN_ID / AMIKO_USER_TOKEN not set in config or env, skipping Amiko sync\n";
+    output += "[amiko] WARNING: AMIKO_TWIN_ID / AMIKO_TWIN_TOKEN not set in config or env, skipping Amiko sync\n";
     return output;
   }
 
@@ -464,7 +464,7 @@ export async function syncAmikoData(handlers) {
  * @returns {{ ok: boolean, path?: string, count?: number, error?: string, output?: string }}
  */
 export async function pullMemories(handlers) {
-  const { WORKSPACE_DIR, AMIKO_TWIN_ID, AMIKO_USER_TOKEN } = handlers;
+  const { WORKSPACE_DIR, AMIKO_TWIN_ID, AMIKO_TWIN_TOKEN } = handlers;
   const fileCfg = readAmikoConfig(WORKSPACE_DIR);
   
   const twinId = String(fileCfg.twinId || AMIKO_TWIN_ID || "").trim();
@@ -472,7 +472,7 @@ export async function pullMemories(handlers) {
     return { ok: false, error: "Missing twinId" };
   }
 
-  const userToken = String(fileCfg.userToken || AMIKO_USER_TOKEN || "").trim();
+  const userToken = String(fileCfg.userToken || AMIKO_TWIN_TOKEN || "").trim();
   if (!userToken) {
     return { ok: false, error: "Missing user token" };
   }

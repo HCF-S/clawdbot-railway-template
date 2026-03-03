@@ -6,10 +6,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-// Configuration from environment
+// Configuration from environment (AMIKO_USER_TOKEN kept for backward compat)
 const AMIKO_USER_ID = process.env.AMIKO_USER_ID || '';
 const AMIKO_TWIN_ID = process.env.AMIKO_TWIN_ID || '';
-const AMIKO_USER_TOKEN = process.env.AMIKO_USER_TOKEN || '';
+const AMIKO_TWIN_TOKEN = process.env.AMIKO_TWIN_TOKEN || process.env.AMIKO_USER_TOKEN || '';
 const AMIKO_PLATFORM_URL = process.env.AMIKO_PLATFORM_URL || 'https://platform.heyamiko.com';
 
 /**
@@ -19,14 +19,14 @@ export function getConfig() {
   if (!AMIKO_TWIN_ID) {
     throw new Error('AMIKO_TWIN_ID environment variable is not set');
   }
-  if (!AMIKO_USER_TOKEN) {
-    throw new Error('AMIKO_USER_TOKEN environment variable is not set');
+  if (!AMIKO_TWIN_TOKEN) {
+    throw new Error('AMIKO_TWIN_TOKEN environment variable is not set');
   }
   
   return {
     userId: AMIKO_USER_ID,
     twinId: AMIKO_TWIN_ID,
-    token: AMIKO_USER_TOKEN,
+    token: AMIKO_TWIN_TOKEN,
     baseUrl: AMIKO_PLATFORM_URL,
   };
 }
