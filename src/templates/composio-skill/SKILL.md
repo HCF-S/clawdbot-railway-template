@@ -38,24 +38,40 @@ Exact tools depend on which apps you've connected in the Amiko platform Composio
 
 ## Check connected services
 
-To see which services are actually connected for this twin, run:
+To see which services are connected for this twin, call **COMPOSIO_SEARCH_TOOLS** with a relevant query. The response includes `toolkit_connection_statuses` with `has_active_connection` per toolkit:
 
 ```bash
-/data/.openclaw/skills/amiko/cli.js composio:connections
+mcporter call composio.COMPOSIO_SEARCH_TOOLS queries='[{"use_case": "read emails", "known_fields": ""}]' session='{"generate_id": true}'
 ```
 
-This returns the authoritative list of connected services with their status. **Always use this command** when the user asks what services/tools are connected, rather than just listing MCP tools.
+Or for calendar: `queries='[{"use_case": "list calendar events", "known_fields": ""}]'`
 
-## Requirements
+The response lists each toolkit (gmail, googlesheets, googledrive, etc.) and whether it has an active connection. **Always use this** when the user asks what services/tools are connected.
 
-- **AMIKO_PLATFORM_URL** – Set by the platform when Composio is activated for this instance.
-- **AMIKO_TWIN_TOKEN** – Stored in **workspace/.amiko.json** (per-agent; written by `/setup/api/init` or `/setup/api/amiko/write`).
+## Connect Gmail / Google Calendar / Calendly (user auth)
 
-No `COMPOSIO_API_KEY` or `COMPOSIO_ENTITY_ID` is required on this instance; the platform holds the API key and creates sessions per user.
+When the user wants to connect Gmail, Google Calendar, Calendly, or another app:
+
+1. **Get a session** – Call COMPOSIO_SEARCH_TOOLS first with a query for that app. Extract `session_id` from the response (e.g. `"mill"`). You MUST pass this `session_id` in all subsequent meta tool calls.
+
+2. **Initiate connection** – Call COMPOSIO_MANAGE_CONNECTIONS with the toolkit name(s) as a **JSON array**. Use single-quoted JSON for array parameters:
+
+   ```bash
+   mcporter call composio.COMPOSIO_MANAGE_CONNECTIONS toolkits='["gmail"]' session_id='mill'
+   ```
+
+   For multiple apps: `toolkits='["gmail","googledrive","calendly"]'`
+
+   **Important:** `toolkits` must be a JSON array string. Wrong: `toolkits="gmail"` or `toolkits=[gmail]`. Correct: `toolkits='["gmail"]'`.
+
+3. **Share the link** – The response includes `redirect_url` per toolkit. Show it to the user as a **clickable markdown link** and tell them to open it, complete OAuth, then reply when done.
+
+4. **Verify** – Do NOT execute any toolkit tools until the user confirms. Re-run COMPOSIO_SEARCH_TOOLS to verify `has_active_connection: true` for that toolkit.
+
+Toolkit names: `gmail`, `googledrive`, `googlesheets`, `googlecalendar`, `calendly`, `slack`, `github`, etc. Use the exact identifiers returned by COMPOSIO_SEARCH_TOOLS.
 
 ## Troubleshooting
 
-- If the proxy is not listening, ensure Composio was enabled for this Clawd from the Amiko platform (so `AMIKO_PLATFORM_URL` is set) and the instance was restarted or env vars applied.
 - On 401/403 from Composio, the proxy clears its session cache; the next request will fetch a new session automatically.
 - Read `skills/composio/SKILL.md` (this file) from the workspace for agent-facing documentation.
 
@@ -77,8 +93,10 @@ Example:
 ```bash
 cd /data/.openclaw/workspace   # main workspace (or workspace-{agentId} for other agent)
 mcporter list composio
-mcporter call composio.some_tool_name arg1:value1
+mcporter call composio.COMPOSIO_SEARCH_TOOLS queries='[{"use_case": "read emails"}]' session='{"generate_id": true}'
 ```
+
+**Meta tool calls:** COMPOSIO_SEARCH_TOOLS, COMPOSIO_MANAGE_CONNECTIONS, COMPOSIO_MULTI_EXECUTE_TOOL, etc. require `session_id` from a prior SEARCH_TOOLS response. For array parameters (e.g. `toolkits`), pass quoted JSON: `toolkits='["gmail"]'`.
 
 Config location: `config/mcporter.json` in the workspace (created/updated when this skill is deployed). For more mcporter options (ad‑hoc URLs, OAuth, TypeScript clients), see the upstream MCPorter documentation.
 
