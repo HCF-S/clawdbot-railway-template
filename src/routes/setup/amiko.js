@@ -32,7 +32,7 @@ function readAmikoConfig(workspaceDir) {
         return {
           userId: String(data.AMIKO_USER_ID || "").trim(),
           twinId: String(data.AMIKO_TWIN_ID || "").trim(),
-          userToken: String(data.AMIKO_USER_TOKEN || "").trim(),
+          userToken: String(data.AMIKO_TWIN_TOKEN || data.AMIKO_USER_TOKEN || "").trim(),
         };
       }
     } catch (err) {
@@ -43,7 +43,7 @@ function readAmikoConfig(workspaceDir) {
 }
 
 export async function pullTwinData(handlers) {
-  const { WORKSPACE_DIR, AMIKO_TWIN_ID, AMIKO_USER_TOKEN } = handlers;
+  const { WORKSPACE_DIR, AMIKO_TWIN_ID, AMIKO_TWIN_TOKEN } = handlers;
   const fileCfg = readAmikoConfig(WORKSPACE_DIR);
 
   const twinId = String(fileCfg.twinId || AMIKO_TWIN_ID || "").trim();
@@ -51,7 +51,7 @@ export async function pullTwinData(handlers) {
     return { ok: false, error: "Missing twinId" };
   }
 
-  const userToken = String(fileCfg.userToken || AMIKO_USER_TOKEN || "").trim();
+  const userToken = String(fileCfg.userToken || AMIKO_TWIN_TOKEN || "").trim();
   if (!userToken) {
     return { ok: false, error: "Missing user token" };
   }
@@ -221,7 +221,7 @@ const DOCS_BATCH_SIZE = 50;
  * @returns {{ ok: boolean, count?: number, total?: number, created?: number, updated?: number, skipped?: number, docs?: Array, docsDir?: string, error?: string, output?: string }}
  */
 export async function pullDocs(handlers) {
-  const { WORKSPACE_DIR, AMIKO_TWIN_ID, AMIKO_USER_TOKEN } = handlers;
+  const { WORKSPACE_DIR, AMIKO_TWIN_ID, AMIKO_TWIN_TOKEN } = handlers;
   const fileCfg = readAmikoConfig(WORKSPACE_DIR);
 
   const twinId = String(fileCfg.twinId || AMIKO_TWIN_ID || "").trim();
@@ -229,7 +229,7 @@ export async function pullDocs(handlers) {
     return { ok: false, error: "Missing twinId" };
   }
 
-  const userToken = String(fileCfg.userToken || AMIKO_USER_TOKEN || "").trim();
+  const userToken = String(fileCfg.userToken || AMIKO_TWIN_TOKEN || "").trim();
   if (!userToken) {
     return { ok: false, error: "Missing user token" };
   }
@@ -422,25 +422,28 @@ export async function pullDocs(handlers) {
 }
 
 /**
- * Sync all Amiko data (twin + docs) - used by init.js
+ * Sync all Amiko data (twin + docs) - used by init.js and deploy
+ * @param {object} handlers
+ * @param {string} [agentId="main"] - Agent ID to sync (resolves workspace)
  * @returns {string} Output log
  */
-export async function syncAmikoData(handlers) {
-  const { WORKSPACE_DIR, AMIKO_TWIN_ID, AMIKO_USER_TOKEN } = handlers;
-  const fileCfg = readAmikoConfig(WORKSPACE_DIR);
-  
+export async function syncAmikoData(handlers, agentId = "main") {
+  const workspaceDir = resolveWorkspaceForAgent(handlers, agentId);
+  const h = { ...handlers, WORKSPACE_DIR: workspaceDir };
+  const fileCfg = readAmikoConfig(workspaceDir);
+
   let output = "";
-  
-  const twinId = String(fileCfg.twinId || AMIKO_TWIN_ID || "").trim();
-  const userToken = String(fileCfg.userToken || AMIKO_USER_TOKEN || "").trim();
+
+  const twinId = String(fileCfg.twinId || handlers.AMIKO_TWIN_ID || "").trim();
+  const userToken = String(fileCfg.userToken || handlers.AMIKO_TWIN_TOKEN || "").trim();
 
   if (!twinId || !userToken) {
-    output += "[amiko] WARNING: AMIKO_TWIN_ID / AMIKO_USER_TOKEN not set in config or env, skipping Amiko sync\n";
+    output += "[amiko] WARNING: AMIKO_TWIN_ID / AMIKO_TWIN_TOKEN not set in config or env, skipping Amiko sync\n";
     return output;
   }
 
   // Pull twin data
-  const pullResult = await pullTwinData(handlers);
+  const pullResult = await pullTwinData(h);
   if (pullResult.ok) {
     output += `[amiko/pull] ${pullResult.output}\n`;
   } else {
@@ -448,7 +451,7 @@ export async function syncAmikoData(handlers) {
   }
 
   // Pull documents
-  const docsResult = await pullDocs(handlers);
+  const docsResult = await pullDocs(h);
   if (docsResult.ok) {
     output += `[amiko/docs] ${docsResult.output}\n`;
   } else {
@@ -464,7 +467,7 @@ export async function syncAmikoData(handlers) {
  * @returns {{ ok: boolean, path?: string, count?: number, error?: string, output?: string }}
  */
 export async function pullMemories(handlers) {
-  const { WORKSPACE_DIR, AMIKO_TWIN_ID, AMIKO_USER_TOKEN } = handlers;
+  const { WORKSPACE_DIR, AMIKO_TWIN_ID, AMIKO_TWIN_TOKEN } = handlers;
   const fileCfg = readAmikoConfig(WORKSPACE_DIR);
   
   const twinId = String(fileCfg.twinId || AMIKO_TWIN_ID || "").trim();
@@ -472,7 +475,7 @@ export async function pullMemories(handlers) {
     return { ok: false, error: "Missing twinId" };
   }
 
-  const userToken = String(fileCfg.userToken || AMIKO_USER_TOKEN || "").trim();
+  const userToken = String(fileCfg.userToken || AMIKO_TWIN_TOKEN || "").trim();
   if (!userToken) {
     return { ok: false, error: "Missing user token" };
   }
@@ -578,9 +581,12 @@ export function createTwinRouter(handlers) {
 
   router.post("/amiko/pull", requireApiToken, async (req, res) => {
     try {
-      const result = await pullTwinData(handlers);
+      const agentId = String(req.body?.agentId ?? req.query?.agentId ?? "main").trim() || "main";
+      const workspaceDir = resolveWorkspaceForAgent(handlers, agentId);
+      const h = { ...handlers, WORKSPACE_DIR: workspaceDir };
+      const result = await pullTwinData(h);
       if (result.ok) {
-        return res.json({ ok: true, path: result.path });
+        return res.json({ ok: true, path: result.path, agentId });
       } else {
         return res.status(400).json({ ok: false, error: result.error });
       }
@@ -590,9 +596,12 @@ export function createTwinRouter(handlers) {
     }
   });
 
-  router.post("/amiko/docs", requireApiToken, async (_req, res) => {
+  router.post("/amiko/docs", requireApiToken, async (req, res) => {
     try {
-      const result = await pullDocs(handlers);
+      const agentId = String(req.body?.agentId ?? req.query?.agentId ?? "main").trim() || "main";
+      const workspaceDir = resolveWorkspaceForAgent(handlers, agentId);
+      const h = { ...handlers, WORKSPACE_DIR: workspaceDir };
+      const result = await pullDocs(h);
       if (result.ok) {
         return res.json({
           ok: true,
@@ -603,6 +612,7 @@ export function createTwinRouter(handlers) {
           skipped: result.skipped,
           docs: result.docs,
           docsDir: result.docsDir,
+          agentId,
         });
       } else {
         return res.status(400).json({ ok: false, error: result.error });
@@ -615,17 +625,21 @@ export function createTwinRouter(handlers) {
 
   /**
    * POST /setup/api/amiko/memories
-   * Pull memories from Amiko platform and save to MEMORIES.md
+   * Pull memories from Amiko platform and save to amiko-memories.md
    * This is optional - only call when you want to sync memories
    */
-  router.post("/amiko/memories", requireApiToken, async (_req, res) => {
+  router.post("/amiko/memories", requireApiToken, async (req, res) => {
     try {
-      const result = await pullMemories(handlers);
+      const agentId = String(req.body?.agentId ?? req.query?.agentId ?? "main").trim() || "main";
+      const workspaceDir = resolveWorkspaceForAgent(handlers, agentId);
+      const h = { ...handlers, WORKSPACE_DIR: workspaceDir };
+      const result = await pullMemories(h);
       if (result.ok) {
         return res.json({
           ok: true,
           count: result.count,
           path: result.path,
+          agentId,
         });
       } else {
         return res.status(400).json({ ok: false, error: result.error });

@@ -17,7 +17,7 @@ import { writeAmikoConfigAndMcporter } from "./amiko-config.js";
  * - json (boolean, optional) - request CLI --json output
  */
 export function createAgentsRouter(handlers) {
-  const { requireApiToken, runCmd, clawArgs, OPENCLAW_NODE, WORKSPACE_DIR } = handlers;
+  const { requireApiToken, runCmd, clawArgs, OPENCLAW_NODE } = handlers;
   const router = express.Router();
 
   router.post("/add-agent", requireApiToken, async (req, res) => {
@@ -39,7 +39,7 @@ export function createAgentsRouter(handlers) {
       const workspace =
         typeof body.workspace === "string" && body.workspace.trim()
           ? body.workspace.trim()
-          : `${WORKSPACE_DIR}-${agentId}`;
+          : `/data/.openclaw/workspace-${agentId}`;
 
       const args = [
         "agents",
@@ -79,7 +79,7 @@ export function createAgentsRouter(handlers) {
         let effectiveTwinToken = amikoTwinToken;
         let effectivePlatformUrl = "";
 
-        const mainCfgPath = path.join(WORKSPACE_DIR, ".amiko.json");
+        const mainCfgPath = "/data/.openclaw/workspace/.amiko.json";
         try {
           if (fs.existsSync(mainCfgPath)) {
             let mainCfg = {};
@@ -90,26 +90,17 @@ export function createAgentsRouter(handlers) {
             }
 
             if (!effectiveUserId) {
-              effectiveUserId = String(
-                mainCfg.amikoUserId || mainCfg.AMIKO_USER_ID || "",
-              ).trim();
+              effectiveUserId = String(mainCfg.AMIKO_USER_ID || "").trim();
             }
             if (!effectiveTwinId) {
-              effectiveTwinId = String(
-                mainCfg.amikoTwinId || mainCfg.AMIKO_TWIN_ID || "",
-              ).trim();
+              effectiveTwinId = String(mainCfg.AMIKO_TWIN_ID || "").trim();
             }
             if (!effectiveTwinToken) {
               effectiveTwinToken = String(
-                mainCfg.amikoTwinToken ||
-                  mainCfg.AMIKO_TWIN_TOKEN ||
-                  mainCfg.AMIKO_USER_TOKEN ||
-                  "",
+                mainCfg.AMIKO_TWIN_TOKEN || mainCfg.AMIKO_USER_TOKEN || "",
               ).trim();
             }
-            effectivePlatformUrl = String(
-              mainCfg.amikoPlatformUrl || mainCfg.AMIKO_PLATFORM_URL || "",
-            ).trim();
+            effectivePlatformUrl = String(mainCfg.AMIKO_PLATFORM_URL || "").trim();
           }
         } catch (copyErr) {
           console.warn(

@@ -53,15 +53,6 @@ RUN apt-get update \
 # `openclaw update` expects pnpm. Provide it in the runtime image.
 RUN corepack enable && corepack prepare pnpm@10.23.0 --activate
 
-# Persist user-installed tools by default by targeting the Railway volume.
-# - npm global installs -> /data/npm
-# - pnpm global installs -> /data/pnpm (binaries) + /data/pnpm-store (store)
-ENV NPM_CONFIG_PREFIX=/data/npm
-ENV NPM_CONFIG_CACHE=/data/npm-cache
-ENV PNPM_HOME=/data/pnpm
-ENV PNPM_STORE_DIR=/data/pnpm-store
-ENV PATH="/data/npm/bin:/data/pnpm:${PATH}"
-
 WORKDIR /app
 
 # Wrapper deps
@@ -75,6 +66,7 @@ COPY --from=openclaw-build /openclaw /openclaw
 RUN printf '%s\n' '#!/usr/bin/env bash' 'exec node /openclaw/dist/entry.js "$@"' > /usr/local/bin/openclaw \
   && chmod +x /usr/local/bin/openclaw
 
+# Install mcporter for composio skill
 RUN npm install -g mcporter@0.7.3
 
 COPY src ./src

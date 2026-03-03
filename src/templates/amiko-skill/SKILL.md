@@ -15,7 +15,7 @@ These are automatically set when the OpenClaw instance is created:
 
 - `AMIKO_USER_ID` - Your user's unique ID on the Amiko platform
 - `AMIKO_TWIN_ID` - Your twin's unique ID
-- `AMIKO_USER_TOKEN` - Authentication token (scoped to your twin)
+- `AMIKO_TWIN_TOKEN` - Authentication token (scoped to your twin)
 - `AMIKO_PLATFORM_URL` - Platform API URL (default: https://platform.heyamiko.com)
 
 ## Quick Commands

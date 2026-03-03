@@ -1,7 +1,6 @@
 import childProcess from "node:child_process";
 import crypto from "node:crypto";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 import express from "express";
@@ -22,22 +21,12 @@ const PORT = Number.parseInt(
   10,
 );
 
-// State/workspace
-// OpenClaw defaults to ~/.openclaw. Keep CLAWDBOT_* as backward-compat aliases.
-// OPENCLAW_HOME (https://docs.openclaw.ai/help/environment) sets effective home; state is $OPENCLAW_HOME/.openclaw
-const OPENCLAW_HOME = process.env.OPENCLAW_HOME?.trim() || "/data";
-const STATE_DIR =
-  process.env.OPENCLAW_STATE_DIR?.trim() ||
-  process.env.CLAWDBOT_STATE_DIR?.trim() ||
-  (OPENCLAW_HOME ? path.join(OPENCLAW_HOME, ".openclaw") : path.join(os.homedir(), ".openclaw"));
-
-const WORKSPACE_DIR =
-  process.env.OPENCLAW_WORKSPACE_DIR?.trim() ||
-  process.env.CLAWDBOT_WORKSPACE_DIR?.trim() ||
-  path.join(STATE_DIR, "workspace");
+// State/workspace - hardcoded for this template; no env overrides
+const STATE_DIR = "/data/.openclaw";
+const WORKSPACE_DIR = "/data/.openclaw/workspace";
 
 const AMIKO_TWIN_ID = process.env.AMIKO_TWIN_ID?.trim() || "";
-const AMIKO_USER_TOKEN = process.env.AMIKO_USER_TOKEN?.trim() || "";
+const AMIKO_TWIN_TOKEN = process.env.AMIKO_TWIN_TOKEN?.trim() || process.env.AMIKO_USER_TOKEN?.trim() || "";
 
 // Protect /setup + API with a user-provided token.
 const SETUP_PASSWORD = process.env.SETUP_PASSWORD?.trim();
@@ -140,7 +129,7 @@ function checkEssentialEnv() {
     ],
     ["AMIKO_USER_ID", () => process.env.AMIKO_USER_ID?.trim()],
     ["AMIKO_TWIN_ID", () => process.env.AMIKO_TWIN_ID?.trim()],
-    ["AMIKO_USER_TOKEN", () => process.env.AMIKO_USER_TOKEN?.trim()],
+    ["AMIKO_TWIN_TOKEN", () => process.env.AMIKO_TWIN_TOKEN?.trim() || process.env.AMIKO_USER_TOKEN?.trim()],
     [
       "OPENROUTER_API_KEY",
       () =>
@@ -224,12 +213,9 @@ async function startGateway() {
     stdio: "inherit",
     env: {
       ...process.env,
-      OPENCLAW_HOME,
+      OPENCLAW_HOME: "/data",
       OPENCLAW_STATE_DIR: STATE_DIR,
       OPENCLAW_WORKSPACE_DIR: WORKSPACE_DIR,
-      // Backward-compat aliases
-      CLAWDBOT_STATE_DIR: process.env.CLAWDBOT_STATE_DIR || STATE_DIR,
-      CLAWDBOT_WORKSPACE_DIR: process.env.CLAWDBOT_WORKSPACE_DIR || WORKSPACE_DIR,
     },
   });
 
@@ -597,15 +583,12 @@ function runCmd(cmd, args, opts = {}) {
   return new Promise((resolve) => {
     const proc = childProcess.spawn(cmd, args, {
       ...opts,
-      env: {
-        ...process.env,
-        OPENCLAW_HOME,
-        OPENCLAW_STATE_DIR: STATE_DIR,
-        OPENCLAW_WORKSPACE_DIR: WORKSPACE_DIR,
-        // Backward-compat aliases
-        CLAWDBOT_STATE_DIR: process.env.CLAWDBOT_STATE_DIR || STATE_DIR,
-        CLAWDBOT_WORKSPACE_DIR: process.env.CLAWDBOT_WORKSPACE_DIR || WORKSPACE_DIR,
-      },
+    env: {
+      ...process.env,
+      OPENCLAW_HOME: "/data",
+      OPENCLAW_STATE_DIR: STATE_DIR,
+      OPENCLAW_WORKSPACE_DIR: WORKSPACE_DIR,
+    },
     });
 
     let out = "";
@@ -689,7 +672,7 @@ app.use(
     OPENCLAW_ENTRY,
     PORT,
     AMIKO_TWIN_ID,
-    AMIKO_USER_TOKEN,
+    AMIKO_TWIN_TOKEN,
   }),
 );
 

@@ -2,6 +2,7 @@ import express from "express";
 import { installAmikoSkill, installComposioSkill } from "./skills.js";
 import { installSysConfig } from "./init.js";
 import { syncAmikoData, pullMemories } from "./amiko.js";
+import { resolveWorkspaceForAgent } from "./amiko-config.js";
 import { CURRENT_SETUP_VERSION, setInstalledVersion } from "./version.js";
 
 /**
@@ -83,14 +84,17 @@ export function createDeployRouter(handlers) {
   /**
    * POST /setup/api/deploy/amiko-data
    * Re-sync Amiko data (twin info + docs) to an existing instance
+   * Body: { agentId?: string } - default "main"
    */
-  router.post("/deploy/amiko-data", requireApiToken, async (_req, res) => {
+  router.post("/deploy/amiko-data", requireApiToken, async (req, res) => {
     try {
-      const output = await syncAmikoData(handlers);
+      const agentId = String(req.body?.agentId ?? "main").trim() || "main";
+      const output = await syncAmikoData(handlers, agentId);
       return res.json({
         ok: true,
         message: "Amiko data synced successfully",
         output,
+        agentId,
       });
     } catch (err) {
       console.error("[/setup/api/deploy/amiko-data] error:", err);
@@ -100,18 +104,22 @@ export function createDeployRouter(handlers) {
 
   /**
    * POST /setup/api/deploy/memories
-   * Sync memories from Amiko platform to MEMORIES.md
-   * This is optional and separate because memory data quality may vary
+   * Sync memories from Amiko platform to amiko-memories.md
+   * Body: { agentId?: string } - default "main"
    */
-  router.post("/deploy/memories", requireApiToken, async (_req, res) => {
+  router.post("/deploy/memories", requireApiToken, async (req, res) => {
     try {
-      const result = await pullMemories(handlers);
+      const agentId = String(req.body?.agentId ?? "main").trim() || "main";
+      const workspaceDir = resolveWorkspaceForAgent(handlers, agentId);
+      const h = { ...handlers, WORKSPACE_DIR: workspaceDir };
+      const result = await pullMemories(h);
       if (result.ok) {
         return res.json({
           ok: true,
           message: "Memories synced successfully",
           count: result.count,
           path: result.path,
+          agentId,
         });
       } else {
         return res.status(400).json({ ok: false, error: result.error });
@@ -125,12 +133,12 @@ export function createDeployRouter(handlers) {
   /**
    * POST /setup/api/deploy/all
    * Deploy all updates (amiko-skill + composio-skill + sys + amiko-data) to an existing instance
-   * This is useful for upgrading existing instances to latest features
-   * Body: { includeMemories?: boolean } - optionally include memories sync
+   * Body: { includeMemories?: boolean, agentId?: string } - agentId default "main"
    */
   router.post("/deploy/all", requireApiToken, async (req, res) => {
     try {
-      const { includeMemories = false } = req.body || {};
+      const { includeMemories = false, agentId: bodyAgentId } = req.body || {};
+      const agentId = String(bodyAgentId ?? "main").trim() || "main";
 
       const results = {
         amikoData: null,
@@ -144,7 +152,7 @@ export function createDeployRouter(handlers) {
       // 1. Sync Amiko data
       output += "[deploy] Syncing Amiko data...\n";
       try {
-        const amikoOutput = await syncAmikoData(handlers);
+        const amikoOutput = await syncAmikoData(handlers, agentId);
         results.amikoData = { ok: true };
         output += amikoOutput;
       } catch (err) {
@@ -195,7 +203,9 @@ export function createDeployRouter(handlers) {
       if (includeMemories) {
         output += "\n[deploy] Syncing memories (optional)...\n";
         try {
-          const memoriesResult = await pullMemories(handlers);
+          const workspaceDir = resolveWorkspaceForAgent(handlers, agentId);
+          const h = { ...handlers, WORKSPACE_DIR: workspaceDir };
+          const memoriesResult = await pullMemories(h);
           results.memories = memoriesResult;
           output += memoriesResult.ok
             ? `[deploy/memories] ${memoriesResult.output}\n`

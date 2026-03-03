@@ -60,7 +60,7 @@ export function createImportRouter(handlers) {
         return res
           .status(400)
           .type("text/plain")
-          .send("Import is only supported when OPENCLAW_STATE_DIR and OPENCLAW_WORKSPACE_DIR are under /data (Railway volume).\n");
+          .send("Import is only supported when state and workspace are under /data (Railway volume).\n");
       }
 
       if (gatewayProcRef.current) {

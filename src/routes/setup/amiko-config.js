@@ -1,54 +1,20 @@
 import fs from "node:fs";
 import path from "node:path";
 
+const MAIN_WORKSPACE = "/data/.openclaw/workspace";
+
 /**
- * Resolve workspace directory for a given agentId from openclaw.json.
- * Reads config.agents.entries[agentId].workspace, agents.defaults.workspace, or falls back to
- * WORKSPACE_DIR for "main" / agents.defaults.workspace for main, or WORKSPACE_DIR-{agentId} for others.
+ * Resolve workspace directory for a given agentId.
+ * Main agent: /data/.openclaw/workspace
+ * Other agents: /data/.openclaw/workspace-{agentId}
  *
- * @param {object} handlers - { configPath, WORKSPACE_DIR }
+ * @param {object} _handlers - Unused; kept for API compatibility
  * @param {string} [agentId] - Agent ID (e.g. "main", or custom). Default "main".
  * @returns {string} Absolute path to the agent's workspace directory
  */
-export function resolveWorkspaceForAgent(handlers, agentId = "main") {
-  const { WORKSPACE_DIR } = handlers;
+export function resolveWorkspaceForAgent(_handlers, agentId = "main") {
   const safeId = (agentId && String(agentId).trim()) || "main";
-
-  try {
-    const p = typeof handlers.configPath === "function" ? handlers.configPath() : null;
-    if (!p || !fs.existsSync(p)) {
-      return safeId === "main" ? WORKSPACE_DIR : `${WORKSPACE_DIR}-${safeId}`;
-    }
-
-    const raw = fs.readFileSync(p, "utf8");
-    const config = JSON.parse(raw);
-
-    // Per-agent workspace: agents.entries[agentId].workspace
-    const entry = config?.agents?.entries?.[safeId];
-    if (entry && typeof entry.workspace === "string" && entry.workspace.trim()) {
-      return entry.workspace.trim();
-    }
-
-    // agents.list: array of { id, workspace }
-    const list = config?.agents?.list;
-    if (Array.isArray(list)) {
-      const found = list.find((a) => (a.id || a.agentId) === safeId);
-      if (found && typeof found.workspace === "string" && found.workspace.trim()) {
-        return found.workspace.trim();
-      }
-    }
-
-    // Default workspace for "main" or when no per-agent config
-    const defaultsWs = config?.agents?.defaults?.workspace;
-    if (typeof defaultsWs === "string" && defaultsWs.trim()) {
-      return safeId === "main" ? defaultsWs.trim() : `${WORKSPACE_DIR}-${safeId}`;
-    }
-
-    return safeId === "main" ? WORKSPACE_DIR : `${WORKSPACE_DIR}-${safeId}`;
-  } catch (err) {
-    console.warn("[resolveWorkspaceForAgent] could not read openclaw.json:", err?.message);
-    return safeId === "main" ? WORKSPACE_DIR : `${WORKSPACE_DIR}-${safeId}`;
-  }
+  return safeId === "main" ? MAIN_WORKSPACE : `/data/.openclaw/workspace-${safeId}`;
 }
 
 /**
@@ -100,20 +66,12 @@ export function writeAmikoConfigAndMcporter(params) {
       process.env.AMIKO_PLATFORM_URL?.trim() ||
       "https://platform.heyamiko.com";
 
+    // Only write the 4 keys used by amiko-skill lib.js and readAmikoConfig
     const next = {
-      ...current,
-      // Legacy uppercase keys (env-style)
       AMIKO_USER_ID: amikoUserId || current.AMIKO_USER_ID || "",
       AMIKO_TWIN_ID: amikoTwinId || current.AMIKO_TWIN_ID || "",
-      AMIKO_TWIN_TOKEN: amikoTwinToken || current.AMIKO_TWIN_TOKEN || "",
-      // Keep AMIKO_USER_TOKEN for backward compatibility (same value as twin token)
-      AMIKO_USER_TOKEN: amikoTwinToken || current.AMIKO_USER_TOKEN || "",
+      AMIKO_TWIN_TOKEN: amikoTwinToken || current.AMIKO_TWIN_TOKEN || current.AMIKO_USER_TOKEN || "",
       AMIKO_PLATFORM_URL: resolvedPlatformUrl || current.AMIKO_PLATFORM_URL || "",
-      // New lowercase keys (script/skill-friendly)
-      amikoUserId: amikoUserId || current.amikoUserId || "",
-      amikoTwinId: amikoTwinId || current.amikoTwinId || "",
-      amikoTwinToken: amikoTwinToken || current.amikoTwinToken || "",
-      amikoPlatformUrl: resolvedPlatformUrl || current.amikoPlatformUrl || "",
     };
 
     fs.writeFileSync(cfgPath, JSON.stringify(next, null, 2), {
