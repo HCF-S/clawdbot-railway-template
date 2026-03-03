@@ -76,13 +76,21 @@ const INTERNAL_GATEWAY_PORT = Number.parseInt(process.env.INTERNAL_GATEWAY_PORT 
 const INTERNAL_GATEWAY_HOST = process.env.INTERNAL_GATEWAY_HOST ?? "127.0.0.1";
 const GATEWAY_TARGET = `http://${INTERNAL_GATEWAY_HOST}:${INTERNAL_GATEWAY_PORT}`;
 
-// Always run the built-from-source CLI entry directly to avoid PATH/global-install mismatches.
-// Prefer dist/entry.js; fall back to openclaw.mjs (official CLI entry) for resilience.
+// Resolve OpenClaw entry: OPENCLAW_ENTRY env, /openclaw (Docker copy), or global npm install.
 function resolveOpenClawEntry() {
   if (process.env.OPENCLAW_ENTRY?.trim()) return process.env.OPENCLAW_ENTRY.trim();
   if (fs.existsSync("/openclaw/dist/entry.js")) return "/openclaw/dist/entry.js";
   if (fs.existsSync("/openclaw/openclaw.mjs")) return "/openclaw/openclaw.mjs";
-  return "/openclaw/dist/entry.js";
+  // Global install (npm i -g openclaw)
+  const globalPaths = [
+    "/usr/local/lib/node_modules/openclaw/dist/entry.js",
+    "/usr/local/lib/node_modules/openclaw/openclaw.mjs",
+    "/usr/lib/node_modules/openclaw/dist/entry.js",
+  ];
+  for (const p of globalPaths) {
+    if (fs.existsSync(p)) return p;
+  }
+  return "/usr/local/lib/node_modules/openclaw/dist/entry.js";
 }
 const OPENCLAW_ENTRY = resolveOpenClawEntry();
 const OPENCLAW_NODE = process.env.OPENCLAW_NODE?.trim() || "node";

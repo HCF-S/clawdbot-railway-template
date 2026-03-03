@@ -1,31 +1,3 @@
-# Build openclaw from a pinned npm package version.
-FROM node:22-bookworm AS openclaw-build
-
-# Dependencies needed for dependency install (native addons may compile).
-RUN apt-get update \
-  && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-    git \
-    ca-certificates \
-    curl \
-    python3 \
-    make \
-    g++ \
-  && rm -rf /var/lib/apt/lists/*
-
-RUN corepack enable
-
-WORKDIR /openclaw
-
-# Pin OpenClaw package version.
-ARG OPENCLAW_NPM_VERSION=2026.3.1
-RUN set -eux; \
-  npm pack "openclaw@${OPENCLAW_NPM_VERSION}"; \
-  PKG_TGZ="$(ls -1 openclaw-*.tgz | head -n 1)"; \
-  tar -xzf "${PKG_TGZ}" --strip-components=1 -C /openclaw; \
-  rm -f openclaw-*.tgz; \
-  pnpm install --prod --no-frozen-lockfile
-
-# Runtime image
 FROM node:22-bookworm
 ENV NODE_ENV=production
 
@@ -34,14 +6,14 @@ RUN apt-get update \
     ca-certificates \
   && rm -rf /var/lib/apt/lists/*
 
+# Pin OpenClaw package version. Global install puts it in npm root; server resolves via OPENCLAW_ENTRY or fallbacks.
+ARG OPENCLAW_NPM_VERSION=2026.3.1
+RUN npm install -g "openclaw@${OPENCLAW_NPM_VERSION}"
+
+# Server resolves entry via OPENCLAW_ENTRY; default global path in node:22
+ENV OPENCLAW_ENTRY=/usr/local/lib/node_modules/openclaw/dist/entry.js
+
 WORKDIR /app
-
-# Copy built openclaw
-COPY --from=openclaw-build /openclaw /openclaw
-
-# Provide an openclaw executable
-RUN printf '%s\n' '#!/usr/bin/env bash' 'exec node /openclaw/dist/entry.js "$@"' > /usr/local/bin/openclaw \
-  && chmod +x /usr/local/bin/openclaw
 
 # Copy application files
 COPY . .
