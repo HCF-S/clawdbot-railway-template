@@ -2,6 +2,56 @@ import fs from "node:fs";
 import path from "node:path";
 
 /**
+ * Resolve workspace directory for a given agentId from openclaw.json.
+ * Reads config.agents.entries[agentId].workspace, agents.defaults.workspace, or falls back to
+ * WORKSPACE_DIR for "main" / agents.defaults.workspace for main, or WORKSPACE_DIR-{agentId} for others.
+ *
+ * @param {object} handlers - { configPath, WORKSPACE_DIR }
+ * @param {string} [agentId] - Agent ID (e.g. "main", or custom). Default "main".
+ * @returns {string} Absolute path to the agent's workspace directory
+ */
+export function resolveWorkspaceForAgent(handlers, agentId = "main") {
+  const { WORKSPACE_DIR } = handlers;
+  const safeId = (agentId && String(agentId).trim()) || "main";
+
+  try {
+    const p = typeof handlers.configPath === "function" ? handlers.configPath() : null;
+    if (!p || !fs.existsSync(p)) {
+      return safeId === "main" ? WORKSPACE_DIR : `${WORKSPACE_DIR}-${safeId}`;
+    }
+
+    const raw = fs.readFileSync(p, "utf8");
+    const config = JSON.parse(raw);
+
+    // Per-agent workspace: agents.entries[agentId].workspace
+    const entry = config?.agents?.entries?.[safeId];
+    if (entry && typeof entry.workspace === "string" && entry.workspace.trim()) {
+      return entry.workspace.trim();
+    }
+
+    // agents.list: array of { id, workspace }
+    const list = config?.agents?.list;
+    if (Array.isArray(list)) {
+      const found = list.find((a) => (a.id || a.agentId) === safeId);
+      if (found && typeof found.workspace === "string" && found.workspace.trim()) {
+        return found.workspace.trim();
+      }
+    }
+
+    // Default workspace for "main" or when no per-agent config
+    const defaultsWs = config?.agents?.defaults?.workspace;
+    if (typeof defaultsWs === "string" && defaultsWs.trim()) {
+      return safeId === "main" ? defaultsWs.trim() : `${WORKSPACE_DIR}-${safeId}`;
+    }
+
+    return safeId === "main" ? WORKSPACE_DIR : `${WORKSPACE_DIR}-${safeId}`;
+  } catch (err) {
+    console.warn("[resolveWorkspaceForAgent] could not read openclaw.json:", err?.message);
+    return safeId === "main" ? WORKSPACE_DIR : `${WORKSPACE_DIR}-${safeId}`;
+  }
+}
+
+/**
  * Write Amiko config (.amiko.json) and mcporter.json for a given workspace.
  *
  * - Merges with any existing .amiko.json (keeps unknown fields)

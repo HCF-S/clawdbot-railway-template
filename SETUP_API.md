@@ -41,7 +41,7 @@ When creating **pooled** instances (unassigned, no user/twin yet), set only mini
 | `POST` | `/setup/api/amiko/pull` | Fetches twin data from the platform API and writes a markdown snapshot to `AMIKO.md` in the workspace. | Uses config from **workspace/.amiko.json** (per-agent), falling back to env if missing. |
 | `POST` | `/setup/api/amiko/docs` | Trigger to sync all documents from the platform API. Automatically fetches all docs in batches (50 per batch) and writes markdown files to `amiko-docs/` folder. **Supports incremental sync** — only writes files that are new or updated (based on `updated_at`), skipping unchanged docs. | No body required. Uses config from **workspace/.amiko.json** (or env as fallback). Response includes `created`, `updated`, `skipped` counts. |
 | `POST` | `/setup/api/amiko/memories` | **Optional.** Sync memories from the platform API to `amiko-memories.md`. Data quality may vary. | No body required. Uses config from **workspace/.amiko.json** (or env as fallback). |
-| `POST` | `/setup/api/amiko/write` | **Deprecated.** Use the `/setup/api/files/write` endpoint to write `.amiko.json` directly into the desired workspace (e.g. `workspace/.amiko.json` or `workspace-<agentId>/.amiko.json`). This endpoint is kept only for backward compatibility and will be removed in a future version. | _Deprecated_ |
+| `POST` | `/setup/api/amiko/write` | Writes `.amiko.json` and `config/mcporter.json` to the agent's workspace using `writeAmikoConfigAndMcporter`. Workspace is resolved from `openclaw.json` per `agentId` (`agents.entries[agentId].workspace` or `agents.defaults.workspace`). Body: `{ agentId?, amikoUserId?, amikoTwinId?, amikoTwinToken?, amikoPlatformUrl? }`. | JSON body |
 
 ## Channel helpers
 

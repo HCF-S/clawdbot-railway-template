@@ -2,6 +2,7 @@ import express from "express";
 import fs from "node:fs";
 import path from "node:path";
 import { renderAmikoMd, renderDocMd, renderMemoriesMd } from "../../templates/render.js";
+import { writeAmikoConfigAndMcporter, resolveWorkspaceForAgent } from "./amiko-config.js";
 
 const LEGACY_AMIKO_CONFIG_PATH = "/data/.amiko.json";
 const PLATFORM_BASE_URL = "https://platform.heyamiko.com";
@@ -539,6 +540,41 @@ export async function pullMemories(handlers) {
 export function createTwinRouter(handlers) {
   const { requireApiToken } = handlers;
   const router = express.Router();
+
+  /**
+   * POST /setup/api/amiko/write
+   * Writes .amiko.json and config/mcporter.json to the agent's workspace.
+   * Body: { agentId?: string, amikoUserId?: string, amikoTwinId?: string, amikoTwinToken?: string, amikoPlatformUrl?: string }
+   * Workspace is resolved from openclaw.json per agentId (agents.entries[agentId].workspace or defaults).
+   */
+  router.post("/amiko/write", requireApiToken, async (req, res) => {
+    try {
+      const body = req.body || {};
+      const agentId = String(body.agentId ?? "main").trim() || "main";
+      const amikoUserId = String(body.amikoUserId ?? "").trim();
+      const amikoTwinId = String(body.amikoTwinId ?? "").trim();
+      const amikoTwinToken = String(body.amikoTwinToken ?? "").trim();
+      const amikoPlatformUrl = String(body.amikoPlatformUrl ?? "").trim() || undefined;
+
+      const workspaceDir = resolveWorkspaceForAgent(handlers, agentId);
+      const result = writeAmikoConfigAndMcporter({
+        workspaceDir,
+        amikoUserId,
+        amikoTwinId,
+        amikoTwinToken,
+        amikoPlatformUrl: amikoPlatformUrl || undefined,
+      });
+
+      if (result.ok) {
+        return res.json({ ok: true, output: result.output, workspaceDir });
+      } else {
+        return res.status(400).json({ ok: false, error: result.error });
+      }
+    } catch (err) {
+      console.error("[/setup/api/amiko/write] error:", err);
+      return res.status(500).json({ ok: false, error: `Internal error: ${String(err)}` });
+    }
+  });
 
   router.post("/amiko/pull", requireApiToken, async (req, res) => {
     try {
