@@ -8,13 +8,14 @@ const __dirname = path.dirname(__filename);
 
 // Path to templates directory (inside src/templates)
 const TEMPLATES_DIR = path.resolve(__dirname, "../../templates");
+const MAIN_WORKSPACE = "/data/.openclaw/workspace";
 
 /**
  * Install the amiko-skill into STATE_DIR/skills/amiko (shared across agents)
  * Copies template files to STATE_DIR/skills/amiko (e.g. /data/.openclaw/skills/amiko)
  */
 export async function installAmikoSkill(handlers) {
-  const { WORKSPACE_DIR, STATE_DIR } = handlers;
+  const { STATE_DIR } = handlers;
   
   const templateDir = path.join(TEMPLATES_DIR, "amiko-skill");
   
@@ -26,8 +27,7 @@ export async function installAmikoSkill(handlers) {
     };
   }
   
-  // Determine target directory - prefer STATE_DIR/skills (shared across agents), fall back to workspace/skills for older setups
-  const skillsDir = STATE_DIR ? path.join(STATE_DIR, "skills") : path.join(WORKSPACE_DIR, "skills");
+  const skillsDir = path.join(STATE_DIR, "skills");
   const targetDir = path.join(skillsDir, "amiko");
   
   try {
@@ -66,7 +66,7 @@ export async function installAmikoSkill(handlers) {
     console.log("[installAmikoSkill] files:", copiedFiles.join(", "));
     
     // Inject skill reference into AMIKO.md if it exists
-    const amikoMdPath = path.join(WORKSPACE_DIR, "AMIKO.md");
+    const amikoMdPath = path.join(MAIN_WORKSPACE, "AMIKO.md");
     if (fs.existsSync(amikoMdPath)) {
       try {
         let content = fs.readFileSync(amikoMdPath, "utf8");
@@ -127,35 +127,13 @@ Read \`skills/amiko/SKILL.md\` for full documentation.
 }
 
 /**
- * Resolve main workspace dir from openclaw.json (agents.defaults.workspace), or fall back to handlers.WORKSPACE_DIR.
- */
-function resolveMainWorkspaceDir(handlers) {
-  const { WORKSPACE_DIR, configPath } = handlers;
-  try {
-    const p = typeof configPath === "function" ? configPath() : null;
-    if (p && fs.existsSync(p)) {
-      const raw = fs.readFileSync(p, "utf8");
-      const config = JSON.parse(raw);
-      const ws = config?.agents?.defaults?.workspace;
-      if (typeof ws === "string" && ws.trim()) {
-        return ws.trim();
-      }
-    }
-  } catch (err) {
-    console.warn("[installComposioSkill] could not read workspace from openclaw.json:", err);
-  }
-  return WORKSPACE_DIR;
-}
-
-/**
  * Install the Composio skill into STATE_DIR/skills/composio (shared across agents).
  * Copies only SKILL.md to STATE_DIR/skills/composio/. Does not modify openclaw.json
  * (OpenClaw accesses Composio via the skill's meta tools, not native MCP config).
  * .amiko.json and config/mcporter.json are written by POST /setup/api/amiko/write.
  */
 export async function installComposioSkill(handlers) {
-  const { WORKSPACE_DIR, STATE_DIR } = handlers;
-  const workspaceDir = resolveMainWorkspaceDir(handlers);
+  const { STATE_DIR } = handlers;
 
   const templateDir = path.join(TEMPLATES_DIR, "composio-skill");
   const skillMd = "SKILL.md";
@@ -168,7 +146,7 @@ export async function installComposioSkill(handlers) {
     };
   }
 
-  const skillsDir = STATE_DIR ? path.join(STATE_DIR, "skills") : path.join(workspaceDir, "skills");
+  const skillsDir = path.join(STATE_DIR, "skills");
   const targetDir = path.join(skillsDir, "composio");
 
   try {

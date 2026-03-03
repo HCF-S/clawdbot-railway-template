@@ -75,13 +75,10 @@ This container includes the **mcporter** CLI preinstalled globally. When the Com
 Example:
 
 ```bash
-cd /data   # or your workspace root
+cd /data/.openclaw/workspace   # main workspace (or workspace-{agentId} for other agent)
 mcporter list composio
 mcporter call composio.some_tool_name arg1:value1
 ```
 
 Config location: `config/mcporter.json` in the workspace (created/updated when this skill is deployed). For more mcporter options (ad‑hoc URLs, OAuth, TypeScript clients), see the upstream MCPorter documentation.
 
----
-
-**Status:** Use MCP URL `http://127.0.0.1:3099` in OpenClaw to enable Composio tools.

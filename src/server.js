@@ -1,7 +1,6 @@
 import childProcess from "node:child_process";
 import crypto from "node:crypto";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 import express from "express";
@@ -22,19 +21,9 @@ const PORT = Number.parseInt(
   10,
 );
 
-// State/workspace
-// OpenClaw defaults to ~/.openclaw. Keep CLAWDBOT_* as backward-compat aliases.
-// OPENCLAW_HOME (https://docs.openclaw.ai/help/environment) sets effective home; state is $OPENCLAW_HOME/.openclaw
-const OPENCLAW_HOME = process.env.OPENCLAW_HOME?.trim() || "/data";
-const STATE_DIR =
-  process.env.OPENCLAW_STATE_DIR?.trim() ||
-  process.env.CLAWDBOT_STATE_DIR?.trim() ||
-  (OPENCLAW_HOME ? path.join(OPENCLAW_HOME, ".openclaw") : path.join(os.homedir(), ".openclaw"));
-
-const WORKSPACE_DIR =
-  process.env.OPENCLAW_WORKSPACE_DIR?.trim() ||
-  process.env.CLAWDBOT_WORKSPACE_DIR?.trim() ||
-  path.join(STATE_DIR, "workspace");
+// State/workspace - hardcoded for this template; no env overrides
+const STATE_DIR = "/data/.openclaw";
+const WORKSPACE_DIR = "/data/.openclaw/workspace";
 
 const AMIKO_TWIN_ID = process.env.AMIKO_TWIN_ID?.trim() || "";
 const AMIKO_USER_TOKEN = process.env.AMIKO_USER_TOKEN?.trim() || "";
@@ -224,12 +213,9 @@ async function startGateway() {
     stdio: "inherit",
     env: {
       ...process.env,
-      OPENCLAW_HOME,
+      OPENCLAW_HOME: "/data",
       OPENCLAW_STATE_DIR: STATE_DIR,
       OPENCLAW_WORKSPACE_DIR: WORKSPACE_DIR,
-      // Backward-compat aliases
-      CLAWDBOT_STATE_DIR: process.env.CLAWDBOT_STATE_DIR || STATE_DIR,
-      CLAWDBOT_WORKSPACE_DIR: process.env.CLAWDBOT_WORKSPACE_DIR || WORKSPACE_DIR,
     },
   });
 
@@ -597,15 +583,12 @@ function runCmd(cmd, args, opts = {}) {
   return new Promise((resolve) => {
     const proc = childProcess.spawn(cmd, args, {
       ...opts,
-      env: {
-        ...process.env,
-        OPENCLAW_HOME,
-        OPENCLAW_STATE_DIR: STATE_DIR,
-        OPENCLAW_WORKSPACE_DIR: WORKSPACE_DIR,
-        // Backward-compat aliases
-        CLAWDBOT_STATE_DIR: process.env.CLAWDBOT_STATE_DIR || STATE_DIR,
-        CLAWDBOT_WORKSPACE_DIR: process.env.CLAWDBOT_WORKSPACE_DIR || WORKSPACE_DIR,
-      },
+    env: {
+      ...process.env,
+      OPENCLAW_HOME: "/data",
+      OPENCLAW_STATE_DIR: STATE_DIR,
+      OPENCLAW_WORKSPACE_DIR: WORKSPACE_DIR,
+    },
     });
 
     let out = "";

@@ -24,11 +24,11 @@ Deploy a personal **OpenClaw** AI gateway on Railway in one click — no command
 | Variable | Required | Description |
 | --- | --- | --- |
 | `SETUP_PASSWORD` | ✅ | Password to access `/setup` |
-| `OPENCLAW_STATE_DIR` | Recommended | Set to `/data/.openclaw` |
-| `OPENCLAW_WORKSPACE_DIR` | Recommended | Set to `/data/workspace` |
 | `OPENCLAW_GATEWAY_TOKEN` | Optional | Auth token for the gateway. Auto-generated if not set — use a Railway secret for templates |
 | `AMIKO_TWIN_ID` | Optional | Your Amiko twin ID |
 | `AMIKO_USER_TOKEN` | Optional | Your Amiko user token |
+
+State and workspace paths are hardcoded: `/data/.openclaw` (state), `/data/.openclaw/workspace` (main agent), `/data/.openclaw/workspace-{agentId}` (other agents). No env overrides.
 
 > The template pins OpenClaw to a known-good version via the `OPENCLAW_GIT_REF` Docker build arg.
 
@@ -74,8 +74,6 @@ docker run --rm -p 3000:3000 \
   -e PORT=3000 \
   -e SETUP_PASSWORD=test \
   -e OPENCLAW_GATEWAY_TOKEN=your-gateway-token \
-  -e OPENCLAW_STATE_DIR=/data/.openclaw \
-  -e OPENCLAW_WORKSPACE_DIR=/data/workspace \
   -v $(pwd):/app \
   -v $(pwd)/.tmpdata:/data \
   -w /app \

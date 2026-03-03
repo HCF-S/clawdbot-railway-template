@@ -6,7 +6,7 @@ All `/setup/*` endpoints require the `x-api-token` header (set to your `SETUP_PA
 
 When creating **pooled** instances (unassigned, no user/twin yet), set only minimal env so the container can start and persist state under `/data`:
 
-- **Required**: `OPENCLAW_HOME=/data` (or `OPENCLAW_STATE_DIR=/data/.openclaw`) so OpenClaw state lives on persistent storage.
+- **Required**: Mount `/data` as persistent volume. State and workspace paths are hardcoded: `/data/.openclaw` (state), `/data/.openclaw/workspace` (main agent), `/data/.openclaw/workspace-{agentId}` (other agents).
 - **Required for setup UI**: `SETUP_PASSWORD`, `OPENCLAW_GATEWAY_TOKEN`, `PORT` (e.g. `3000`), `OPENCLAW_PUBLIC_PORT`.
 - **Do not set** at create time: `AMIKO_USER_ID`, `AMIKO_TWIN_ID`, `AMIKO_USER_TOKEN`, `OPENROUTER_API_KEY`. On first start the wrapper **auto-runs onboard with a dummy OpenRouter key** (`"test"`) so `.openclaw` is fully created and the gateway can start. When the instance is assigned to a user, the platform calls `POST /setup/api/init` with `authSecret` (user’s real OpenRouter key); the wrapper **replaces the dummy key** in `/data/.openclaw/agents/main/agent/auth-profiles.json` and restarts the gateway, then runs Amiko sync + skill + SYS + version. The browser / SPA stores the token in `localStorage` under `openclaw_setup_api_token`; other clients must set `x-api-token`. The only endpoint that still uses Basic auth is `GET /setup` itself.
 
@@ -41,7 +41,7 @@ When creating **pooled** instances (unassigned, no user/twin yet), set only mini
 | `POST` | `/setup/api/amiko/pull` | Fetches twin data from the platform API and writes a markdown snapshot to `AMIKO.md` in the workspace. | Uses config from **workspace/.amiko.json** (per-agent), falling back to env if missing. |
 | `POST` | `/setup/api/amiko/docs` | Trigger to sync all documents from the platform API. Automatically fetches all docs in batches (50 per batch) and writes markdown files to `amiko-docs/` folder. **Supports incremental sync** — only writes files that are new or updated (based on `updated_at`), skipping unchanged docs. | No body required. Uses config from **workspace/.amiko.json** (or env as fallback). Response includes `created`, `updated`, `skipped` counts. |
 | `POST` | `/setup/api/amiko/memories` | **Optional.** Sync memories from the platform API to `amiko-memories.md`. Data quality may vary. | No body required. Uses config from **workspace/.amiko.json** (or env as fallback). |
-| `POST` | `/setup/api/amiko/write` | Writes `.amiko.json` and `config/mcporter.json` to the agent's workspace using `writeAmikoConfigAndMcporter`. Workspace is resolved from `openclaw.json` per `agentId` (`agents.entries[agentId].workspace` or `agents.defaults.workspace`). Body: `{ agentId?, amikoUserId?, amikoTwinId?, amikoTwinToken?, amikoPlatformUrl? }`. | JSON body |
+| `POST` | `/setup/api/amiko/write` | Writes `.amiko.json` and `config/mcporter.json` to the agent's workspace. Main agent: `/data/.openclaw/workspace`; others: `/data/.openclaw/workspace-{agentId}`. Body: `{ agentId?, amikoUserId?, amikoTwinId?, amikoTwinToken?, amikoPlatformUrl? }`. | JSON body |
 
 ## Channel helpers
 
@@ -76,7 +76,7 @@ When creating **pooled** instances (unassigned, no user/twin yet), set only mini
 
 | Method | Endpoint | Description | Request body |
 | --- | --- | --- | --- |
-| `POST` | `/setup/api/add-agent` | Runs `openclaw agents add <agentId>` in non-interactive mode. | `agentId` (required), `name` (required), `workspace` (optional, default `/data/.openclaw/workspace-${agentId}` when `OPENCLAW_HOME=/data`), `model` (optional), `agentDir` (optional), `bind` (optional, string or array e.g. `"whatsapp:+1234567890"`), `json` (optional boolean to request CLI JSON output). |
+| `POST` | `/setup/api/add-agent` | Runs `openclaw agents add <agentId>` in non-interactive mode. | `agentId` (required), `name` (required), `workspace` (optional, default `/data/.openclaw/workspace-${agentId}`), `model` (optional), `agentDir` (optional), `bind` (optional, string or array e.g. `"whatsapp:+1234567890"`), `json` (optional boolean to request CLI JSON output). |
 
 ## Backup helpers
 
@@ -188,7 +188,7 @@ OpenClaw accesses Composio through the composio skill's meta tools (COMPOSIO_SEA
 
 If you need to configure the bridge by hand (e.g. for a custom setup using the openclaw-mcp-bridge plugin):
 
-**Config location:** OpenClaw reads `openclaw.json` from the state directory. When `OPENCLAW_HOME=/data` or `OPENCLAW_STATE_DIR=/data/.openclaw`, the file is `/data/.openclaw/openclaw.json` (or `~/.clawdbot/clawdbot.json5` on newer installs).
+**Config location:** OpenClaw reads `openclaw.json` from `/data/.openclaw/openclaw.json`.
 
 **Official docs:** [Mcp Bridge – OpenClaw Plugin](https://openclawdir.com/plugins/mcp-bridge-1volrr) (config format, fields, and behavior).
 

@@ -17,7 +17,7 @@ import { writeAmikoConfigAndMcporter } from "./amiko-config.js";
  * - json (boolean, optional) - request CLI --json output
  */
 export function createAgentsRouter(handlers) {
-  const { requireApiToken, runCmd, clawArgs, OPENCLAW_NODE, WORKSPACE_DIR } = handlers;
+  const { requireApiToken, runCmd, clawArgs, OPENCLAW_NODE } = handlers;
   const router = express.Router();
 
   router.post("/add-agent", requireApiToken, async (req, res) => {
@@ -39,7 +39,7 @@ export function createAgentsRouter(handlers) {
       const workspace =
         typeof body.workspace === "string" && body.workspace.trim()
           ? body.workspace.trim()
-          : `${WORKSPACE_DIR}-${agentId}`;
+          : `/data/.openclaw/workspace-${agentId}`;
 
       const args = [
         "agents",
@@ -79,7 +79,7 @@ export function createAgentsRouter(handlers) {
         let effectiveTwinToken = amikoTwinToken;
         let effectivePlatformUrl = "";
 
-        const mainCfgPath = path.join(WORKSPACE_DIR, ".amiko.json");
+        const mainCfgPath = "/data/.openclaw/workspace/.amiko.json";
         try {
           if (fs.existsSync(mainCfgPath)) {
             let mainCfg = {};
