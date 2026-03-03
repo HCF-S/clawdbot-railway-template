@@ -38,9 +38,9 @@ When creating **pooled** instances (unassigned, no user/twin yet), set only mini
 
 | Method | Endpoint | Description | Request body / headers |
 | --- | --- | --- | --- |
-| `POST` | `/setup/api/amiko/pull` | Fetches twin data from the platform API and writes a markdown snapshot to `AMIKO.md` in the workspace. | Uses config from **workspace/.amiko.json** (per-agent), falling back to env if missing. |
-| `POST` | `/setup/api/amiko/docs` | Trigger to sync all documents from the platform API. Automatically fetches all docs in batches (50 per batch) and writes markdown files to `amiko-docs/` folder. **Supports incremental sync** — only writes files that are new or updated (based on `updated_at`), skipping unchanged docs. | No body required. Uses config from **workspace/.amiko.json** (or env as fallback). Response includes `created`, `updated`, `skipped` counts. |
-| `POST` | `/setup/api/amiko/memories` | **Optional.** Sync memories from the platform API to `amiko-memories.md`. Data quality may vary. | No body required. Uses config from **workspace/.amiko.json** (or env as fallback). |
+| `POST` | `/setup/api/amiko/pull` | Fetches twin data from the platform API and writes a markdown snapshot to `AMIKO.md` in the workspace. | Body or query: `agentId` (optional, default `main`). Uses config from **workspace/.amiko.json** (per-agent), falling back to env if missing. |
+| `POST` | `/setup/api/amiko/docs` | Trigger to sync all documents from the platform API. Automatically fetches all docs in batches (50 per batch) and writes markdown files to `amiko-docs/` folder. **Supports incremental sync** — only writes files that are new or updated (based on `updated_at`), skipping unchanged docs. | Body or query: `agentId` (optional, default `main`). Uses config from **workspace/.amiko.json** (or env as fallback). Response includes `created`, `updated`, `skipped` counts. |
+| `POST` | `/setup/api/amiko/memories` | **Optional.** Sync memories from the platform API to `amiko-memories.md`. Data quality may vary. | Body or query: `agentId` (optional, default `main`). Uses config from **workspace/.amiko.json** (or env as fallback). |
 | `POST` | `/setup/api/amiko/write` | Writes `.amiko.json` and `config/mcporter.json` to the agent's workspace. Main agent: `/data/.openclaw/workspace`; others: `/data/.openclaw/workspace-{agentId}`. Body: `{ agentId?, amikoUserId?, amikoTwinId?, amikoTwinToken?, amikoPlatformUrl? }`. | JSON body |
 
 ## Channel helpers
@@ -229,9 +229,9 @@ If you need to configure the bridge by hand (e.g. for a custom setup using the o
 3. **Platform automation:** From the Amiko platform, you can use the setup API to read config, inject the Composio MCP server entry, write it back, and restart the gateway so the Clawd gets Composio tools without manual steps.
 
 After restart, the bridge will call `tools/list` on the configured Composio MCP server URL and register the Composio tools with the chosen prefix.
-| `POST` | `/setup/api/deploy/amiko-data` | Re-sync Amiko data (twin info + docs) to an existing instance. Same as calling `/amiko/pull` + `/amiko/docs`. |
-| `POST` | `/setup/api/deploy/memories` | **Optional.** Sync memories to `amiko-memories.md`. Separate endpoint because data quality may vary. |
-| `POST` | `/setup/api/deploy/all` | Deploy all updates at once: amiko-data + amiko-skill + sys config. **Automatically updates version** after successful deployment. Body: `{ includeMemories?: boolean }` to optionally include memories sync. |
+| `POST` | `/setup/api/deploy/amiko-data` | Re-sync Amiko data (twin info + docs) to an existing instance. Same as calling `/amiko/pull` + `/amiko/docs`. Body: `{ agentId?: string }` (default `main`). |
+| `POST` | `/setup/api/deploy/memories` | **Optional.** Sync memories to `amiko-memories.md`. Body: `{ agentId?: string }` (default `main`). |
+| `POST` | `/setup/api/deploy/all` | Deploy all updates at once: amiko-data + amiko-skill + sys config. **Automatically updates version** after successful deployment. Body: `{ includeMemories?: boolean, agentId?: string }` (agentId default `main`). |
 
 ### Deploy Response Format
 
