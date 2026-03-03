@@ -4,7 +4,7 @@ import path from "node:path";
 
 // Current setup version - increment this when making breaking changes
 // or adding new features that require deployment
-export const CURRENT_SETUP_VERSION = "1.0.0";
+export const CURRENT_SETUP_VERSION = "1.0.1";
 
 // Version file path (persisted in /data)
 const VERSION_FILE = "/data/.setup-version";
