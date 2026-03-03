@@ -17,7 +17,7 @@ RUN corepack enable
 WORKDIR /openclaw
 
 # Pin OpenClaw package version.
-ARG OPENCLAW_NPM_VERSION=2026.2.17
+ARG OPENCLAW_NPM_VERSION=2026.3.1
 RUN set -eux; \
   npm pack "openclaw@${OPENCLAW_NPM_VERSION}"; \
   PKG_TGZ="$(ls -1 openclaw-*.tgz | head -n 1)"; \

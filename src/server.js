@@ -25,7 +25,7 @@ const PORT = Number.parseInt(
 // State/workspace
 // OpenClaw defaults to ~/.openclaw. Keep CLAWDBOT_* as backward-compat aliases.
 // OPENCLAW_HOME (https://docs.openclaw.ai/help/environment) sets effective home; state is $OPENCLAW_HOME/.openclaw
-const OPENCLAW_HOME = process.env.OPENCLAW_HOME?.trim();
+const OPENCLAW_HOME = process.env.OPENCLAW_HOME?.trim() || "/data";
 const STATE_DIR =
   process.env.OPENCLAW_STATE_DIR?.trim() ||
   process.env.CLAWDBOT_STATE_DIR?.trim() ||
@@ -77,11 +77,31 @@ const INTERNAL_GATEWAY_HOST = process.env.INTERNAL_GATEWAY_HOST ?? "127.0.0.1";
 const GATEWAY_TARGET = `http://${INTERNAL_GATEWAY_HOST}:${INTERNAL_GATEWAY_PORT}`;
 
 // Always run the built-from-source CLI entry directly to avoid PATH/global-install mismatches.
-const OPENCLAW_ENTRY = process.env.OPENCLAW_ENTRY?.trim() || "/openclaw/dist/entry.js";
+// Prefer dist/entry.js; fall back to openclaw.mjs (official CLI entry) for resilience.
+function resolveOpenClawEntry() {
+  if (process.env.OPENCLAW_ENTRY?.trim()) return process.env.OPENCLAW_ENTRY.trim();
+  if (fs.existsSync("/openclaw/dist/entry.js")) return "/openclaw/dist/entry.js";
+  if (fs.existsSync("/openclaw/openclaw.mjs")) return "/openclaw/openclaw.mjs";
+  return "/openclaw/dist/entry.js";
+}
+const OPENCLAW_ENTRY = resolveOpenClawEntry();
 const OPENCLAW_NODE = process.env.OPENCLAW_NODE?.trim() || "node";
 
 function clawArgs(args) {
   return [OPENCLAW_ENTRY, ...args];
+}
+
+/** Fail fast if OpenClaw is not installed (e.g. Railway used Nixpacks instead of Dockerfile). */
+function ensureOpenClawInstalled() {
+  if (fs.existsSync(OPENCLAW_ENTRY)) return;
+  const msg =
+    "OpenClaw not found at " +
+    OPENCLAW_ENTRY +
+    ". This usually means Railway did not use the Dockerfile for the build. " +
+    "Ensure railway.toml has builder = 'dockerfile' and that a Dockerfile exists in the repo root. " +
+    "Check Railway Build Logs for 'Building with Dockerfile'.";
+  console.error("[wrapper] FATAL:", msg);
+  process.exit(1);
 }
 
 function configPath() {
@@ -196,6 +216,7 @@ async function startGateway() {
     stdio: "inherit",
     env: {
       ...process.env,
+      OPENCLAW_HOME,
       OPENCLAW_STATE_DIR: STATE_DIR,
       OPENCLAW_WORKSPACE_DIR: WORKSPACE_DIR,
       // Backward-compat aliases
@@ -570,6 +591,7 @@ function runCmd(cmd, args, opts = {}) {
       ...opts,
       env: {
         ...process.env,
+        OPENCLAW_HOME,
         OPENCLAW_STATE_DIR: STATE_DIR,
         OPENCLAW_WORKSPACE_DIR: WORKSPACE_DIR,
         // Backward-compat aliases
@@ -697,6 +719,7 @@ app.use(async (req, res) => {
 // On start: if not configured, auto-onboard (with env key if set, else dummy key "test").
 // Then start gateway if configured. /init replaces dummy key with real one when called.
 (async function startServer() {
+  ensureOpenClawInstalled();
   if (!isConfigured()) {
     if (OPENROUTER_API_KEY_ENV) {
       await bootstrapFromEnv();
