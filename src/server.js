@@ -25,7 +25,7 @@ const PORT = Number.parseInt(
 // State/workspace
 // OpenClaw defaults to ~/.openclaw. Keep CLAWDBOT_* as backward-compat aliases.
 // OPENCLAW_HOME (https://docs.openclaw.ai/help/environment) sets effective home; state is $OPENCLAW_HOME/.openclaw
-const OPENCLAW_HOME = process.env.OPENCLAW_HOME?.trim();
+const OPENCLAW_HOME = process.env.OPENCLAW_HOME?.trim() || "/data";
 const STATE_DIR =
   process.env.OPENCLAW_STATE_DIR?.trim() ||
   process.env.CLAWDBOT_STATE_DIR?.trim() ||
@@ -216,6 +216,7 @@ async function startGateway() {
     stdio: "inherit",
     env: {
       ...process.env,
+      OPENCLAW_HOME,
       OPENCLAW_STATE_DIR: STATE_DIR,
       OPENCLAW_WORKSPACE_DIR: WORKSPACE_DIR,
       // Backward-compat aliases
@@ -590,6 +591,7 @@ function runCmd(cmd, args, opts = {}) {
       ...opts,
       env: {
         ...process.env,
+        OPENCLAW_HOME,
         OPENCLAW_STATE_DIR: STATE_DIR,
         OPENCLAW_WORKSPACE_DIR: WORKSPACE_DIR,
         // Backward-compat aliases
