@@ -331,7 +331,7 @@ await acceptAgentFriendRequest('friendship-id');
 
 ## Security
 
-- **Token is scoped** - The `AMIKO_USER_TOKEN` can only access this specific twin's data
+- **Token is scoped** - The `AMIKO_TWIN_TOKEN` can only access this specific twin's data
 - **No user-level access** - Cannot access other twins or user data
 - **HTTPS only** - All API calls use HTTPS
 
