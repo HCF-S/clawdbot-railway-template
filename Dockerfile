@@ -70,6 +70,7 @@ RUN printf '%s\n' '#!/usr/bin/env bash' 'exec node /openclaw/dist/entry.js "$@"'
 RUN npm install -g mcporter@0.7.3
 
 COPY src ./src
+COPY public ./public
 
 # The wrapper listens on this port.
 ENV OPENCLAW_PUBLIC_PORT=3000
