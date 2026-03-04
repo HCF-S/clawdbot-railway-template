@@ -4,11 +4,11 @@ Deploy clawdbot instances via `railway up`. Combines deploy-all-sandbox-projects
 and deploy-non-101-instances with flexible filtering.
 
 Usage:
-  python deploy-all.py
-  python deploy-all.py --version 1.0.1 --csv /path/to/audit.csv
-  python deploy-all.py --skip-recent
-  python deploy-all.py --name clawdbot-abc123
-  python deploy-all.py --dry-run
+  python deploy-all-sandbox-projects.py
+  python deploy-all-sandbox-projects.py --version 1.0.1 --csv /path/to/audit.csv
+  python deploy-all-sandbox-projects.py --skip-recent
+  python deploy-all-sandbox-projects.py --name clawdbot-abc123
+  python deploy-all-sandbox-projects.py --dry-run
 
 Options:
   --version X     Only deploy services NOT on this version (requires --csv)
@@ -245,7 +245,7 @@ def main():
             "--service", svc,
             "--environment", "production",
             "--detach",
-            "-m", f"Deploy: deploy-all script",
+            "-m", "Deploy: deploy-all-sandbox-projects",
             capture=True,
             timeout=90,
         )
