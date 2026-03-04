@@ -25,8 +25,6 @@ Deploy a personal **OpenClaw** AI gateway on Railway in one click — no command
 | --- | --- | --- |
 | `SETUP_PASSWORD` | ✅ | Password to access `/setup` |
 | `OPENCLAW_GATEWAY_TOKEN` | Optional | Auth token for the gateway. Auto-generated if not set — use a Railway secret for templates |
-| `AMIKO_TWIN_ID` | Optional | Your Amiko twin ID |
-| `AMIKO_TWIN_TOKEN` | Optional | Your Amiko twin token (Clawd auth) |
 
 State and workspace paths are hardcoded: `/data/.openclaw` (state), `/data/.openclaw/workspace` (main agent), `/data/.openclaw/workspace-{agentId}` (other agents). No env overrides.
 
@@ -54,11 +52,18 @@ The `/setup/api/*` endpoints allow programmatic control of the gateway — onboa
 
 See **[SETUP_API.md](./SETUP_API.md)** for the full reference.
 
+## Deployment
+
+Push/merge to `main` does **not** trigger auto deploy. To deploy sandbox instances locally, use `python3 deploy-all-sandbox-projects.py`. See **[DEPLOY.md](./DEPLOY.md)** for prerequisites (Railway CLI, auth) and options.
+
 ## Local development
 
 ```bash
 # Start with auto-restart on file changes
 ./start-dev.sh
+
+# Init (POST /setup/api/init with OPENROUTER_API_KEY, AMIKO_* from .env)
+./start-dev.sh init
 
 # Stop
 ./start-dev.sh stop
