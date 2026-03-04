@@ -3,7 +3,7 @@ import { installAmikoSkill, installComposioSkill } from "./skills.js";
 import { installSysConfig } from "./init.js";
 import { syncAmikoData, pullMemories } from "./amiko.js";
 import { resolveWorkspaceForAgent } from "./amiko-config.js";
-import { CURRENT_SETUP_VERSION, setInstalledVersion } from "./version.js";
+import { getVersion } from "./version.js";
 
 /**
  * Deploy Router - APIs for platform to push updates to existing instances
@@ -221,22 +221,16 @@ export function createDeployRouter(handlers) {
       // Check if core components succeeded (memories and composio are optional)
       const allOk = results.amikoData?.ok && results.amikoSkill?.ok && results.sys?.ok;
 
-      // Update version after successful deployment
-      let versionUpdated = false;
+      const version = getVersion();
       if (allOk) {
-        output += "\n[deploy] Updating setup version...\n";
-        versionUpdated = setInstalledVersion(CURRENT_SETUP_VERSION);
-        output += versionUpdated 
-          ? `[deploy/version] Updated to ${CURRENT_SETUP_VERSION}\n`
-          : `[deploy/version] Warning: Failed to update version\n`;
+        output += `\n[deploy] Setup version: ${version}\n`;
       }
 
       return res.json({
         ok: allOk,
         message: allOk ? "All updates deployed successfully" : "Some updates failed",
         results,
-        version: allOk ? CURRENT_SETUP_VERSION : undefined,
-        versionUpdated,
+        version: allOk ? version : undefined,
         output,
       });
     } catch (err) {

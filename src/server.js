@@ -9,7 +9,6 @@ import { createSetupRouter } from "./routes/setup/index.js";
 import { setGatewayControlUiAllowedOrigins } from "./routes/setup/run.js";
 import { installAmikoSkill, installComposioSkill } from "./routes/setup/skills.js";
 import { installSysConfig } from "./routes/setup/init.js";
-import { CURRENT_SETUP_VERSION, setInstalledVersion } from "./routes/setup/version.js";
 
 // Railway deployments sometimes inject PORT=3000 by default. We want the wrapper to
 // reliably listen on 8080 unless explicitly overridden.
@@ -464,12 +463,6 @@ async function bootstrapWithDummyKey() {
     console.warn("[wrapper] SYS config install failed:", err);
   }
 
-  try {
-    setInstalledVersion(CURRENT_SETUP_VERSION);
-  } catch (err) {
-    console.warn("[wrapper] Failed to set setup version after bootstrap:", err);
-  }
-
   console.log("[wrapper] bootstrap complete (dummy key); call /init with real OpenRouter key to activate");
 }
 
@@ -568,12 +561,6 @@ async function bootstrapFromEnv() {
     }
   } catch (err) {
     console.warn("[wrapper] SYS config install failed:", err);
-  }
-
-  try {
-    setInstalledVersion(CURRENT_SETUP_VERSION);
-  } catch (err) {
-    console.warn("[wrapper] Failed to set setup version after bootstrap-from-env:", err);
   }
 
   console.log("[wrapper] bootstrap complete; gateway can auto-start");

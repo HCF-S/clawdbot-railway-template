@@ -153,24 +153,17 @@ curl -X DELETE "https://your-instance/setup/api/files/delete?path=workspace/cust
 
 | Method | Endpoint | Description |
 | --- | --- | --- |
-| `GET` | `/setup/api/version` | Get the current and installed setup versions. Returns `currentVersion` (code version), `installedVersion` (persisted in `/data/.setup-version`), and `needsUpgrade` flag. |
-| `POST` | `/setup/api/version/set` | Manually set the installed version. Body: `{ "version": "x.y.z" }` (optional, defaults to current). |
+| `GET` | `/setup/api/version` | Get the setup version (from package.json). |
 
 ### Version Response Format
 ```json
 {
   "ok": true,
-  "currentVersion": "1.0.0",
-  "installedVersion": "1.0.0",
-  "needsUpgrade": false
+  "version": "1.0.1"
 }
 ```
 
-The platform can use this to:
-1. Query all Clawd instances for their version
-2. Identify instances that need upgrades (`needsUpgrade: true`)
-3. Call appropriate deploy endpoints
-4. Version is automatically updated after `/init` or `/deploy/all`
+The platform queries instances for their version; upgrade checks are done server-side.
 
 ## Deploy (Platform Push Updates)
 
