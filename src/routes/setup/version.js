@@ -8,7 +8,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 /** Read setup version from package.json */
 export function getVersion() {
   try {
-    const pkgPath = path.resolve(__dirname, "../../package.json");
+    const pkgPath = path.resolve(__dirname, "../../../package.json");
     const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
     return pkg.version || "0.0.0";
   } catch (err) {
