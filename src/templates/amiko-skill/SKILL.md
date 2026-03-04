@@ -9,26 +9,26 @@ metadata: {"openclaw":{"emoji":"🤖","requires":{"bins":["node"]}}}
 
 Connect your OpenClaw instance to the Amiko Platform as your digital twin.
 
-## Environment Variables
+## Configuration
 
-These are automatically set when the OpenClaw instance is created:
+Config is read from `workspace/.amiko.json` (per-agent). The platform writes this when the instance is assigned via `POST /setup/api/init` or `POST /setup/api/amiko/write`. Fields (uppercase): `AMIKO_USER_ID`, `AMIKO_TWIN_ID`, `AMIKO_TWIN_TOKEN`, `AMIKO_PLATFORM_URL`.
 
-- `AMIKO_USER_ID` - Your user's unique ID on the Amiko platform
-- `AMIKO_TWIN_ID` - Your twin's unique ID
-- `AMIKO_TWIN_TOKEN` - Authentication token (scoped to your twin)
-- `AMIKO_PLATFORM_URL` - Platform API URL (default: https://platform.heyamiko.com)
+The skill lives in the shared folder `/data/.openclaw/skills/amiko/`, not in the workspace. When multiple agents exist, specify which workspace to use:
+
+- `--agent <id>` — Agent ID (default: `main`). Loads `workspace/.amiko.json` for main, or `workspace-<id>/.amiko.json` for others.
+- `--workspace <path>` — Explicit path (e.g. `/data/.openclaw/workspace`).
 
 ## Quick Commands
 
 ### Twin Info & Stats
 
 ```bash
-# Get twin profile
+# Get twin profile (uses main workspace by default)
 /data/.openclaw/skills/amiko/cli.js info
 
-# Get statistics (training progress, memory count, etc.)
-/data/.openclaw/skills/amiko/cli.js stats
-/data/.openclaw/skills/amiko/cli.js stats --details
+# Specify agent when multiple exist
+/data/.openclaw/skills/amiko/cli.js --agent main info
+/data/.openclaw/skills/amiko/cli.js --workspace /data/.openclaw/workspace stats --details
 ```
 
 ### Documents

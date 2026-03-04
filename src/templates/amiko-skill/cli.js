@@ -7,6 +7,8 @@
 
 import {
   getConfig,
+  setAgentId,
+  setWorkspacePath,
   getTwinInfo,
   getTwinStats,
   listDocs,
@@ -44,17 +46,26 @@ import {
   removeAgentFriendship,
   // Composio connections API
   listComposioConnections,
+  getFriendSuggestions,
 } from './lib.js';
 
 const args = process.argv.slice(2);
-const command = args[0];
 
 function printUsage() {
   console.log(`
 Amiko Skill CLI - Interact with Amiko Platform
 
+The skill is installed in the shared folder at /data/.openclaw/skills/amiko/.
+Config is read from workspace/.amiko.json. Use --agent or --workspace to specify
+which workspace to use when multiple agents exist.
+
 Usage:
-  cli.js <command> [options]
+  /data/.openclaw/skills/amiko/cli.js [--agent <id>] [--workspace <path>] <command> [options]
+
+Global options (apply to all commands):
+  --agent <id>       Agent ID (default: main). Loads workspace/.amiko.json for main,
+                     or workspace-<id>/.amiko.json for other agents.
+  --workspace <path> Explicit workspace path (overrides --agent). E.g. /data/.openclaw/workspace
 
 Commands:
   info               Get your twin's profile information
@@ -186,22 +197,18 @@ Commands:
 
   help               Show this help message
 
-Environment Variables:
-  AMIKO_USER_ID       Your user's unique ID
-  AMIKO_TWIN_ID       Your twin's unique ID (required)
-  AMIKO_USER_TOKEN    Authentication token (required)
-  AMIKO_PLATFORM_URL  Platform URL (default: https://platform.heyamiko.com)
+Configuration:
+  Config is read from workspace/.amiko.json (amikoUserId, amikoTwinId, amikoTwinToken,
+  amikoPlatformUrl). Env vars AMIKO_* are used as fallback.
 
 Examples:
-  cli.js info
-  cli.js stats --details
-  cli.js docs --limit 10
-  cli.js docs:create --title "My Note" --content "Hello world"
-  cli.js personality
-  cli.js voice:generate "Hello, this is my digital twin!"
-  cli.js voice:generate "Hello world" --output hello.mp3
-  cli.js wallets
-  cli.js wallets:balance --address 0x123...
+  /data/.openclaw/skills/amiko/cli.js info
+  /data/.openclaw/skills/amiko/cli.js --agent main info
+  /data/.openclaw/skills/amiko/cli.js --workspace /data/.openclaw/workspace stats --details
+  /data/.openclaw/skills/amiko/cli.js docs --limit 10
+  /data/.openclaw/skills/amiko/cli.js docs:create --title "My Note" --content "Hello world"
+  /data/.openclaw/skills/amiko/cli.js voice:generate "Hello, this is my digital twin!"
+  /data/.openclaw/skills/amiko/cli.js voice:generate "Hello world" --output hello.mp3
 `);
 }
 
@@ -223,17 +230,24 @@ function parseArgs(args) {
 }
 
 async function main() {
+  const parsed = parseArgs(args);
+  const command = parsed._[0];
+
   if (!command || command === 'help' || command === '--help' || command === '-h') {
     printUsage();
     process.exit(0);
   }
+
+  // Apply workspace/agent selection (skill runs from shared folder, not workspace)
+  if (parsed.workspace) setWorkspacePath(parsed.workspace);
+  else if (parsed.agent) setAgentId(parsed.agent);
 
   try {
     // Validate config early
     getConfig();
   } catch (err) {
     console.error(`Error: ${err.message}`);
-    console.error('Make sure AMIKO_TWIN_ID and AMIKO_USER_TOKEN are set.');
+    console.error('Ensure workspace/.amiko.json exists with amikoTwinId and amikoTwinToken, or set AMIKO_TWIN_ID and AMIKO_TWIN_TOKEN.');
     process.exit(1);
   }
 
@@ -246,7 +260,6 @@ async function main() {
       }
       
       case 'stats': {
-        const parsed = parseArgs(args.slice(1));
         const options = { details: !!parsed.details };
         const stats = await getTwinStats(options);
         console.log(JSON.stringify(stats, null, 2));
@@ -254,7 +267,6 @@ async function main() {
       }
       
       case 'docs': {
-        const parsed = parseArgs(args.slice(1));
         const options = {
           limit: parsed.limit ? parseInt(parsed.limit, 10) : 50,
           offset: parsed.offset ? parseInt(parsed.offset, 10) : 0,
@@ -265,7 +277,6 @@ async function main() {
       }
       
       case 'docs:create': {
-        const parsed = parseArgs(args.slice(1));
         if (!parsed.title || !parsed.content) {
           console.error('Error: --title and --content are required');
           process.exit(1);
@@ -280,7 +291,6 @@ async function main() {
       }
       
       case 'docs:upload': {
-        const parsed = parseArgs(args.slice(1));
         if (!parsed.file) {
           console.error('Error: --file is required');
           console.error('Usage: cli.js docs:upload --file /path/to/document.pdf');
@@ -301,7 +311,6 @@ async function main() {
       }
       
       case 'personality:update': {
-        const parsed = parseArgs(args.slice(1));
         if (!parsed.text) {
           console.error('Error: --text is required');
           process.exit(1);
@@ -318,7 +327,6 @@ async function main() {
       }
       
       case 'social:update': {
-        const parsed = parseArgs(args.slice(1));
         const data = {};
         if (parsed.twitter) data.twitter_handle = parsed.twitter;
         if (Object.keys(data).length === 0) {
@@ -337,8 +345,7 @@ async function main() {
       }
       
       case 'voice:generate': {
-        const parsed = parseArgs(args.slice(1));
-        const text = parsed._.join(' ');
+        const text = parsed._.slice(1).join(' ');
         
         if (!text) {
           console.error('Error: Text is required for voice generation');
@@ -373,7 +380,6 @@ async function main() {
       }
       
       case 'voice:clone': {
-        const parsed = parseArgs(args.slice(1));
         if (!parsed.file) {
           console.error('Error: --file is required');
           console.error('Usage: cli.js voice:clone --file audio.mp3 [--name "Voice Name"] [--description "Description"]');
@@ -392,9 +398,8 @@ async function main() {
       }
       
       case 'voice:design': {
-        const parsed = parseArgs(args.slice(1));
         // Allow description as positional arg or --description flag
-        const description = parsed.description || parsed._.join(' ');
+        const description = parsed.description || parsed._.slice(1).join(' ');
         
         if (!description || description.trim().length < 20) {
           console.error('Error: Voice description is required (minimum 20 characters)');
@@ -417,7 +422,6 @@ async function main() {
       }
       
       case 'wallets:create': {
-        const parsed = parseArgs(args.slice(1));
         if (!parsed.chain) {
           console.error('Error: --chain is required');
           process.exit(1);
@@ -431,7 +435,6 @@ async function main() {
       }
       
       case 'wallets:balance': {
-        const parsed = parseArgs(args.slice(1));
         if (!parsed.address) {
           console.error('Error: --address is required');
           process.exit(1);
@@ -442,7 +445,6 @@ async function main() {
       }
       
       case 'avatar:update': {
-        const parsed = parseArgs(args.slice(1));
         const data = {};
         if (parsed.url) data.avatar_url = parsed.url;
         if (parsed.original) data.original_photo_url = parsed.original;
@@ -456,7 +458,6 @@ async function main() {
       }
       
       case 'training': {
-        const parsed = parseArgs(args.slice(1));
         const options = {
           limit: parsed.limit ? parseInt(parsed.limit, 10) : 50,
           offset: parsed.offset ? parseInt(parsed.offset, 10) : 0,
@@ -469,7 +470,6 @@ async function main() {
       // ============== Agent Friends Commands (agent-level) ==============
       
       case 'agent:friends': {
-        const parsed = parseArgs(args.slice(1));
         const options = {};
         if (parsed.status) options.status = parsed.status;
         if (parsed.type) options.type = parsed.type;
@@ -481,7 +481,6 @@ async function main() {
       }
 
       case 'agent:friends:add': {
-        const parsed = parseArgs(args.slice(1));
         if (!parsed.id) {
           console.error('Error: --id is required');
           console.error(
@@ -501,7 +500,6 @@ async function main() {
       }
 
       case 'agent:friends:accept': {
-        const parsed = parseArgs(args.slice(1));
         if (!parsed.id) {
           console.error('Error: --id is required');
           console.error(
@@ -516,7 +514,6 @@ async function main() {
       }
 
       case 'agent:friends:reject': {
-        const parsed = parseArgs(args.slice(1));
         if (!parsed.id) {
           console.error('Error: --id is required');
           console.error(
@@ -531,7 +528,6 @@ async function main() {
       }
 
       case 'agent:friends:remove': {
-        const parsed = parseArgs(args.slice(1));
         if (!parsed.id) {
           console.error('Error: --id is required');
           console.error(
@@ -546,8 +542,7 @@ async function main() {
       }
       
       case 'friends:discover': {
-        const parsed = parseArgs(args.slice(1));
-        const query = parsed.query || parsed._.join(' ');
+        const query = parsed.query || parsed._.slice(1).join(' ');
         
         if (!query) {
           console.error('Error: --query is required');
@@ -569,7 +564,6 @@ async function main() {
       // ============== Notifications Commands ==============
       
       case 'notifications': {
-        const parsed = parseArgs(args.slice(1));
         const options = {};
         if (parsed.limit) options.limit = parseInt(parsed.limit, 10);
         if (parsed.cursor) options.cursor = parsed.cursor;
@@ -580,7 +574,6 @@ async function main() {
       }
       
       case 'notifications:read': {
-        const parsed = parseArgs(args.slice(1));
         if (!parsed.id) {
           console.error('Error: --id is required');
           console.error('Usage: cli.js notifications:read --id <notification_id>');

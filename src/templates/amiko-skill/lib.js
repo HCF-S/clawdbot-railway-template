@@ -6,28 +6,102 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-// Configuration from environment (AMIKO_USER_TOKEN kept for backward compat)
-const AMIKO_USER_ID = process.env.AMIKO_USER_ID || '';
-const AMIKO_TWIN_ID = process.env.AMIKO_TWIN_ID || '';
-const AMIKO_TWIN_TOKEN = process.env.AMIKO_TWIN_TOKEN || process.env.AMIKO_USER_TOKEN || '';
-const AMIKO_PLATFORM_URL = process.env.AMIKO_PLATFORM_URL || 'https://platform.heyamiko.com';
+const DEFAULT_PLATFORM_URL = 'https://platform.heyamiko.com';
+
+/** Session agent ID (used when getConfig is called without args). Set via setAgentId() or CLI --agent. */
+let _sessionAgentId = process.env.AMIKO_AGENT_ID || 'main';
+/** Explicit workspace path (overrides agent). Set via setWorkspacePath() or CLI --workspace. */
+let _sessionWorkspacePath = process.env.AMIKO_WORKSPACE_PATH || '';
 
 /**
- * Get configuration, validating required env vars
+ * Set the agent ID for this session. Used when the skill runs from a shared folder
+ * (e.g. /data/.openclaw/skills/amiko/) and needs to load from a specific workspace.
+ * @param {string} [agentId] - Agent ID (e.g. "main", "other"). Default "main".
  */
-export function getConfig() {
-  if (!AMIKO_TWIN_ID) {
-    throw new Error('AMIKO_TWIN_ID environment variable is not set');
+export function setAgentId(agentId) {
+  _sessionAgentId = agentId || 'main';
+  _sessionWorkspacePath = '';
+}
+
+/**
+ * Set explicit workspace path for this session. Overrides agent-based resolution.
+ * @param {string} [workspacePath] - Absolute path to workspace (e.g. /data/.openclaw/workspace)
+ */
+export function setWorkspacePath(workspacePath) {
+  _sessionWorkspacePath = workspacePath || '';
+}
+
+/**
+ * Resolve workspace directory. Uses OPENCLAW_WORKSPACE_DIR if set, else default.
+ * @param {string} [agentId] - Agent ID (e.g. "main"). Default "main".
+ * @returns {string} Absolute path to workspace
+ */
+function getWorkspaceDir(agentId = 'main') {
+  const base = process.env.OPENCLAW_WORKSPACE_DIR?.trim() || '/data/.openclaw/workspace';
+  if (agentId && agentId !== 'main') {
+    return path.join(path.dirname(base), `workspace-${agentId}`);
   }
-  if (!AMIKO_TWIN_TOKEN) {
-    throw new Error('AMIKO_TWIN_TOKEN environment variable is not set');
+  return base;
+}
+
+/**
+ * Load Amiko config from workspace/.amiko.json, with env fallback.
+ * @param {string} [workspaceDir] - Workspace path (default: resolved from env)
+ * @returns {{ userId: string, twinId: string, token: string, baseUrl: string }}
+ */
+function loadAmikoConfig(workspaceDir) {
+  const dir = workspaceDir || getWorkspaceDir();
+  const cfgPath = path.join(dir, '.amiko.json');
+
+  let userId = '';
+  let twinId = '';
+  let token = '';
+  let baseUrl = DEFAULT_PLATFORM_URL;
+
+  if (fs.existsSync(cfgPath)) {
+    try {
+      const raw = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
+      userId = raw.amikoUserId || raw.AMIKO_USER_ID || '';
+      twinId = raw.amikoTwinId || raw.AMIKO_TWIN_ID || '';
+      token = raw.amikoTwinToken || raw.AMIKO_TWIN_TOKEN || raw.AMIKO_USER_TOKEN || '';
+      baseUrl = raw.amikoPlatformUrl || raw.AMIKO_PLATFORM_URL || 'https://platform.heyamiko.com';
+    } catch {
+      // fall through to env
+    }
   }
-  
+
+  if (!userId) userId = process.env.AMIKO_USER_ID || '';
+  if (!twinId) twinId = process.env.AMIKO_TWIN_ID || '';
+  if (!token) token = process.env.AMIKO_TWIN_TOKEN || process.env.AMIKO_USER_TOKEN || '';
+  if (!baseUrl || baseUrl === '') baseUrl = process.env.AMIKO_PLATFORM_URL || DEFAULT_PLATFORM_URL;
+
+  return { userId, twinId, token, baseUrl };
+}
+
+/**
+ * Get configuration, validating required fields.
+ * Reads from workspace/.amiko.json (per-agent), with env fallback.
+ * Uses session agent/path set via setAgentId() or setWorkspacePath() when agentId is omitted.
+ * @param {string} [agentId] - Override session agent for this call
+ */
+export function getConfig(agentId) {
+  const workspaceDir = _sessionWorkspacePath
+    ? _sessionWorkspacePath
+    : getWorkspaceDir(agentId ?? _sessionAgentId);
+  const { userId, twinId, token, baseUrl } = loadAmikoConfig(workspaceDir);
+
+  if (!twinId) {
+    throw new Error('amikoTwinId is not set (check workspace/.amiko.json or AMIKO_TWIN_ID)');
+  }
+  if (!token) {
+    throw new Error('amikoTwinToken is not set (check workspace/.amiko.json or AMIKO_TWIN_TOKEN)');
+  }
+
   return {
-    userId: AMIKO_USER_ID,
-    twinId: AMIKO_TWIN_ID,
-    token: AMIKO_TWIN_TOKEN,
-    baseUrl: AMIKO_PLATFORM_URL,
+    userId,
+    twinId,
+    token,
+    baseUrl: baseUrl || DEFAULT_PLATFORM_URL,
   };
 }
 
