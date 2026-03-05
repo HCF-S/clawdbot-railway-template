@@ -50,6 +50,7 @@ export async function setGatewayControlUiAllowedOrigins(handlers, originsOverrid
   const { runCmd, OPENCLAW_NODE, clawArgs } = handlers;
   const baseRaw = (originsOverride ?? process.env.OPENCLAW_CONTROL_UI_ALLOWED_ORIGINS ?? DEFAULT_CONTROL_UI_ALLOWED_ORIGINS).trim();
   const origins = resolveControlUiAllowedOrigins(baseRaw);
+  await runCmd(OPENCLAW_NODE, clawArgs(["config", "set", "--json", "gateway.controlUi.dangerouslyDisableDeviceAuth", JSON.stringify(true)]));
   if (origins.length === 0) return { ok: true };
   const originsArray = JSON.stringify(origins);
   await runCmd(OPENCLAW_NODE, clawArgs(["config", "set", "gateway.controlUi.allowedOrigins", originsArray]));
