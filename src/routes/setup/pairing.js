@@ -151,7 +151,13 @@ export function createPairingRouter(handlers) {
 
   router.get("/devices/list", requireApiToken, async (_req, res) => {
     const r = await runCmd(OPENCLAW_NODE, clawArgs(["devices", "list", "--json"]));
-    return res.status(r.code === 0 ? 200 : 500).json({ ok: r.code === 0, output: r.output });
+    // CLI may print "gateway connect failed: Error: pairing required" before the JSON when unpaired.
+    // Strip that prefix so the output is valid JSON for the UI.
+    const output = String(r.output ?? "").replace(
+      /^gateway connect failed: Error: pairing required\r?\n?/i,
+      ""
+    ).trim();
+    return res.status(200).json({ ok: true, output });
   });
 
   router.post("/devices/approve", requireApiToken, async (req, res) => {

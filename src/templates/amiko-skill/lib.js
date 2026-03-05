@@ -9,9 +9,9 @@ import path from 'node:path';
 const DEFAULT_PLATFORM_URL = 'https://platform.heyamiko.com';
 
 /** Session agent ID (used when getConfig is called without args). Set via setAgentId() or CLI --agent. */
-let _sessionAgentId = process.env.AMIKO_AGENT_ID || 'main';
+let _sessionAgentId = detectAgentFromCwd() || 'main';
 /** Explicit workspace path (overrides agent). Set via setWorkspacePath() or CLI --workspace. */
-let _sessionWorkspacePath = process.env.AMIKO_WORKSPACE_PATH || '';
+let _sessionWorkspacePath = '';
 
 /**
  * Set the agent ID for this session. Used when the skill runs from a shared folder
@@ -32,16 +32,27 @@ export function setWorkspacePath(workspacePath) {
 }
 
 /**
- * Resolve workspace directory. Uses OPENCLAW_WORKSPACE_DIR if set, else default.
+ * Detect agent ID from current working directory if running from a workspace folder.
+ * @returns {string|null} Agent ID or null if not in a workspace
+ */
+function detectAgentFromCwd() {
+  const cwd = process.env.PWD || process.cwd();
+  const match = cwd.match(/workspace-([^/\\]+)$/);
+  return match ? match[1] : null;
+}
+
+/**
+ * Resolve workspace directory. Uses OPENCLAW_HOME (default /data) for multi-agent instances.
  * @param {string} [agentId] - Agent ID (e.g. "main"). Default "main".
  * @returns {string} Absolute path to workspace
  */
 function getWorkspaceDir(agentId = 'main') {
-  const base = process.env.OPENCLAW_WORKSPACE_DIR?.trim() || '/data/.openclaw/workspace';
+  const home = process.env.OPENCLAW_HOME?.trim() || '/data';
+  const openclawDir = path.join(home, '.openclaw');
   if (agentId && agentId !== 'main') {
-    return path.join(path.dirname(base), `workspace-${agentId}`);
+    return path.join(openclawDir, `workspace-${agentId}`);
   }
-  return base;
+  return path.join(openclawDir, 'workspace');
 }
 
 /**
