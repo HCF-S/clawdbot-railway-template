@@ -24,9 +24,6 @@ const PORT = Number.parseInt(
 const STATE_DIR = "/data/.openclaw";
 const WORKSPACE_DIR = "/data/.openclaw/workspace";
 
-const AMIKO_TWIN_ID = process.env.AMIKO_TWIN_ID?.trim() || "";
-const AMIKO_TWIN_TOKEN = process.env.AMIKO_TWIN_TOKEN?.trim() || process.env.AMIKO_USER_TOKEN?.trim() || "";
-
 // Protect /setup + API with a user-provided token.
 const SETUP_PASSWORD = process.env.SETUP_PASSWORD?.trim();
 
@@ -116,30 +113,6 @@ function isConfigured() {
   }
 }
 
-/** Essential env vars required to run. If any are missing, returns their names; otherwise null. */
-function checkEssentialEnv() {
-  const required = [
-    ["SETUP_PASSWORD", () => process.env.SETUP_PASSWORD?.trim()],
-    [
-      "OPENCLAW_GATEWAY_TOKEN",
-      () =>
-        process.env.OPENCLAW_GATEWAY_TOKEN?.trim() ||
-        process.env.CLAWDBOT_GATEWAY_TOKEN?.trim(),
-    ],
-    ["AMIKO_USER_ID", () => process.env.AMIKO_USER_ID?.trim()],
-    ["AMIKO_TWIN_ID", () => process.env.AMIKO_TWIN_ID?.trim()],
-    ["AMIKO_TWIN_TOKEN", () => process.env.AMIKO_TWIN_TOKEN?.trim() || process.env.AMIKO_USER_TOKEN?.trim()],
-    [
-      "OPENROUTER_API_KEY",
-      () =>
-        process.env.OPENROUTER_API_KEY?.trim() ||
-        process.env.OPENCLAW_OPENROUTER_API_KEY?.trim(),
-    ],
-  ];
-  const missing = required.filter(([_, get]) => !get()).map(([name]) => name);
-  return missing.length ? missing : null;
-}
-
 const gatewayProcRef = { current: null };
 let gatewayStarting = null;
 
@@ -174,23 +147,6 @@ async function waitForGatewayReady(opts = {}) {
 async function startGateway() {
   if (gatewayProcRef.current) return;
   if (!isConfigured()) throw new Error("Gateway cannot start: not configured");
-
-  // Remove openclaw-mcp-bridge from config if present; this build may not have that plugin,
-  // and OpenClaw validates that every plugins.entries key refers to an installed plugin.
-  try {
-    const p = configPath();
-    if (fs.existsSync(p)) {
-      const raw = fs.readFileSync(p, "utf8");
-      const config = JSON.parse(raw);
-      if (config.plugins?.entries?.["openclaw-mcp-bridge"] !== undefined) {
-        delete config.plugins.entries["openclaw-mcp-bridge"];
-        fs.writeFileSync(p, JSON.stringify(config, null, 2), { encoding: "utf8", mode: 0o600 });
-        console.log("[wrapper] removed openclaw-mcp-bridge from config (plugin not in this build)");
-      }
-    }
-  } catch (err) {
-    console.warn("[wrapper] config repair (openclaw-mcp-bridge):", err?.message);
-  }
 
   fs.mkdirSync(STATE_DIR, { recursive: true });
   fs.mkdirSync(WORKSPACE_DIR, { recursive: true });
@@ -658,8 +614,6 @@ app.use(
     INTERNAL_GATEWAY_PORT,
     OPENCLAW_ENTRY,
     PORT,
-    AMIKO_TWIN_ID,
-    AMIKO_TWIN_TOKEN,
   }),
 );
 
