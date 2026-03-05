@@ -663,6 +663,15 @@ app.use(async (req, res) => {
     try {
       await ensureGatewayRunning();
       console.log("[wrapper] gateway ready before listening");
+
+      // Approve the CLI device created at first gateway start (avoids "CLI still needs approve").
+      await sleep(1000);
+      const approve = await runCmd(OPENCLAW_NODE, clawArgs(["devices", "approve", "--latest"]));
+      if (approve.code === 0) {
+        console.log("[wrapper] CLI device approved");
+      } else if (!String(approve.output ?? "").toLowerCase().match(/no pending|not found/)) {
+        console.warn("[wrapper] devices approve (CLI):", approve.output?.trim() || approve.code);
+      }
     } catch (err) {
       console.error("[wrapper] boot gateway start failed:", err);
       // Continue anyway so /setup is reachable; proxy will 503 until gateway is up.
