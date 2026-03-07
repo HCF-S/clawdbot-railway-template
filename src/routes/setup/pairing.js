@@ -198,6 +198,12 @@ export function createPairingRouter(handlers) {
       break;
     }
 
+    if (isUnknownRequestIdOutput(last.output)) {
+      return res
+        .status(400)
+        .json({ ok: false, error: "invalid_request_id", output: last.output });
+    }
+
     return res.status(500).json({ ok: false, output: last.output });
   });
 
