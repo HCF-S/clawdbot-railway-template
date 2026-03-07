@@ -171,13 +171,15 @@ export function createPairingRouter(handlers) {
         .status(500)
         .json({ ok: false, error: "Failed to list devices", output: r.output });
     }
-    // CLI may print "gateway connect failed: Error: pairing required" before the JSON when unpaired.
-    // Strip that prefix so the output is valid JSON for the UI.
-    const output = String(r.output ?? "").replace(
-      /^gateway connect failed: Error: pairing required\r?\n?/i,
-      ""
-    ).trim();
-    return res.status(200).json({ ok: true, output });
+    // CLI may print either unpaired prefix before the JSON when unpaired.
+    // Strip whichever prefix appears so output stays JSON-consumable.
+    const normalizedOutput = rawOutput
+      .replace(
+        /^(?:gateway connect failed: Error: pairing required|pairing required)\b\r?\n?/i,
+        "",
+      )
+      .trim();
+    return res.status(200).json({ ok: true, output: normalizedOutput });
   });
 
   router.post("/devices/approve", requireApiToken, async (req, res) => {
