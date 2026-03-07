@@ -24,6 +24,11 @@ const PORT = Number.parseInt(
 const STATE_DIR = "/data/.openclaw";
 const WORKSPACE_DIR = "/data/.openclaw/workspace";
 
+// Ensure all routes/helpers in this process resolve exactly the same state dirs.
+process.env.OPENCLAW_STATE_DIR = STATE_DIR;
+process.env.CLAWDBOT_STATE_DIR = STATE_DIR;
+process.env.OPENCLAW_WORKSPACE_DIR = WORKSPACE_DIR;
+
 // Protect /setup + API with a user-provided token.
 const SETUP_PASSWORD = process.env.SETUP_PASSWORD?.trim();
 
