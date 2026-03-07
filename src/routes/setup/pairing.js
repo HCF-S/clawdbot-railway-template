@@ -161,7 +161,12 @@ export function createPairingRouter(handlers) {
 
   router.get("/devices/list", requireApiToken, async (_req, res) => {
     const r = await runCmd(OPENCLAW_NODE, clawArgs(["devices", "list", "--json"]));
-    if (r.code !== 0) {
+    const rawOutput = String(r.output ?? "").trimStart();
+    const isExpectedUnpairedOutput =
+      /^gateway connect failed: Error: pairing required\b/i.test(rawOutput) ||
+      /^pairing required\b/i.test(rawOutput);
+
+    if (r.code !== 0 && !isExpectedUnpairedOutput) {
       return res
         .status(500)
         .json({ ok: false, error: "Failed to list devices", output: r.output });
