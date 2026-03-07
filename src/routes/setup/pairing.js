@@ -87,6 +87,16 @@ async function writeJsonAtomic(filePath, data) {
 }
 
 const PENDING_TTL_MS = 5 * 60 * 1000;
+const APPROVE_RETRIES = 5;
+const APPROVE_RETRY_BASE_DELAY_MS = 300;
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isUnknownRequestIdOutput(output) {
+  return String(output || "").toLowerCase().includes("unknown requestid");
+}
 
 function pruneExpired(pendingById, now) {
   for (const [id, req] of Object.entries(pendingById)) {
@@ -151,6 +161,11 @@ export function createPairingRouter(handlers) {
 
   router.get("/devices/list", requireApiToken, async (_req, res) => {
     const r = await runCmd(OPENCLAW_NODE, clawArgs(["devices", "list", "--json"]));
+    if (r.code !== 0) {
+      return res
+        .status(500)
+        .json({ ok: false, error: "Failed to list devices", output: r.output });
+    }
     // CLI may print "gateway connect failed: Error: pairing required" before the JSON when unpaired.
     // Strip that prefix so the output is valid JSON for the UI.
     const output = String(r.output ?? "").replace(
@@ -165,8 +180,25 @@ export function createPairingRouter(handlers) {
     if (!requestId) {
       return res.status(400).json({ ok: false, error: "Missing requestId" });
     }
-    const r = await runCmd(OPENCLAW_NODE, clawArgs(["devices", "approve", requestId]));
-    return res.status(r.code === 0 ? 200 : 500).json({ ok: r.code === 0, output: r.output });
+
+    let last = { code: 500, output: "" };
+    for (let attempt = 0; attempt < APPROVE_RETRIES; attempt++) {
+      const r = await runCmd(OPENCLAW_NODE, clawArgs(["devices", "approve", requestId]));
+      last = r;
+
+      if (r.code === 0) {
+        return res.status(200).json({ ok: true, output: r.output });
+      }
+
+      if (isUnknownRequestIdOutput(r.output) && attempt < APPROVE_RETRIES - 1) {
+        await sleep(APPROVE_RETRY_BASE_DELAY_MS * (attempt + 1));
+        continue;
+      }
+
+      break;
+    }
+
+    return res.status(500).json({ ok: false, output: last.output });
   });
 
   router.post("/devices/request", requireApiToken, async (req, res) => {
