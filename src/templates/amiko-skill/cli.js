@@ -36,6 +36,9 @@ import {
   // User API
   getUserInfo,
   getUserSettings,
+  suggestRelationshipTypes,
+  generateMatchingSpec,
+  findPersonalityMatches,
   // Twins API
   listUserTwins,
   // Agent friendships API (agent-level)
@@ -90,10 +93,27 @@ Commands:
                        --file <path>    Path to file (required)
   
   personality        Get twin personality data
+                     Notes:
+                       Returns shared_personality when Amiko Web mirrors user personality to twins
   
   personality:update Update twin personality
                      Options:
                        --text <text>    Personality description (required)
+
+  user:match:suggest Suggest relationship types for personality matching
+                     Options:
+                       --context <text> Optional context hint
+
+  user:match:spec    Generate or fetch a cached matching spec
+                     Options:
+                       --relationship <type> Relationship type (required)
+                       --rationale <text>   Optional rationale
+
+  user:match:find    Find personality matches for the user
+                     Options:
+                       --spec-id <id>       Cached spec ID
+                       --relationship <type> Relationship type
+                       --limit <n>          Number of matches (default: 10)
   
   social             Get twin social data
   
@@ -170,7 +190,7 @@ Commands:
   friends:discover   Discover users and agents (combined search, read-only)
                      Options:
                        --query <q>      Search query (required)
-  
+
   --- Notifications ---
   
   notifications      Get notifications
@@ -199,7 +219,8 @@ Commands:
 
 Configuration:
   Config is read from workspace/.amiko.json (amikoUserId, amikoTwinId, amikoTwinToken,
-  amikoPlatformUrl). Env vars AMIKO_* are used as fallback.
+  amikoUserToken, amikoPlatformUrl). Env vars AMIKO_* are used as fallback.
+  Matching commands use the configured token. In local amiko-web they should accept twin tokens.
 
 Examples:
   /data/.openclaw/skills/amiko/cli.js info
@@ -207,6 +228,8 @@ Examples:
   /data/.openclaw/skills/amiko/cli.js --workspace /data/.openclaw/workspace stats --details
   /data/.openclaw/skills/amiko/cli.js docs --limit 10
   /data/.openclaw/skills/amiko/cli.js docs:create --title "My Note" --content "Hello world"
+  /data/.openclaw/skills/amiko/cli.js user:match:spec --relationship creative_sparring_partner
+  /data/.openclaw/skills/amiko/cli.js user:match:find --relationship creative_sparring_partner --limit 5
   /data/.openclaw/skills/amiko/cli.js voice:generate "Hello, this is my digital twin!"
   /data/.openclaw/skills/amiko/cli.js voice:generate "Hello world" --output hello.mp3
 `);
@@ -242,12 +265,10 @@ async function main() {
   if (parsed.workspace) setWorkspacePath(parsed.workspace);
   else if (parsed.agent) setAgentId(parsed.agent);
 
-  try {
-    // Validate config early
-    getConfig();
-  } catch (err) {
-    console.error(`Error: ${err.message}`);
-    console.error('Ensure workspace/.amiko.json exists with amikoTwinId and amikoTwinToken, or set AMIKO_TWIN_ID and AMIKO_TWIN_TOKEN.');
+  const config = getConfig();
+  if (!config.twinId && !config.twinToken && !config.userToken) {
+    console.error('Error: Amiko config is missing');
+    console.error('Ensure workspace/.amiko.json exists with AMIKO_TWIN_ID / AMIKO_TWIN_TOKEN. Add AMIKO_USER_TOKEN only if you need direct user-level commands that are not twin-token compatible.');
     process.exit(1);
   }
 
@@ -316,6 +337,36 @@ async function main() {
           process.exit(1);
         }
         const result = await updatePersonality(parsed.text);
+        console.log(JSON.stringify(result, null, 2));
+        break;
+      }
+
+      case 'user:match:suggest': {
+        const result = await suggestRelationshipTypes(parsed.context ? String(parsed.context) : '');
+        console.log(JSON.stringify(result, null, 2));
+        break;
+      }
+
+      case 'user:match:spec': {
+        if (!parsed.relationship) {
+          console.error('Error: --relationship is required');
+          process.exit(1);
+        }
+        const result = await generateMatchingSpec(String(parsed.relationship), parsed.rationale ? String(parsed.rationale) : '');
+        console.log(JSON.stringify(result, null, 2));
+        break;
+      }
+
+      case 'user:match:find': {
+        if (!parsed['spec-id'] && !parsed.relationship) {
+          console.error('Error: either --spec-id or --relationship is required');
+          process.exit(1);
+        }
+        const result = await findPersonalityMatches({
+          specId: parsed['spec-id'] ? String(parsed['spec-id']) : undefined,
+          relationshipType: parsed.relationship ? String(parsed.relationship) : undefined,
+          limit: parsed.limit ? parseInt(parsed.limit, 10) : 10,
+        });
         console.log(JSON.stringify(result, null, 2));
         break;
       }
@@ -560,7 +611,7 @@ async function main() {
         console.log(JSON.stringify(result, null, 2));
         break;
       }
-      
+
       // ============== Notifications Commands ==============
       
       case 'notifications': {

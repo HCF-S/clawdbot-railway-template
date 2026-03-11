@@ -58,7 +58,7 @@ function getWorkspaceDir(agentId = 'main') {
 /**
  * Load Amiko config from workspace/.amiko.json, with env fallback.
  * @param {string} [workspaceDir] - Workspace path (default: resolved from env)
- * @returns {{ userId: string, twinId: string, token: string, baseUrl: string }}
+ * @returns {{ userId: string, twinId: string, twinToken: string, userToken: string, baseUrl: string }}
  */
 function loadAmikoConfig(workspaceDir) {
   const dir = workspaceDir || getWorkspaceDir();
@@ -66,7 +66,8 @@ function loadAmikoConfig(workspaceDir) {
 
   let userId = '';
   let twinId = '';
-  let token = '';
+  let twinToken = '';
+  let userToken = '';
   let baseUrl = DEFAULT_PLATFORM_URL;
 
   if (fs.existsSync(cfgPath)) {
@@ -74,7 +75,8 @@ function loadAmikoConfig(workspaceDir) {
       const raw = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
       userId = raw.amikoUserId || raw.AMIKO_USER_ID || '';
       twinId = raw.amikoTwinId || raw.AMIKO_TWIN_ID || '';
-      token = raw.amikoTwinToken || raw.AMIKO_TWIN_TOKEN || raw.AMIKO_USER_TOKEN || '';
+      twinToken = raw.amikoTwinToken || raw.AMIKO_TWIN_TOKEN || '';
+      userToken = raw.amikoUserToken || raw.AMIKO_USER_TOKEN || '';
       baseUrl = raw.amikoPlatformUrl || raw.AMIKO_PLATFORM_URL || 'https://platform.heyamiko.com';
     } catch {
       // fall through to env
@@ -83,14 +85,15 @@ function loadAmikoConfig(workspaceDir) {
 
   if (!userId) userId = process.env.AMIKO_USER_ID || '';
   if (!twinId) twinId = process.env.AMIKO_TWIN_ID || '';
-  if (!token) token = process.env.AMIKO_TWIN_TOKEN || process.env.AMIKO_USER_TOKEN || '';
+  if (!twinToken) twinToken = process.env.AMIKO_TWIN_TOKEN || '';
+  if (!userToken) userToken = process.env.AMIKO_USER_TOKEN || '';
   if (!baseUrl || baseUrl === '') baseUrl = process.env.AMIKO_PLATFORM_URL || DEFAULT_PLATFORM_URL;
 
-  return { userId, twinId, token, baseUrl };
+  return { userId, twinId, twinToken, userToken, baseUrl };
 }
 
 /**
- * Get configuration, validating required fields.
+ * Get configuration.
  * Reads from workspace/.amiko.json (per-agent), with env fallback.
  * Uses session agent/path set via setAgentId() or setWorkspacePath() when agentId is omitted.
  * @param {string} [agentId] - Override session agent for this call
@@ -99,21 +102,28 @@ export function getConfig(agentId) {
   const workspaceDir = _sessionWorkspacePath
     ? _sessionWorkspacePath
     : getWorkspaceDir(agentId ?? _sessionAgentId);
-  const { userId, twinId, token, baseUrl } = loadAmikoConfig(workspaceDir);
-
-  if (!twinId) {
-    throw new Error('amikoTwinId is not set (check workspace/.amiko.json or AMIKO_TWIN_ID)');
-  }
-  if (!token) {
-    throw new Error('amikoTwinToken is not set (check workspace/.amiko.json or AMIKO_TWIN_TOKEN)');
-  }
+  const { userId, twinId, twinToken, userToken, baseUrl } = loadAmikoConfig(workspaceDir);
 
   return {
     userId,
     twinId,
-    token,
+    twinToken,
+    userToken,
     baseUrl: baseUrl || DEFAULT_PLATFORM_URL,
   };
+}
+
+function getTwinConfig() {
+  const config = getConfig();
+
+  if (!config.twinId) {
+    throw new Error('amikoTwinId is not set (check workspace/.amiko.json or AMIKO_TWIN_ID)');
+  }
+  if (!config.twinToken && !config.userToken) {
+    throw new Error('amikoTwinToken is not set (check workspace/.amiko.json or AMIKO_TWIN_TOKEN)');
+  }
+
+  return config;
 }
 
 /**
@@ -121,15 +131,33 @@ export function getConfig(agentId) {
  */
 export async function apiRequest(endpoint, options = {}) {
   const config = getConfig();
+  const {
+    authScope = 'twin',
+    headers: optionHeaders,
+    ...fetchOptions
+  } = options;
   const url = `${config.baseUrl}${endpoint}`;
+  let token = '';
+
+  if (authScope === 'user') {
+    token = config.userToken;
+    if (!token) {
+      throw new Error('AMIKO_USER_TOKEN is required for this command (add it to workspace/.amiko.json or environment)');
+    }
+  } else {
+    token = config.twinToken || config.userToken;
+    if (!token) {
+      throw new Error('amikoTwinToken is not set (check workspace/.amiko.json or AMIKO_TWIN_TOKEN)');
+    }
+  }
   
   const headers = {
-    'Authorization': `Bearer ${config.token}`,
-    ...options.headers,
+    'Authorization': `Bearer ${token}`,
+    ...optionHeaders,
   };
   
   const response = await fetch(url, {
-    ...options,
+    ...fetchOptions,
     headers,
   });
   
@@ -140,7 +168,7 @@ export async function apiRequest(endpoint, options = {}) {
  * Get twin information
  */
 export async function getTwinInfo() {
-  const config = getConfig();
+  const config = getTwinConfig();
   const response = await apiRequest(`/api/agents/${config.twinId}`);
   
   if (!response.ok) {
@@ -155,7 +183,7 @@ export async function getTwinInfo() {
  * List documents for the twin
  */
 export async function listDocs(options = {}) {
-  const config = getConfig();
+  const config = getTwinConfig();
   const { limit = 50, offset = 0 } = options;
   
   const url = `/api/agents/${config.twinId}/docs?limit=${limit}&offset=${offset}`;
@@ -177,7 +205,7 @@ export async function listDocs(options = {}) {
  * @returns {Promise<ArrayBuffer>} - Audio data as ArrayBuffer
  */
 export async function generateVoice(text, options = {}) {
-  const config = getConfig();
+  const config = getTwinConfig();
   const { modelId = 'eleven_multilingual_v2' } = options;
   
   const formData = new FormData();
@@ -223,7 +251,7 @@ export async function generateVoiceToFile(text, outputPath, options = {}) {
  * Get twin statistics (training progress, memory count, etc.)
  */
 export async function getTwinStats(options = {}) {
-  const config = getConfig();
+  const config = getTwinConfig();
   const { details = false } = options;
   
   const url = `/api/agents/${config.twinId}/stat${details ? '?details=true' : ''}`;
@@ -245,7 +273,7 @@ export async function getTwinStats(options = {}) {
  * @param {string} docData.type - Document type (e.g., 'text', 'note')
  */
 export async function createDoc(docData) {
-  const config = getConfig();
+  const config = getTwinConfig();
   
   const response = await apiRequest(`/api/agents/${config.twinId}/docs`, {
     method: 'POST',
@@ -270,7 +298,7 @@ export async function createDoc(docData) {
  * @returns {Promise<object>} - Upload result with file URL and metadata
  */
 export async function uploadDoc(file, options = {}) {
-  const config = getConfig();
+  const config = getTwinConfig();
   const formData = new FormData();
   
   // Handle different file input types
@@ -364,7 +392,7 @@ function getMimeType(ext) {
  * Get twin personality data
  */
 export async function getPersonality() {
-  const config = getConfig();
+  const config = getTwinConfig();
   
   const response = await apiRequest(`/api/agents/${config.twinId}/personality`);
   
@@ -381,7 +409,7 @@ export async function getPersonality() {
  * @param {string} personality - Personality text/description
  */
 export async function updatePersonality(personality) {
-  const config = getConfig();
+  const config = getTwinConfig();
   
   const response = await apiRequest(`/api/agents/${config.twinId}/personality`, {
     method: 'POST',
@@ -398,10 +426,79 @@ export async function updatePersonality(personality) {
 }
 
 /**
+ * Ask the platform to suggest relationship types for matching.
+ * @param {string} [contextHint] - Optional natural-language context
+ */
+export async function suggestRelationshipTypes(contextHint) {
+  const response = await apiRequest('/api/user/personality-profile/suggest-relationship', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      context_hint: contextHint || undefined,
+    }),
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Failed to suggest relationship types: ${response.status} - ${text}`);
+  }
+
+  return response.json();
+}
+
+/**
+ * Generate or fetch a cached matching spec.
+ * @param {string} relationshipType - Relationship type
+ * @param {string} [rationale] - Optional rationale
+ */
+export async function generateMatchingSpec(relationshipType, rationale) {
+  const response = await apiRequest('/api/user/personality-profile/generate-matching-spec', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      relationship_type: relationshipType,
+      rationale: rationale || undefined,
+    }),
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Failed to generate matching spec: ${response.status} - ${text}`);
+  }
+
+  return response.json();
+}
+
+/**
+ * Find personality matches for the user.
+ * @param {object} options - Search options
+ * @param {string} [options.specId] - Cached spec ID
+ * @param {string} [options.relationshipType] - Relationship type
+ * @param {number} [options.limit] - Result count
+ */
+export async function findPersonalityMatches(options = {}) {
+  const { specId, relationshipType, limit = 10 } = options;
+  const params = new URLSearchParams();
+
+  if (specId) params.append('spec_id', specId);
+  if (relationshipType) params.append('relationship_type', relationshipType);
+  if (limit) params.append('limit', String(limit));
+
+  const response = await apiRequest(`/api/user/personality-profile/matches?${params.toString()}`);
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Failed to find personality matches: ${response.status} - ${text}`);
+  }
+
+  return response.json();
+}
+
+/**
  * Get twin social data (Twitter handle, etc.)
  */
 export async function getSocial() {
-  const config = getConfig();
+  const config = getTwinConfig();
   
   const response = await apiRequest(`/api/agents/${config.twinId}/social`);
   
@@ -420,7 +517,7 @@ export async function getSocial() {
  * @param {object} socialData.personality_sphere - Personality sphere data
  */
 export async function updateSocial(socialData) {
-  const config = getConfig();
+  const config = getTwinConfig();
   
   const response = await apiRequest(`/api/agents/${config.twinId}/social`, {
     method: 'POST',
@@ -440,7 +537,7 @@ export async function updateSocial(socialData) {
  * Get twin voice configuration
  */
 export async function getVoice() {
-  const config = getConfig();
+  const config = getTwinConfig();
   
   const response = await apiRequest(`/api/agents/${config.twinId}/voice`);
   
@@ -456,7 +553,7 @@ export async function getVoice() {
  * List wallets for the twin
  */
 export async function listWallets() {
-  const config = getConfig();
+  const config = getTwinConfig();
   
   const response = await apiRequest(`/api/agents/${config.twinId}/wallets`);
   
@@ -475,7 +572,7 @@ export async function listWallets() {
  * @param {string} walletData.custodian - Custodian ('crossmint' or 'amiko')
  */
 export async function createWallet(walletData) {
-  const config = getConfig();
+  const config = getTwinConfig();
   
   const response = await apiRequest(`/api/agents/${config.twinId}/wallets`, {
     method: 'POST',
@@ -496,7 +593,7 @@ export async function createWallet(walletData) {
  * @param {string} address - Wallet address
  */
 export async function getWalletBalance(address) {
-  const config = getConfig();
+  const config = getTwinConfig();
   
   const response = await apiRequest(`/api/agents/${config.twinId}/wallets/${address}/balance`);
   
@@ -515,7 +612,7 @@ export async function getWalletBalance(address) {
  * @param {string} avatarData.original_photo_url - Original photo URL
  */
 export async function updateAvatar(avatarData) {
-  const config = getConfig();
+  const config = getTwinConfig();
   
   const response = await apiRequest(`/api/agents/${config.twinId}/avatar`, {
     method: 'POST',
@@ -538,7 +635,7 @@ export async function updateAvatar(avatarData) {
  * @param {number} options.offset - Offset for pagination
  */
 export async function listTrainingSessions(options = {}) {
-  const config = getConfig();
+  const config = getTwinConfig();
   const { limit = 50, offset = 0 } = options;
   
   const url = `/api/agents/${config.twinId}/training_sessions?limit=${limit}&offset=${offset}`;
@@ -560,7 +657,7 @@ export async function listTrainingSessions(options = {}) {
  * @returns {Promise<object>} - Design result with voice previews (audio_base_64, generated_voice_id)
  */
 export async function designVoice(description) {
-  const config = getConfig();
+  const config = getTwinConfig();
   
   if (!description || description.trim().length < 20) {
     throw new Error('Voice description must be at least 20 characters long');
@@ -590,7 +687,7 @@ export async function designVoice(description) {
  * @returns {Promise<object>} - Clone result with elevenlabs_voice_id
  */
 export async function cloneVoice(audio, options = {}) {
-  const config = getConfig();
+  const config = getTwinConfig();
   const { voiceName, description } = options;
   
   const formData = new FormData();
@@ -669,7 +766,9 @@ export async function searchFriends(query, options = {}) {
   params.append('q', query);
   params.append('type', type);
   
-  const response = await apiRequest(`/api/friends/search?${params.toString()}`);
+  const response = await apiRequest(`/api/friends/search?${params.toString()}`, {
+    authScope: 'user',
+  });
   
   if (!response.ok) {
     const text = await response.text();
@@ -689,7 +788,9 @@ export async function simpleSearchUsers(query = '') {
   if (query) params.append('q', query);
   
   const queryString = params.toString();
-  const response = await apiRequest(`/api/friends/simple-search${queryString ? `?${queryString}` : ''}`);
+  const response = await apiRequest(`/api/friends/simple-search${queryString ? `?${queryString}` : ''}`, {
+    authScope: 'user',
+  });
   
   if (!response.ok) {
     const text = await response.text();
@@ -708,18 +809,8 @@ export async function discoverFriends(query) {
   if (!query || query.trim().length < 1) {
     throw new Error('Search query is required');
   }
-  
-  const params = new URLSearchParams();
-  params.append('q', query);
-  
-  const response = await apiRequest(`/api/friends/discover?${params.toString()}`);
-  
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`Failed to discover: ${response.status} - ${text}`);
-  }
-  
-  return response.json();
+
+  return searchFriends(query);
 }
 
 /**
@@ -727,7 +818,9 @@ export async function discoverFriends(query) {
  * @returns {Promise<object>} - Suggested users to add as friends
  */
 export async function getFriendSuggestions() {
-  const response = await apiRequest('/api/friends/suggestions');
+  const response = await apiRequest('/api/friends/suggestions', {
+    authScope: 'user',
+  });
   
   if (!response.ok) {
     const text = await response.text();
@@ -756,7 +849,9 @@ export async function getNotifications(options = {}) {
   if (limit) params.append('limit', String(limit));
   
   const queryString = params.toString();
-  const response = await apiRequest(`/api/notifications${queryString ? `?${queryString}` : ''}`);
+  const response = await apiRequest(`/api/notifications${queryString ? `?${queryString}` : ''}`, {
+    authScope: 'user',
+  });
   
   if (!response.ok) {
     const text = await response.text();
@@ -778,6 +873,7 @@ export async function markNotificationRead(notificationId) {
   
   const response = await apiRequest('/api/notifications', {
     method: 'PATCH',
+    authScope: 'user',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ notificationId }),
   });
@@ -799,7 +895,9 @@ export async function markNotificationRead(notificationId) {
  * @returns {Promise<object>} - User data
  */
 export async function getUserInfo() {
-  const response = await apiRequest('/api/user/me');
+  const response = await apiRequest('/api/user/me', {
+    authScope: 'user',
+  });
   
   if (!response.ok) {
     const text = await response.text();
@@ -814,7 +912,9 @@ export async function getUserInfo() {
  * @returns {Promise<object>} - User settings
  */
 export async function getUserSettings() {
-  const response = await apiRequest('/api/user/settings');
+  const response = await apiRequest('/api/user/settings', {
+    authScope: 'user',
+  });
   
   if (!response.ok) {
     const text = await response.text();
@@ -834,7 +934,7 @@ export async function getUserSettings() {
  * @returns {Promise<object>} - { connections: string[], details: Array<{appName, status, id, updatedAt}> }
  */
 export async function listComposioConnections() {
-  const config = getConfig();
+  const config = getTwinConfig();
 
   const response = await apiRequest(`/api/agents/${config.twinId}/composio/connections`);
 
@@ -855,7 +955,9 @@ export async function listComposioConnections() {
  * @returns {Promise<Array>} - Array of twins
  */
 export async function listUserTwins() {
-  const response = await apiRequest('/api/twins');
+  const response = await apiRequest('/api/twins', {
+    authScope: 'user',
+  });
   
   if (!response.ok) {
     const text = await response.text();
@@ -878,7 +980,7 @@ export async function listUserTwins() {
  * @returns {Promise<object>} - Friendships list from the agent's perspective
  */
 export async function listAgentFriendships(options = {}) {
-  const config = getConfig();
+  const config = getTwinConfig();
   const { status, type, favoritesOnly } = options;
 
   const params = new URLSearchParams();
@@ -907,7 +1009,7 @@ export async function listAgentFriendships(options = {}) {
  * @returns {Promise<object>} - Result with friendship_id
  */
 export async function sendAgentFriendRequest(data) {
-  const config = getConfig();
+  const config = getTwinConfig();
   const { targetId, targetType } = data;
 
   if (!targetId) {
@@ -941,7 +1043,7 @@ export async function sendAgentFriendRequest(data) {
  * @returns {Promise<object>} - Result
  */
 async function updateAgentFriendship(friendshipId, action) {
-  const config = getConfig();
+  const config = getTwinConfig();
 
   if (!friendshipId) {
     throw new Error('friendshipId is required');
@@ -993,7 +1095,7 @@ export async function rejectAgentFriendRequest(friendshipId) {
  * @returns {Promise<object>} - Result
  */
 export async function removeAgentFriendship(friendshipId) {
-  const config = getConfig();
+  const config = getTwinConfig();
 
   if (!friendshipId) {
     throw new Error('friendshipId is required');

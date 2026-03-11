@@ -11,7 +11,9 @@ Connect your OpenClaw instance to the Amiko Platform as your digital twin.
 
 ## Configuration
 
-Config is read from `workspace/.amiko.json` (per-agent). The platform writes this when the instance is assigned via `POST /setup/api/init` or `POST /setup/api/amiko/write`. Fields (uppercase): `AMIKO_USER_ID`, `AMIKO_TWIN_ID`, `AMIKO_TWIN_TOKEN`, `AMIKO_PLATFORM_URL`.
+Config is read from `workspace/.amiko.json` (per-agent). The platform writes this when the instance is assigned via `POST /setup/api/init` or `POST /setup/api/amiko/write`. Standard fields are `AMIKO_USER_ID`, `AMIKO_TWIN_ID`, `AMIKO_TWIN_TOKEN`, `AMIKO_PLATFORM_URL`. `AMIKO_USER_TOKEN` can also be present when you want direct user-level API access.
+
+`AMIKO_TWIN_TOKEN` is used for twin-scoped APIs. `AMIKO_USER_TOKEN` is optional. The local `amiko-web` matching endpoints should accept twin tokens so the agent does not need user-level personality write access.
 
 The skill lives in the shared folder `/data/.openclaw/skills/amiko/`, not in the workspace. When multiple agents exist, specify which workspace to use:
 
@@ -49,10 +51,11 @@ The skill lives in the shared folder `/data/.openclaw/skills/amiko/`, not in the
 ### Personality & Social
 
 ```bash
-# Get personality data
+# Get twin personality data
+# In current amiko-web, this may include shared_personality mirrored from the user profile
 /data/.openclaw/skills/amiko/cli.js personality
 
-# Update personality
+# Update twin-local personality text
 /data/.openclaw/skills/amiko/cli.js personality:update --text "Friendly and helpful"
 
 # Get social data
@@ -60,6 +63,22 @@ The skill lives in the shared folder `/data/.openclaw/skills/amiko/`, not in the
 
 # Update Twitter handle
 /data/.openclaw/skills/amiko/cli.js social:update --twitter "@myhandle"
+```
+
+### Matching
+
+```bash
+# Suggest relationship types for matching
+/data/.openclaw/skills/amiko/cli.js user:match:suggest
+/data/.openclaw/skills/amiko/cli.js user:match:suggest --context "I'm looking for a creative collaborator"
+
+# Generate or fetch a cached matching spec
+/data/.openclaw/skills/amiko/cli.js user:match:spec --relationship creative_sparring_partner
+
+# Find matches using a relationship type or cached spec id
+/data/.openclaw/skills/amiko/cli.js user:match:find --relationship creative_sparring_partner --limit 5
+/data/.openclaw/skills/amiko/cli.js user:match:find --spec-id <spec_id> --limit 5
+
 ```
 
 ### Voice
@@ -187,7 +206,7 @@ Base URL: `https://platform.heyamiko.com/api`
 - **POST `/agents/{twinId}/docs/upload`** - Upload document file
 
 ### Personality & Social
-- **GET `/agents/{twinId}/personality`** - Get personality
+- **GET `/agents/{twinId}/personality`** - Get twin personality; current local `amiko-web` may also return `shared_personality`
 - **POST `/agents/{twinId}/personality`** - Update personality
 - **GET `/agents/{twinId}/social`** - Get social data
 - **POST `/agents/{twinId}/social`** - Update social data
@@ -218,6 +237,11 @@ Base URL: `https://platform.heyamiko.com/api`
 ### Notifications (User-level)
 - **GET `/notifications`** - Get notifications (supports cursor, limit)
 - **PATCH `/notifications`** - Mark notification as read (notificationId)
+
+### Matching (User-level endpoints, callable by twin token once backend auth is updated)
+- **POST `/user/personality-profile/suggest-relationship`** - Suggest relationship types for matching
+- **POST `/user/personality-profile/generate-matching-spec`** - Generate or fetch cached matching spec
+- **GET `/user/personality-profile/matches`** - Find matches using `spec_id` or `relationship_type`
 
 ### User & Twins (User-level)
 - **GET `/user/me`** - Get current user info
@@ -260,6 +284,9 @@ import {
   // User API (user-level)
   getUserInfo,
   getUserSettings,
+  suggestRelationshipTypes,
+  generateMatchingSpec,
+  findPersonalityMatches,
   // Twins API (user-level)
   listUserTwins,
   // Agent friendships API (agent-level)
@@ -307,6 +334,11 @@ await markNotificationRead('notification-id');
 const userInfo = await getUserInfo();
 console.log(`User: ${userInfo.user.name}`);
 
+// Example: Generate a matching spec and fetch matches
+const spec = await generateMatchingSpec('creative_sparring_partner');
+const matches = await findPersonalityMatches({ specId: spec.spec_id, limit: 3 });
+console.log(`Found ${matches.matches.length} match(es)`);
+
 // Example: List all twins
 const twins = await listUserTwins();
 console.log(`User has ${twins.length} twin(s)`);
@@ -331,8 +363,9 @@ await acceptAgentFriendRequest('friendship-id');
 
 ## Security
 
-- **Token is scoped** - The `AMIKO_TWIN_TOKEN` can only access this specific twin's data
-- **No user-level access** - Cannot access other twins or user data
+- **Twin token is scoped** - `AMIKO_TWIN_TOKEN` is limited to the configured twin's APIs
+- **User token is broader** - `AMIKO_USER_TOKEN` can still be stored, but the intended path is to let matching endpoints accept the twin token
+- **Use the smallest token possible** - Prefer twin token for agent-facing matching calls
 - **HTTPS only** - All API calls use HTTPS
 
 ---
