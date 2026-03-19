@@ -406,6 +406,14 @@ async function bootstrapWithDummyKey() {
     console.warn("[wrapper] SYS config install failed:", err);
   }
 
+  // Enable the amiko channel plugin
+  try {
+    const enableAmiko = await runCmd(OPENCLAW_NODE, clawArgs(["plugins", "enable", "amiko"]));
+    console.log(`[wrapper] plugins enable amiko: exit=${enableAmiko.code}`, enableAmiko.output.slice(0, 200));
+  } catch (err) {
+    console.warn("[wrapper] plugins enable amiko failed:", err);
+  }
+
   console.log("[wrapper] bootstrap complete (dummy key); call /init with real OpenRouter key to activate");
 }
 
@@ -486,6 +494,14 @@ async function bootstrapFromEnv() {
     }
   } catch (err) {
     console.warn("[wrapper] SYS config install failed:", err);
+  }
+
+  // Enable the amiko channel plugin
+  try {
+    const enableAmiko = await runCmd(OPENCLAW_NODE, clawArgs(["plugins", "enable", "amiko"]));
+    console.log(`[wrapper] plugins enable amiko: exit=${enableAmiko.code}`, enableAmiko.output.slice(0, 200));
+  } catch (err) {
+    console.warn("[wrapper] plugins enable amiko failed:", err);
   }
 
   console.log("[wrapper] bootstrap complete; gateway can auto-start");

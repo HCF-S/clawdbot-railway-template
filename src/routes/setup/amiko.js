@@ -2,7 +2,7 @@ import express from "express";
 import fs from "node:fs";
 import path from "node:path";
 import { renderAmikoMd, renderDocMd, renderMemoriesMd } from "../../templates/render.js";
-import { writeAmikoConfigAndMcporter, resolveWorkspaceForAgent } from "./amiko-config.js";
+import { writeAmikoConfigAndMcporter, writeAmikoChannelConfig, resolveWorkspaceForAgent } from "./amiko-config.js";
 
 const LEGACY_AMIKO_CONFIG_PATH = "/data/.amiko.json";
 const PLATFORM_BASE_URL = "https://platform.heyamiko.com";
@@ -568,8 +568,24 @@ export function createTwinRouter(handlers) {
         amikoPlatformUrl: amikoPlatformUrl || undefined,
       });
 
+      // Also write amiko channel config to openclaw.json for the plugin
+      let channelResult = { ok: true, output: "" };
+      if (amikoTwinId && amikoTwinToken) {
+        channelResult = writeAmikoChannelConfig({
+          agentId,
+          amikoTwinId,
+          amikoTwinToken,
+          amikoPlatformUrl: amikoPlatformUrl || undefined,
+        });
+      }
+
       if (result.ok) {
-        return res.json({ ok: true, output: result.output, workspaceDir });
+        return res.json({
+          ok: true,
+          output: [result.output, channelResult.output].filter(Boolean).join("\n"),
+          workspaceDir,
+          channelConfig: channelResult.ok,
+        });
       } else {
         return res.status(400).json({ ok: false, error: result.error });
       }

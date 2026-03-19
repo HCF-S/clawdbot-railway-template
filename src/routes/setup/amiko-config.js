@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 const MAIN_WORKSPACE = "/data/.openclaw/workspace";
+const STATE_DIR = "/data/.openclaw";
 
 /**
  * Resolve workspace directory for a given agentId.
@@ -122,6 +123,77 @@ export function writeAmikoConfigAndMcporter(params) {
     return {
       ok: true,
       output: `Saved Amiko config to ${cfgPath} (mcporter composio entry skipped: missing twinId/token or platform URL)`,
+    };
+  } catch (err) {
+    return { ok: false, error: String(err) };
+  }
+}
+
+/**
+ * Write amiko channel config into openclaw.json so the amiko plugin
+ * can authenticate with the Amiko platform.
+ *
+ * Sets channels.amiko.accounts.<agentId> with twinId, token, and API URLs.
+ *
+ * @param {object} params
+ * @param {string} params.agentId - OpenClaw agent ID (e.g. "main")
+ * @param {string} params.amikoTwinId - Amiko twin ID
+ * @param {string} params.amikoTwinToken - Twin token (clawd- prefix JWT)
+ * @param {string} [params.amikoPlatformUrl] - Platform API base URL
+ * @param {string} [params.amikoChatUrl] - Chat API base URL
+ * @returns {{ ok: boolean, output?: string, error?: string }}
+ */
+export function writeAmikoChannelConfig(params) {
+  const {
+    agentId = "main",
+    amikoTwinId = "",
+    amikoTwinToken = "",
+    amikoPlatformUrl,
+    amikoChatUrl,
+  } = params || {};
+
+  if (!amikoTwinId || !amikoTwinToken) {
+    return { ok: false, error: "amikoTwinId and amikoTwinToken are required" };
+  }
+
+  const configPath = path.join(STATE_DIR, "openclaw.json");
+  if (!fs.existsSync(configPath)) {
+    return { ok: false, error: `openclaw.json not found at ${configPath}` };
+  }
+
+  try {
+    const raw = fs.readFileSync(configPath, "utf8");
+    // Strip JSON5 comments for parsing
+    const cleaned = raw
+      .replace(/\/\/.*$/gm, "")
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .replace(/,(\s*[}\]])/g, "$1");
+    const config = JSON.parse(cleaned);
+
+    if (!config.channels) config.channels = {};
+    if (!config.channels.amiko) config.channels.amiko = {};
+    if (!config.channels.amiko.accounts) config.channels.amiko.accounts = {};
+    if (!config.channels.amiko.defaultAccount) {
+      config.channels.amiko.defaultAccount = agentId;
+    }
+
+    const platformUrl = (amikoPlatformUrl || process.env.AMIKO_PLATFORM_URL || "https://platform.heyamiko.com").replace(/\/+$/, "");
+    const chatUrl = (amikoChatUrl || process.env.AMIKO_CHAT_URL || platformUrl).replace(/\/+$/, "");
+
+    config.channels.amiko.accounts[agentId] = {
+      twinId: amikoTwinId,
+      token: amikoTwinToken,
+      platformApiBaseUrl: platformUrl,
+      chatApiBaseUrl: chatUrl,
+    };
+
+    fs.writeFileSync(configPath, JSON.stringify(config, null, 2), "utf8");
+
+    console.log(`[writeAmikoChannelConfig] wrote channels.amiko.accounts.${agentId} to ${configPath}`);
+
+    return {
+      ok: true,
+      output: `Wrote amiko channel config for agent ${agentId} (twin ${amikoTwinId}) to ${configPath}`,
     };
   } catch (err) {
     return { ok: false, error: String(err) };
