@@ -560,7 +560,8 @@ export function createTwinRouter(handlers) {
       const amikoPlatformUrl = String(body.amikoPlatformUrl ?? "").trim() || undefined;
 
       const workspaceDir = resolveWorkspaceForAgent(handlers, agentId);
-      const result = writeAmikoConfigAndMcporter({
+      const result = await writeAmikoConfigAndMcporter({
+        handlers,
         workspaceDir,
         amikoUserId,
         amikoTwinId,

@@ -201,7 +201,8 @@ export function createInitRouter(handlers) {
         if (amikoUserId || amikoTwinId || amikoTwinToken) {
           try {
             const { WORKSPACE_DIR } = handlers;
-            const result = writeAmikoConfigAndMcporter({
+            const result = await writeAmikoConfigAndMcporter({
+              handlers,
               workspaceDir: WORKSPACE_DIR,
               amikoUserId,
               amikoTwinId,

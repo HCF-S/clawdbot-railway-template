@@ -110,7 +110,8 @@ export function createAgentsRouter(handlers) {
         }
 
         if (effectiveTwinId && effectiveTwinToken) {
-          const result = writeAmikoConfigAndMcporter({
+          const result = await writeAmikoConfigAndMcporter({
+            handlers,
             workspaceDir: workspace,
             amikoUserId: effectiveUserId,
             amikoTwinId: effectiveTwinId,
