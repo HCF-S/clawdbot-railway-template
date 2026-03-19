@@ -34,10 +34,6 @@ function isMissingPathError(message) {
   return /not found|missing|undefined|null|does not exist|no value/i.test(String(message || ""));
 }
 
-function toBracketPath(basePath, key) {
-  return `${basePath}[${JSON.stringify(String(key))}]`;
-}
-
 async function getConfigValue(handlers, path) {
   const result = await runOpenClaw(handlers, ["config", "get", path]);
   if (!result.ok) {
@@ -51,6 +47,24 @@ async function getConfigValue(handlers, path) {
 
 async function setConfigJson(handlers, path, value) {
   return runOpenClaw(handlers, ["config", "set", "--json", path, JSON.stringify(value)]);
+}
+
+async function unsetConfigPath(handlers, path) {
+  return runOpenClaw(handlers, ["config", "unset", path]);
+}
+
+function normalizeAccountMap(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {};
+  }
+
+  const normalized = {};
+  for (const [rawKey, rawConfig] of Object.entries(value)) {
+    const key = String(rawKey).trim().replace(/^"+|"+$/g, "");
+    if (!key) continue;
+    normalized[key] = rawConfig;
+  }
+  return normalized;
 }
 
 /**
@@ -208,14 +222,18 @@ async function writeAmikoChannelConfig(params) {
     const platformUrl = (amikoPlatformUrl || process.env.AMIKO_PLATFORM_URL || "https://platform.heyamiko.com").replace(/\/+$/, "");
     const chatUrl = (amikoChatUrl || process.env.AMIKO_CHAT_URL || platformUrl).replace(/\/+$/, "");
     const channelBinding = `amiko:${agentId}`;
-    const accountPath = toBracketPath("channels.amiko.accounts", agentId);
     const accountConfig = {
       twinId: amikoTwinId,
       token: amikoTwinToken,
       platformApiBaseUrl: platformUrl,
       chatApiBaseUrl: chatUrl,
     };
-    const accountSet = await setConfigJson(handlers, accountPath, accountConfig);
+    const existingAccounts = await getConfigValue(handlers, "channels.amiko.accounts");
+    if (!existingAccounts.ok) return existingAccounts;
+    const accounts = normalizeAccountMap(existingAccounts.value);
+    accounts[agentId] = accountConfig;
+
+    const accountSet = await setConfigJson(handlers, "channels.amiko.accounts", accounts);
     if (!accountSet.ok) return accountSet;
 
     const defaultAccount = await getConfigValue(handlers, "channels.amiko.defaultAccount");
@@ -225,21 +243,30 @@ async function writeAmikoChannelConfig(params) {
       if (!defaultSet.ok) return defaultSet;
     }
 
-    const bindingsPath = `${toBracketPath("agents.entries", agentId)}.routing.bindings`;
-    const bindingsResult = await getConfigValue(handlers, bindingsPath);
-    if (!bindingsResult.ok) return bindingsResult;
-    const existingBindings = Array.isArray(bindingsResult.value)
-      ? bindingsResult.value.map((value) => String(value).trim()).filter(Boolean)
-      : [];
-    if (!existingBindings.includes(channelBinding)) {
-      existingBindings.push(channelBinding);
-      const bindingsSet = await setConfigJson(handlers, bindingsPath, existingBindings);
-      if (!bindingsSet.ok) return bindingsSet;
+    const bindResult = await runOpenClaw(handlers, [
+      "agents",
+      "bind",
+      "--agent",
+      agentId,
+      "--bind",
+      channelBinding,
+    ]);
+    if (!bindResult.ok) return bindResult;
+
+    // Clean up the old nested binding location from earlier template versions.
+    const legacyBindingsPath = `agents.entries.${agentId}.routing.bindings`;
+    const legacyBindings = await getConfigValue(handlers, legacyBindingsPath);
+    if (!legacyBindings.ok) return legacyBindings;
+    if (legacyBindings.value !== undefined) {
+      const unsetLegacy = await unsetConfigPath(handlers, legacyBindingsPath);
+      if (!unsetLegacy.ok && !isMissingPathError(unsetLegacy.error)) {
+        return unsetLegacy;
+      }
     }
 
     return {
       ok: true,
-      output: `Wrote amiko channel config for agent ${agentId} (twin ${amikoTwinId}) via OpenClaw CLI and ensured routing binding ${channelBinding}`,
+      output: `Wrote amiko channel config for agent ${agentId} (twin ${amikoTwinId}) via OpenClaw CLI and ensured routing binding ${channelBinding} with agents bind`,
     };
   } catch (err) {
     return { ok: false, error: String(err) };
