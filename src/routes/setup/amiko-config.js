@@ -4,6 +4,39 @@ import path from "node:path";
 const MAIN_WORKSPACE = "/data/.openclaw/workspace";
 const STATE_DIR = "/data/.openclaw";
 
+function ensureAgentChannelBinding(config, agentId, channelBinding) {
+  if (!config.agents || typeof config.agents !== "object") {
+    config.agents = {};
+  }
+  if (!config.agents.entries || typeof config.agents.entries !== "object") {
+    config.agents.entries = {};
+  }
+
+  const currentEntry = config.agents.entries[agentId];
+  const entry =
+    currentEntry && typeof currentEntry === "object" && !Array.isArray(currentEntry)
+      ? currentEntry
+      : {};
+
+  const currentRouting = entry.routing;
+  const routing =
+    currentRouting && typeof currentRouting === "object" && !Array.isArray(currentRouting)
+      ? currentRouting
+      : {};
+
+  const existingBindings = Array.isArray(routing.bindings)
+    ? routing.bindings.map((value) => String(value).trim()).filter(Boolean)
+    : [];
+
+  if (!existingBindings.includes(channelBinding)) {
+    existingBindings.push(channelBinding);
+  }
+
+  routing.bindings = existingBindings;
+  entry.routing = routing;
+  config.agents.entries[agentId] = entry;
+}
+
 /**
  * Resolve workspace directory for a given agentId.
  */
@@ -170,6 +203,7 @@ function writeAmikoChannelConfig(params) {
 
     const platformUrl = (amikoPlatformUrl || process.env.AMIKO_PLATFORM_URL || "https://platform.heyamiko.com").replace(/\/+$/, "");
     const chatUrl = (amikoChatUrl || process.env.AMIKO_CHAT_URL || platformUrl).replace(/\/+$/, "");
+    const channelBinding = `amiko:${agentId}`;
 
     config.channels.amiko.accounts[agentId] = {
       twinId: amikoTwinId,
@@ -178,12 +212,14 @@ function writeAmikoChannelConfig(params) {
       chatApiBaseUrl: chatUrl,
     };
 
+    ensureAgentChannelBinding(config, agentId, channelBinding);
+
     fs.writeFileSync(configPath, JSON.stringify(config, null, 2), "utf8");
     console.log(`[writeAmikoChannelConfig] wrote channels.amiko.accounts.${agentId} to ${configPath}`);
 
     return {
       ok: true,
-      output: `Wrote amiko channel config for agent ${agentId} (twin ${amikoTwinId}) to ${configPath}`,
+      output: `Wrote amiko channel config for agent ${agentId} (twin ${amikoTwinId}) to ${configPath} and ensured routing binding ${channelBinding}`,
     };
   } catch (err) {
     return { ok: false, error: String(err) };
