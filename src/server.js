@@ -7,7 +7,7 @@ import express from "express";
 import httpProxy from "http-proxy";
 import { createSetupRouter } from "./routes/setup/index.js";
 import { setGatewayControlUiAllowedOrigins } from "./routes/setup/run.js";
-import { installAmikoSkill, installComposioSkill } from "./routes/setup/skills.js";
+import { installComposioSkill } from "./routes/setup/skills.js";
 import { installSysConfig } from "./routes/setup/init.js";
 
 // Railway deployments sometimes inject PORT=3000 by default. We want the wrapper to
@@ -394,16 +394,7 @@ async function bootstrapWithDummyKey() {
   }
 
   // After initial onboarding, install default skills and SYS config once on container start.
-  try {
-    console.log("[wrapper] installing default Amiko skill after bootstrap...");
-    const amikoResult = await installAmikoSkill(handlers);
-    if (!amikoResult.ok) {
-      console.warn("[wrapper] Amiko skill install warning:", amikoResult.error);
-    }
-  } catch (err) {
-    console.warn("[wrapper] Amiko skill install failed:", err);
-  }
-
+  // Note: Amiko skill is now bundled in the openclaw-amiko-plugin extension.
   try {
     console.log("[wrapper] installing default Composio skill after bootstrap...");
     const composioResult = await installComposioSkill(handlers);
@@ -494,16 +485,7 @@ async function bootstrapFromEnv() {
   }
 
   // After initial onboarding, install default skills and SYS config once on container start.
-  try {
-    console.log("[wrapper] installing default Amiko skill after bootstrap-from-env...");
-    const amikoResult = await installAmikoSkill(handlers);
-    if (!amikoResult.ok) {
-      console.warn("[wrapper] Amiko skill install warning:", amikoResult.error);
-    }
-  } catch (err) {
-    console.warn("[wrapper] Amiko skill install failed:", err);
-  }
-
+  // Note: Amiko skill is now bundled in the openclaw-amiko-plugin extension.
   try {
     console.log("[wrapper] installing default Composio skill after bootstrap-from-env...");
     const composioResult = await installComposioSkill(handlers);

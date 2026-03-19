@@ -1,5 +1,5 @@
 import express from "express";
-import { installAmikoSkill, installComposioSkill } from "./skills.js";
+import { installComposioSkill } from "./skills.js";
 import { installSysConfig } from "./init.js";
 import { syncAmikoData, pullMemories } from "./amiko.js";
 import { resolveWorkspaceForAgent } from "./amiko-config.js";
@@ -13,28 +13,7 @@ export function createDeployRouter(handlers) {
   const { requireApiToken } = handlers;
   const router = express.Router();
 
-  /**
-   * POST /setup/api/deploy/amiko-skill
-   * Deploy/update the amiko-skill to an existing instance
-   */
-  router.post("/deploy/amiko-skill", requireApiToken, async (_req, res) => {
-    try {
-      const result = await installAmikoSkill(handlers);
-      if (result.ok) {
-        return res.json({
-          ok: true,
-          message: "Amiko skill deployed successfully",
-          path: result.path,
-          files: result.files,
-        });
-      } else {
-        return res.status(500).json({ ok: false, error: result.error });
-      }
-    } catch (err) {
-      console.error("[/setup/api/deploy/amiko-skill] error:", err);
-      return res.status(500).json({ ok: false, error: `Internal error: ${String(err)}` });
-    }
-  });
+  // Note: /deploy/amiko-skill removed — amiko skill is now bundled in openclaw-amiko-plugin extension.
 
   /**
    * POST /setup/api/deploy/composio-skill
@@ -160,18 +139,7 @@ export function createDeployRouter(handlers) {
         output += `[deploy/amiko-data] Error: ${err}\n`;
       }
 
-      // 2. Install Amiko skill
-      output += "\n[deploy] Installing Amiko skill...\n";
-      try {
-        const skillResult = await installAmikoSkill(handlers);
-        results.amikoSkill = skillResult;
-        output += skillResult.ok
-          ? `[deploy/amiko-skill] ${skillResult.output}\n`
-          : `[deploy/amiko-skill] Error: ${skillResult.error}\n`;
-      } catch (err) {
-        results.amikoSkill = { ok: false, error: String(err) };
-        output += `[deploy/amiko-skill] Error: ${err}\n`;
-      }
+      // 2. Amiko skill — now bundled in openclaw-amiko-plugin extension (skipped)
 
       // 3. Install Composio skill
       output += "\n[deploy] Installing Composio skill...\n";
