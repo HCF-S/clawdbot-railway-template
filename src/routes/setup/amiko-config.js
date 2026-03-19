@@ -6,12 +6,6 @@ const STATE_DIR = "/data/.openclaw";
 
 /**
  * Resolve workspace directory for a given agentId.
- * Main agent: /data/.openclaw/workspace
- * Other agents: /data/.openclaw/workspace-{agentId}
- *
- * @param {object} _handlers - Unused; kept for API compatibility
- * @param {string} [agentId] - Agent ID (e.g. "main", or custom). Default "main".
- * @returns {string} Absolute path to the agent's workspace directory
  */
 export function resolveWorkspaceForAgent(_handlers, agentId = "main") {
   const safeId = (agentId && String(agentId).trim()) || "main";
@@ -19,19 +13,20 @@ export function resolveWorkspaceForAgent(_handlers, agentId = "main") {
 }
 
 /**
- * Write Amiko config (.amiko.json) and mcporter.json for a given workspace.
+ * Detect agentId from a workspace path.
+ * "/data/.openclaw/workspace" → "main"
+ * "/data/.openclaw/workspace-foo" → "foo"
+ */
+function detectAgentIdFromWorkspace(workspaceDir) {
+  const match = workspaceDir.match(/workspace-([^/\\]+)$/);
+  return match ? match[1] : "main";
+}
+
+/**
+ * Write Amiko config (.amiko.json), mcporter.json, and channel config to openclaw.json.
  *
- * - Merges with any existing .amiko.json (keeps unknown fields)
- * - Persists both legacy uppercase keys (AMIKO_*) and new lowercase keys (amiko*)
- * - Ensures config/mcporter.json has a composio server pointing at Amiko web MCP proxy
- *
- * @param {object} params
- * @param {string} params.workspaceDir - Absolute path to the agent workspace directory
- * @param {string} [params.amikoUserId]
- * @param {string} [params.amikoTwinId]
- * @param {string} [params.amikoTwinToken]
- * @param {string} [params.amikoPlatformUrl] - Optional explicit platform URL (falls back to existing config/env/default)
- * @returns {{ ok: boolean, output?: string, error?: string }}
+ * This is the single entry point — all callers (init, amiko/write, add-agent)
+ * get .amiko.json + mcporter + channel config written in one call.
  */
 export function writeAmikoConfigAndMcporter(params) {
   const {
@@ -49,6 +44,9 @@ export function writeAmikoConfigAndMcporter(params) {
 
     fs.mkdirSync(workspaceDir, { recursive: true });
 
+    const outputs = [];
+
+    // ── 1. Write .amiko.json ──────────────────────────────────────────────────
     const cfgPath = path.join(workspaceDir, ".amiko.json");
     let current = {};
     if (fs.existsSync(cfgPath)) {
@@ -59,7 +57,6 @@ export function writeAmikoConfigAndMcporter(params) {
       }
     }
 
-    // Resolve platform URL: prefer explicit arg, then existing config, then env, then default.
     const resolvedPlatformUrl =
       (amikoPlatformUrl && String(amikoPlatformUrl).trim()) ||
       (current.amikoPlatformUrl ? String(current.amikoPlatformUrl).trim() : "") ||
@@ -67,7 +64,6 @@ export function writeAmikoConfigAndMcporter(params) {
       process.env.AMIKO_PLATFORM_URL?.trim() ||
       "https://platform.heyamiko.com";
 
-    // Only write the 4 keys used by amiko-skill lib.js and readAmikoConfig
     const next = {
       AMIKO_USER_ID: amikoUserId || current.AMIKO_USER_ID || "",
       AMIKO_TWIN_ID: amikoTwinId || current.AMIKO_TWIN_ID || "",
@@ -80,7 +76,7 @@ export function writeAmikoConfigAndMcporter(params) {
       mode: 0o600,
     });
 
-    // Build or merge mcporter.json with composio server pointing at Amiko web MCP proxy
+    // ── 2. Write config/mcporter.json ─────────────────────────────────────────
     const configDir = path.join(workspaceDir, "config");
     const mcporterConfigPath = path.join(configDir, "mcporter.json");
     fs.mkdirSync(configDir, { recursive: true });
@@ -93,7 +89,7 @@ export function writeAmikoConfigAndMcporter(params) {
           mcporterConfig = parsed;
         }
       } catch {
-        // ignore parse errors; overwrite with minimal config
+        // overwrite with minimal config
       }
     }
     if (!mcporterConfig.mcpServers || typeof mcporterConfig.mcpServers !== "object") {
@@ -103,27 +99,33 @@ export function writeAmikoConfigAndMcporter(params) {
     const platformUrlNormalized = (resolvedPlatformUrl || "").replace(/\/+$/, "");
 
     if (amikoTwinId && amikoTwinToken && platformUrlNormalized) {
-      const composioUrl = `${platformUrlNormalized}/api/agents/${amikoTwinId}/mcp`;
       mcporterConfig.mcpServers.composio = {
-        url: composioUrl,
-        headers: {
-          Authorization: `Bearer ${amikoTwinToken}`,
-        },
+        url: `${platformUrlNormalized}/api/agents/${amikoTwinId}/mcp`,
+        headers: { Authorization: `Bearer ${amikoTwinToken}` },
       };
-
       fs.writeFileSync(mcporterConfigPath, JSON.stringify(mcporterConfig, null, 2), "utf8");
-
-      return {
-        ok: true,
-        output: `Saved Amiko config to ${cfgPath} and mcporter config to ${mcporterConfigPath}`,
-      };
+      outputs.push(`Saved Amiko config to ${cfgPath} and mcporter config to ${mcporterConfigPath}`);
+    } else {
+      outputs.push(`Saved Amiko config to ${cfgPath} (mcporter composio entry skipped: missing twinId/token or platform URL)`);
     }
 
-    // If we don't have enough info for Composio MCP, still consider .amiko.json write a success.
-    return {
-      ok: true,
-      output: `Saved Amiko config to ${cfgPath} (mcporter composio entry skipped: missing twinId/token or platform URL)`,
-    };
+    // ── 3. Write channels.amiko config to openclaw.json ───────────────────────
+    if (amikoTwinId && amikoTwinToken) {
+      const agentId = detectAgentIdFromWorkspace(workspaceDir);
+      const channelResult = writeAmikoChannelConfig({
+        agentId,
+        amikoTwinId,
+        amikoTwinToken,
+        amikoPlatformUrl: resolvedPlatformUrl,
+      });
+      if (channelResult.ok) {
+        outputs.push(channelResult.output);
+      } else {
+        outputs.push(`[channel] WARNING: ${channelResult.error}`);
+      }
+    }
+
+    return { ok: true, output: outputs.join("\n") };
   } catch (err) {
     return { ok: false, error: String(err) };
   }
@@ -132,18 +134,8 @@ export function writeAmikoConfigAndMcporter(params) {
 /**
  * Write amiko channel config into openclaw.json so the amiko plugin
  * can authenticate with the Amiko platform.
- *
- * Sets channels.amiko.accounts.<agentId> with twinId, token, and API URLs.
- *
- * @param {object} params
- * @param {string} params.agentId - OpenClaw agent ID (e.g. "main")
- * @param {string} params.amikoTwinId - Amiko twin ID
- * @param {string} params.amikoTwinToken - Twin token (clawd- prefix JWT)
- * @param {string} [params.amikoPlatformUrl] - Platform API base URL
- * @param {string} [params.amikoChatUrl] - Chat API base URL
- * @returns {{ ok: boolean, output?: string, error?: string }}
  */
-export function writeAmikoChannelConfig(params) {
+function writeAmikoChannelConfig(params) {
   const {
     agentId = "main",
     amikoTwinId = "",
@@ -163,7 +155,6 @@ export function writeAmikoChannelConfig(params) {
 
   try {
     const raw = fs.readFileSync(configPath, "utf8");
-    // Strip JSON5 comments for parsing
     const cleaned = raw
       .replace(/\/\/.*$/gm, "")
       .replace(/\/\*[\s\S]*?\*\//g, "")
@@ -188,7 +179,6 @@ export function writeAmikoChannelConfig(params) {
     };
 
     fs.writeFileSync(configPath, JSON.stringify(config, null, 2), "utf8");
-
     console.log(`[writeAmikoChannelConfig] wrote channels.amiko.accounts.${agentId} to ${configPath}`);
 
     return {
@@ -199,4 +189,3 @@ export function writeAmikoChannelConfig(params) {
     return { ok: false, error: String(err) };
   }
 }
-
