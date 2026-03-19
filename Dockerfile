@@ -38,6 +38,13 @@ RUN pnpm build
 ENV OPENCLAW_PREFER_PNPM=1
 RUN pnpm ui:install && pnpm ui:build
 
+# Build amiko channel plugin
+WORKDIR /amiko-plugin
+ARG AMIKO_PLUGIN_GIT_REF=main
+RUN git clone --depth 1 --branch "${AMIKO_PLUGIN_GIT_REF}" https://github.com/HCF-S/openclaw-amiko-plugin.git .
+RUN pnpm install --no-frozen-lockfile
+RUN pnpm run build
+
 # Runtime image
 FROM node:22-bookworm
 ENV NODE_ENV=production
@@ -61,6 +68,9 @@ RUN npm install --omit=dev && npm cache clean --force
 
 # Copy built openclaw
 COPY --from=openclaw-build /openclaw /openclaw
+
+# Copy built amiko channel plugin into openclaw extensions
+COPY --from=openclaw-build /amiko-plugin /openclaw/extensions/amiko
 
 # Provide an openclaw executable
 RUN printf '%s\n' '#!/usr/bin/env bash' 'exec node /openclaw/dist/entry.js "$@"' > /usr/local/bin/openclaw \
