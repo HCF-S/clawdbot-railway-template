@@ -68,7 +68,7 @@ Push/merge to `main` does **not** trigger auto deploy. To deploy sandbox instanc
 # Stop
 ./start-dev.sh stop
 
-# Rebuild image
+# Rebuild image without Docker layer cache
 ./start-dev.sh build
 ```
 

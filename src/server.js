@@ -20,6 +20,8 @@ const PORT = Number.parseInt(
   10,
 );
 
+const OPENCLAW_HOME_DIR = process.env.OPENCLAW_HOME?.trim() || "/data";
+
 // State/workspace - hardcoded for this template; no env overrides
 const STATE_DIR = "/data/.openclaw";
 const WORKSPACE_DIR = "/data/.openclaw/workspace";
@@ -66,11 +68,14 @@ const INTERNAL_GATEWAY_PORT = Number.parseInt(process.env.INTERNAL_GATEWAY_PORT 
 const INTERNAL_GATEWAY_HOST = process.env.INTERNAL_GATEWAY_HOST ?? "127.0.0.1";
 const GATEWAY_TARGET = `http://${INTERNAL_GATEWAY_HOST}:${INTERNAL_GATEWAY_PORT}`;
 
-// Resolve OpenClaw entry: OPENCLAW_ENTRY env, /openclaw (Docker copy), or global npm install.
+// Resolve OpenClaw entry: OPENCLAW_ENTRY env, the containerized OpenClaw app at
+// /openclaw, then fall back to older layouts or global installs.
 function resolveOpenClawEntry() {
   if (process.env.OPENCLAW_ENTRY?.trim()) return process.env.OPENCLAW_ENTRY.trim();
-  if (fs.existsSync("/openclaw/dist/entry.js")) return "/openclaw/dist/entry.js";
   if (fs.existsSync("/openclaw/openclaw.mjs")) return "/openclaw/openclaw.mjs";
+  if (fs.existsSync("/openclaw/dist/entry.js")) return "/openclaw/dist/entry.js";
+  if (fs.existsSync("/app/openclaw.mjs")) return "/app/openclaw.mjs";
+  if (fs.existsSync("/app/dist/entry.js")) return "/app/dist/entry.js";
   // Global install (npm i -g openclaw)
   const globalPaths = [
     "/usr/local/lib/node_modules/openclaw/dist/entry.js",
@@ -173,7 +178,8 @@ async function startGateway() {
     stdio: "inherit",
     env: {
       ...process.env,
-      OPENCLAW_HOME: "/data",
+      HOME: OPENCLAW_HOME_DIR,
+      OPENCLAW_HOME: OPENCLAW_HOME_DIR,
       OPENCLAW_STATE_DIR: STATE_DIR,
       OPENCLAW_WORKSPACE_DIR: WORKSPACE_DIR,
     },
@@ -513,7 +519,8 @@ function runCmd(cmd, args, opts = {}) {
       ...opts,
     env: {
       ...process.env,
-      OPENCLAW_HOME: "/data",
+      HOME: OPENCLAW_HOME_DIR,
+      OPENCLAW_HOME: OPENCLAW_HOME_DIR,
       OPENCLAW_STATE_DIR: STATE_DIR,
       OPENCLAW_WORKSPACE_DIR: WORKSPACE_DIR,
     },
@@ -556,14 +563,18 @@ const ALLOWED_CONSOLE_COMMANDS = new Set([
 
 const app = express();
 app.disable("x-powered-by");
+// Only parse bodies for setup endpoints. Webhooks and plugin-owned routes must
+// stay as untouched streams so they can be proxied to the gateway intact.
 // Amiko import: raw zip body for POST /setup/api/import (run before json so body is preserved)
 app.use((req, res, next) => {
+  if (!req.path.startsWith("/setup")) return next();
   if (req.path === "/setup/api/import" && req.method === "POST") {
     return express.raw({ type: "application/zip", limit: "100mb" })(req, res, next);
   }
   next();
 });
 app.use((req, res, next) => {
+  if (!req.path.startsWith("/setup")) return next();
   if (req.path === "/setup/api/import" && req.method === "POST") return next();
   return express.json({ limit: "1mb" })(req, res, next);
 });
