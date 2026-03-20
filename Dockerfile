@@ -4,7 +4,7 @@ ARG OPENCLAW_IMAGE=ghcr.io/openclaw/openclaw:2026.3.13-1
 ARG OPENCLAW_NPM_VERSION=2026.3.13
 
 FROM node:24-bookworm AS amiko-plugin-build
-ARG AMIKO_PLUGIN_REF=4a29dc2
+ARG AMIKO_PLUGIN_REF=main
 ARG OPENCLAW_NPM_VERSION
 
 RUN corepack enable && corepack prepare pnpm@10.23.0 --activate
