@@ -186,6 +186,8 @@ export function createInitRouter(handlers) {
         const amikoUserId = String(payload.amikoUserId ?? "").trim();
         const amikoTwinId = String(payload.amikoTwinId ?? "").trim();
         const amikoTwinToken = String(payload.amikoTwinToken ?? "").trim();
+        const amikoPlatformUrl = String(payload.amikoPlatformUrl ?? "").trim();
+        const amikoChatUrl = String(payload.amikoChatUrl ?? "").trim();
 
         if (realKey) {
           const replaceResult = replaceOpenRouterKeyInAuthProfiles(handlers, realKey);
@@ -207,6 +209,8 @@ export function createInitRouter(handlers) {
               amikoUserId,
               amikoTwinId,
               amikoTwinToken,
+              amikoPlatformUrl: amikoPlatformUrl || undefined,
+              amikoChatUrl: amikoChatUrl || undefined,
             });
             if (result.ok) {
               output += `[amiko] ${result.output}\n`;

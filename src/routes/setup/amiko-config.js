@@ -2,6 +2,17 @@ import fs from "node:fs";
 import path from "node:path";
 
 const MAIN_WORKSPACE = "/data/.openclaw/workspace";
+const DEFAULT_AMIKO_PLATFORM_URL = "https://platform.heyamiko.com";
+const DEFAULT_AMIKO_CHAT_URL = "https://amiko-chat.up.railway.app";
+
+function resolveDefaultAmikoChatUrl(platformUrl = "") {
+  const configured =
+    process.env.AMIKO_CHAT_URL?.trim() ||
+    process.env.WS_HTTP_API_URL?.trim() ||
+    "";
+  if (configured) return configured;
+  return platformUrl === DEFAULT_AMIKO_PLATFORM_URL ? DEFAULT_AMIKO_CHAT_URL : "";
+}
 
 function parseConfigValue(raw) {
   const text = String(raw ?? "").trim();
@@ -99,6 +110,7 @@ export async function writeAmikoConfigAndMcporter(params) {
     amikoTwinId = "",
     amikoTwinToken = "",
     amikoPlatformUrl,
+    amikoChatUrl,
   } = params || {};
 
   try {
@@ -126,13 +138,19 @@ export async function writeAmikoConfigAndMcporter(params) {
       (current.amikoPlatformUrl ? String(current.amikoPlatformUrl).trim() : "") ||
       (current.AMIKO_PLATFORM_URL ? String(current.AMIKO_PLATFORM_URL).trim() : "") ||
       process.env.AMIKO_PLATFORM_URL?.trim() ||
-      "https://platform.heyamiko.com";
+      DEFAULT_AMIKO_PLATFORM_URL;
+    const resolvedChatUrl =
+      (amikoChatUrl && String(amikoChatUrl).trim()) ||
+      (current.amikoChatUrl ? String(current.amikoChatUrl).trim() : "") ||
+      (current.AMIKO_CHAT_URL ? String(current.AMIKO_CHAT_URL).trim() : "") ||
+      resolveDefaultAmikoChatUrl(resolvedPlatformUrl);
 
     const next = {
       AMIKO_USER_ID: amikoUserId || current.AMIKO_USER_ID || "",
       AMIKO_TWIN_ID: amikoTwinId || current.AMIKO_TWIN_ID || "",
       AMIKO_TWIN_TOKEN: amikoTwinToken || current.AMIKO_TWIN_TOKEN || current.AMIKO_USER_TOKEN || "",
       AMIKO_PLATFORM_URL: resolvedPlatformUrl || current.AMIKO_PLATFORM_URL || "",
+      AMIKO_CHAT_URL: resolvedChatUrl || current.AMIKO_CHAT_URL || "",
     };
 
     fs.writeFileSync(cfgPath, JSON.stringify(next, null, 2), {
@@ -182,6 +200,7 @@ export async function writeAmikoConfigAndMcporter(params) {
         amikoTwinId,
         amikoTwinToken,
         amikoPlatformUrl: resolvedPlatformUrl,
+        amikoChatUrl: resolvedChatUrl,
       });
       if (channelResult.ok) {
         outputs.push(channelResult.output);
@@ -219,14 +238,17 @@ async function writeAmikoChannelConfig(params) {
   }
 
   try {
-    const platformUrl = (amikoPlatformUrl || process.env.AMIKO_PLATFORM_URL || "https://platform.heyamiko.com").replace(/\/+$/, "");
-    const chatUrl = (amikoChatUrl || process.env.AMIKO_CHAT_URL || platformUrl).replace(/\/+$/, "");
+    const platformUrl = (amikoPlatformUrl || process.env.AMIKO_PLATFORM_URL || DEFAULT_AMIKO_PLATFORM_URL).replace(/\/+$/, "");
+    const chatUrl = (
+      amikoChatUrl ||
+      resolveDefaultAmikoChatUrl(platformUrl)
+    ).replace(/\/+$/, "");
     const channelBinding = `amiko:${agentId}`;
     const accountConfig = {
       twinId: amikoTwinId,
       token: amikoTwinToken,
       platformApiBaseUrl: platformUrl,
-      chatApiBaseUrl: chatUrl,
+      chatApiBaseUrl: chatUrl || platformUrl,
     };
     const existingAccounts = await getConfigValue(handlers, "channels.amiko.accounts");
     if (!existingAccounts.ok) return existingAccounts;

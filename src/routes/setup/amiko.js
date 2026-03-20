@@ -547,7 +547,7 @@ export function createTwinRouter(handlers) {
   /**
    * POST /setup/api/amiko/write
    * Writes .amiko.json and config/mcporter.json to the agent's workspace.
-   * Body: { agentId?: string, amikoUserId?: string, amikoTwinId?: string, amikoTwinToken?: string, amikoPlatformUrl?: string }
+   * Body: { agentId?: string, amikoUserId?: string, amikoTwinId?: string, amikoTwinToken?: string, amikoPlatformUrl?: string, amikoChatUrl?: string }
    * Workspace is resolved from openclaw.json per agentId (agents.entries[agentId].workspace or defaults).
    */
   router.post("/amiko/write", requireApiToken, async (req, res) => {
@@ -558,6 +558,7 @@ export function createTwinRouter(handlers) {
       const amikoTwinId = String(body.amikoTwinId ?? "").trim();
       const amikoTwinToken = String(body.amikoTwinToken ?? "").trim();
       const amikoPlatformUrl = String(body.amikoPlatformUrl ?? "").trim() || undefined;
+      const amikoChatUrl = String(body.amikoChatUrl ?? "").trim() || undefined;
 
       const workspaceDir = resolveWorkspaceForAgent(handlers, agentId);
       const result = await writeAmikoConfigAndMcporter({
@@ -567,6 +568,7 @@ export function createTwinRouter(handlers) {
         amikoTwinId,
         amikoTwinToken,
         amikoPlatformUrl: amikoPlatformUrl || undefined,
+        amikoChatUrl: amikoChatUrl || undefined,
       });
 
       if (result.ok) {

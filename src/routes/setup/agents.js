@@ -13,6 +13,8 @@ import { writeAmikoConfigAndMcporter } from "./amiko-config.js";
  * - workspace (string, optional) - default: `${WORKSPACE_DIR}-${agentId}` (e.g. `/data/.openclaw/workspace-${agentId}`)
  * - model (string, optional) - e.g. claude-sonnet-4
  * - agentDir (string, optional) - custom agent directory
+ * - amikoPlatformUrl (string, optional)
+ * - amikoChatUrl (string, optional)
  * - bind (string | string[], optional) - channel bindings e.g. "whatsapp:+1234567890"
  * - json (boolean, optional) - request CLI --json output
  */
@@ -28,6 +30,8 @@ export function createAgentsRouter(handlers) {
       const amikoUserId = String(body.amikoUserId ?? "").trim();
       const amikoTwinId = String(body.amikoTwinId ?? "").trim();
       const amikoTwinToken = String(body.amikoTwinToken ?? "").trim();
+      const amikoPlatformUrl = String(body.amikoPlatformUrl ?? "").trim();
+      const amikoChatUrl = String(body.amikoChatUrl ?? "").trim();
 
       if (!agentId) {
         return res.status(400).json({ ok: false, error: "Missing agentId" });
@@ -77,7 +81,8 @@ export function createAgentsRouter(handlers) {
         let effectiveUserId = amikoUserId;
         let effectiveTwinId = amikoTwinId;
         let effectiveTwinToken = amikoTwinToken;
-        let effectivePlatformUrl = "";
+        let effectivePlatformUrl = amikoPlatformUrl;
+        let effectiveChatUrl = amikoChatUrl;
 
         const mainCfgPath = "/data/.openclaw/workspace/.amiko.json";
         try {
@@ -100,7 +105,12 @@ export function createAgentsRouter(handlers) {
                 mainCfg.AMIKO_TWIN_TOKEN || mainCfg.AMIKO_USER_TOKEN || "",
               ).trim();
             }
-            effectivePlatformUrl = String(mainCfg.AMIKO_PLATFORM_URL || "").trim();
+            if (!effectivePlatformUrl) {
+              effectivePlatformUrl = String(mainCfg.AMIKO_PLATFORM_URL || "").trim();
+            }
+            if (!effectiveChatUrl) {
+              effectiveChatUrl = String(mainCfg.AMIKO_CHAT_URL || "").trim();
+            }
           }
         } catch (copyErr) {
           console.warn(
@@ -117,6 +127,7 @@ export function createAgentsRouter(handlers) {
             amikoTwinId: effectiveTwinId,
             amikoTwinToken: effectiveTwinToken,
             amikoPlatformUrl: effectivePlatformUrl,
+            amikoChatUrl: effectiveChatUrl,
           });
 
           if (!result.ok) {
