@@ -75,8 +75,8 @@ export async function pullTwinData(handlers) {
 
     const twin = await response.json();
 
-    // Fetch user data
-    const userResponse = await fetch(`${PLATFORM_BASE_URL}/api/auth/me`, {
+    // Fetch current user profile data
+    const userResponse = await fetch(`${PLATFORM_BASE_URL}/api/user/me`, {
       method: "GET",
       headers: {
         authorization: `Bearer ${userToken}`,
@@ -86,7 +86,12 @@ export async function pullTwinData(handlers) {
 
     let user = null;
     if (userResponse.ok) {
-      user = await userResponse.json();
+      const userPayload = await userResponse.json();
+      user = userPayload?.user ?? userPayload ?? null;
+    } else {
+      console.warn("[pullTwinData] failed to fetch /api/user/me", {
+        status: userResponse.status,
+      });
     }
 
     // Write AMIKO.md using template
@@ -96,7 +101,7 @@ export async function pullTwinData(handlers) {
     fs.writeFileSync(outPath, markdown, "utf8");
     console.log("[pullTwinData] saved", { path: outPath });
 
-    const personality = typeof twin.personality === "string" ? twin.personality.trim() : "";
+    const personality = typeof twin.description === "string" ? twin.description.trim() : "";
     const name = typeof twin.name === "string" ? twin.name.trim() : "";
     if (personality) {
       const soulPath = path.join(WORKSPACE_DIR, "SOUL.md");
