@@ -40,7 +40,7 @@ RUN mkdir -p /build/amiko-plugin \
 WORKDIR /build/amiko-plugin
 
 RUN npm pkg set peerDependencies.openclaw="${OPENCLAW_NPM_VERSION}" devDependencies.openclaw="${OPENCLAW_NPM_VERSION}"
-RUN --mount=type=cache,id=amiko-plugin-pnpm-store,target=/root/.local/share/pnpm/store,sharing=locked \
+RUN --mount=type=cache,target=/root/.local/share/pnpm/store,sharing=locked \
   pnpm install --no-frozen-lockfile
 RUN pnpm run build
 RUN rm -rf /build/amiko-plugin/node_modules/openclaw
