@@ -96,6 +96,15 @@ export function renderAmikoMd(twin, user = null, docs = null) {
 }
 
 /**
+ * Render the BOOTSTRAP.md template
+ * @param {object} user - User data (needs at least { name })
+ * @returns {string} Rendered markdown
+ */
+export function renderBootstrapMd(user = {}) {
+  return renderTemplateFile("workspace/BOOTSTRAP.md.tmpl", { user });
+}
+
+/**
  * Render the DOC.md template
  * @param {object} doc - Document data from API
  * @returns {string} Rendered markdown

@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { renderBootstrapMd } from "../../templates/render.js";
 
 const MAIN_WORKSPACE = "/data/.openclaw/workspace";
 const DEFAULT_AMIKO_PLATFORM_URL = "https://platform.heyamiko.com";
@@ -84,6 +85,31 @@ function normalizeAccountMap(value) {
 export function resolveWorkspaceForAgent(_handlers, agentId = "main") {
   const safeId = (agentId && String(agentId).trim()) || "main";
   return safeId === "main" ? MAIN_WORKSPACE : `/data/.openclaw/workspace-${safeId}`;
+}
+
+/**
+ * Install BOOTSTRAP.md into an agent's workspace.
+ * Only writes if the file does not already exist (preserves in-progress bootstraps).
+ *
+ * @param {{ workspaceDir: string, userName?: string }} opts
+ * @returns {{ ok: boolean, written: boolean, path: string, error?: string }}
+ */
+export function installBootstrapMd({ workspaceDir, userName }) {
+  const destPath = path.join(workspaceDir, "BOOTSTRAP.md");
+  try {
+    // Ensure workspace dir exists
+    if (!fs.existsSync(workspaceDir)) {
+      fs.mkdirSync(workspaceDir, { recursive: true });
+    }
+
+    const content = renderBootstrapMd({ name: userName || "there" });
+    fs.writeFileSync(destPath, content, "utf8");
+    console.log("[bootstrap] Installed BOOTSTRAP.md to:", destPath);
+    return { ok: true, written: true, path: destPath };
+  } catch (err) {
+    console.error("[bootstrap] Failed to install BOOTSTRAP.md:", err);
+    return { ok: false, written: false, path: destPath, error: String(err) };
+  }
 }
 
 /**

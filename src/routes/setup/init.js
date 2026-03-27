@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { runOnboarding, replaceOpenRouterKeyInAuthProfiles, setGatewayControlUiAllowedOrigins } from "./run.js";
-import { writeAmikoConfigAndMcporter } from "./amiko-config.js";
+import { writeAmikoConfigAndMcporter, installBootstrapMd } from "./amiko-config.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -220,6 +220,20 @@ export function createInitRouter(handlers) {
           } catch (err) {
             output += `[amiko] WARNING: Failed to write .amiko.json / mcporter.json: ${String(err)}\n`;
           }
+        }
+
+        // Install BOOTSTRAP.md for first conversation
+        try {
+          const { WORKSPACE_DIR } = handlers;
+          const userName = String(payload.userName ?? "").trim();
+          const bootstrapResult = installBootstrapMd({ workspaceDir: WORKSPACE_DIR, userName });
+          if (bootstrapResult.ok) {
+            output += `[bootstrap] Installed BOOTSTRAP.md to ${bootstrapResult.path}\n`;
+          } else {
+            output += `[bootstrap] WARNING: ${bootstrapResult.error}\n`;
+          }
+        } catch (err) {
+          output += `[bootstrap] WARNING: Failed to install BOOTSTRAP.md: ${String(err)}\n`;
         }
 
         // Restart gateway after key/model changes

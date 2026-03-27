@@ -1,7 +1,7 @@
 import express from "express";
 import fs from "node:fs";
 import path from "node:path";
-import { writeAmikoConfigAndMcporter } from "./amiko-config.js";
+import { writeAmikoConfigAndMcporter, installBootstrapMd } from "./amiko-config.js";
 
 /**
  * POST /setup/api/add-agent
@@ -140,6 +140,13 @@ export function createAgentsRouter(handlers) {
           console.warn(
             "[add-agent] missing Amiko twinId/token; skipping .amiko.json / mcporter.json for agent workspace",
           );
+        }
+
+        // Install BOOTSTRAP.md for first conversation
+        const userName = String(body.userName ?? "").trim();
+        const bootstrapResult = installBootstrapMd({ workspaceDir: workspace, userName });
+        if (!bootstrapResult.ok) {
+          console.warn("[add-agent] failed to install BOOTSTRAP.md:", bootstrapResult.error);
         }
       }
       const status = r.code === 0 ? 200 : 500;
