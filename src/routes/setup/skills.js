@@ -245,24 +245,21 @@ export async function installGenuiSkill(handlers) {
     // Inject genui skill reference into AMIKO.md in every workspace
     let amikoMdUpdated = 0;
     const amikoMdPaths = new Set();
-    // Collect AMIKO.md from all workspace* dirs under STATE_DIR
+    // Collect all workspace* dirs and create AMIKO.md if missing
     for (const entry of fs.readdirSync(STATE_DIR)) {
       if (!entry.startsWith("workspace")) continue;
-      const p = path.join(STATE_DIR, entry, "AMIKO.md");
+      const wsDir = path.join(STATE_DIR, entry);
+      const p = path.join(wsDir, "AMIKO.md");
+      if (!fs.existsSync(p)) {
+        try {
+          fs.writeFileSync(p, "# Amiko\n", "utf8");
+          console.log("[installGenuiSkill] created", p);
+        } catch (err) {
+          console.warn("[installGenuiSkill] failed to create", p, err);
+        }
+      }
       if (fs.existsSync(p)) amikoMdPaths.add(p);
     }
-    // Also check the main workspace directly — create if missing
-    const mainAmikoMd = path.join(MAIN_WORKSPACE, "AMIKO.md");
-    if (!fs.existsSync(mainAmikoMd)) {
-      try {
-        fs.mkdirSync(path.dirname(mainAmikoMd), { recursive: true });
-        fs.writeFileSync(mainAmikoMd, "# Amiko\n", "utf8");
-        console.log("[installGenuiSkill] created", mainAmikoMd);
-      } catch (err) {
-        console.warn("[installGenuiSkill] failed to create", mainAmikoMd, err);
-      }
-    }
-    if (fs.existsSync(mainAmikoMd)) amikoMdPaths.add(mainAmikoMd);
 
     for (const amikoMdPath of amikoMdPaths) {
 
