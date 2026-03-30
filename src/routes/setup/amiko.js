@@ -33,13 +33,14 @@ function readAmikoConfig(workspaceDir) {
           userId: String(data.AMIKO_USER_ID || "").trim(),
           twinId: String(data.AMIKO_TWIN_ID || "").trim(),
           userToken: String(data.AMIKO_TWIN_TOKEN || data.AMIKO_USER_TOKEN || "").trim(),
+          platformUrl: String(data.AMIKO_PLATFORM_URL || "").trim(),
         };
       }
     } catch (err) {
       console.warn("[amiko] failed to read config from", cfgPath, err?.message);
     }
   }
-  return { userId: "", twinId: "", userToken: "" };
+  return { userId: "", twinId: "", userToken: "", platformUrl: "" };
 }
 
 export async function pullTwinData(handlers) {
@@ -75,7 +76,8 @@ export async function pullTwinData(handlers) {
   }));
 
   try {
-    const url = `${PLATFORM_BASE_URL}/api/agents/${encodeURIComponent(twinId)}`;
+    const baseUrl = fileCfg.platformUrl || PLATFORM_BASE_URL;
+    const url = `${baseUrl}/api/agents/${encodeURIComponent(twinId)}`;
     console.log("[pullTwinData] fetching twin", { twinId, url });
 
     const response = await fetch(url, {
