@@ -56,11 +56,22 @@ export async function pullTwinData(handlers) {
     return { ok: false, error: "Missing user token" };
   }
 
+  // Decode JWT payload (base64 middle segment) for debug — no verification
+  let jwtPayload = null;
+  try {
+    const raw = userToken.startsWith("clawd-") ? userToken.slice(6) : userToken;
+    const parts = raw.split(".");
+    if (parts.length === 3) {
+      jwtPayload = JSON.parse(Buffer.from(parts[1], "base64url").toString());
+    }
+  } catch {}
+
   console.log("[pullTwinData] config", {
     twinId,
     tokenLen: userToken.length,
     tokenPrefix: userToken.slice(0, 10) + "...",
     workspace: WORKSPACE_DIR,
+    jwtPayload,
   });
 
   try {
