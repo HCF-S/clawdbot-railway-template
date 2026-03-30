@@ -66,13 +66,13 @@ export async function pullTwinData(handlers) {
     }
   } catch {}
 
-  console.log("[pullTwinData] config", {
+  console.log("[pullTwinData] config " + JSON.stringify({
     twinId,
     tokenLen: userToken.length,
     tokenPrefix: userToken.slice(0, 10) + "...",
     workspace: WORKSPACE_DIR,
     jwtPayload,
-  });
+  }));
 
   try {
     const url = `${PLATFORM_BASE_URL}/api/agents/${encodeURIComponent(twinId)}`;
