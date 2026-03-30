@@ -174,6 +174,87 @@ export async function installComposioSkill(handlers) {
 }
 
 /**
+ * Install the genui-skill into STATE_DIR/skills/genui (shared across agents).
+ * Copies server.mjs + SKILL.md and makes server.mjs executable.
+ */
+export async function installGenuiSkill(handlers) {
+  const { STATE_DIR } = handlers;
+
+  const templateDir = path.join(TEMPLATES_DIR, "genui-skill");
+
+  if (!fs.existsSync(templateDir)) {
+    return { ok: false, error: `Template not found: ${templateDir}` };
+  }
+
+  const skillsDir = path.join(STATE_DIR, "skills");
+  const targetDir = path.join(skillsDir, "genui");
+
+  try {
+    fs.mkdirSync(targetDir, { recursive: true });
+
+    const files = fs.readdirSync(templateDir);
+    const copiedFiles = [];
+
+    for (const file of files) {
+      const srcPath = path.join(templateDir, file);
+      if (fs.statSync(srcPath).isDirectory()) continue;
+
+      const destPath = path.join(targetDir, file);
+      fs.copyFileSync(srcPath, destPath);
+
+      if (file === "server.mjs") {
+        fs.chmodSync(destPath, 0o755);
+      }
+
+      copiedFiles.push(file);
+    }
+
+    console.log("[installGenuiSkill] installed to", targetDir);
+    console.log("[installGenuiSkill] files:", copiedFiles.join(", "));
+
+    // Add genui to mcporter.json in every workspace that has a config dir
+    const serverPath = path.join(targetDir, "server.mjs");
+    const genuiEntry = { command: "node", args: [serverPath] };
+    let mcporterUpdated = 0;
+
+    for (const entry of fs.readdirSync(STATE_DIR)) {
+      if (!entry.startsWith("workspace")) continue;
+      const configDir = path.join(STATE_DIR, entry, "config");
+      if (!fs.existsSync(configDir)) continue;
+
+      const mcpPath = path.join(configDir, "mcporter.json");
+      try {
+        let cfg = { mcpServers: {} };
+        if (fs.existsSync(mcpPath)) {
+          const parsed = JSON.parse(fs.readFileSync(mcpPath, "utf8"));
+          if (parsed && typeof parsed === "object") cfg = parsed;
+        }
+        if (!cfg.mcpServers || typeof cfg.mcpServers !== "object") cfg.mcpServers = {};
+        cfg.mcpServers.genui = genuiEntry;
+        fs.writeFileSync(mcpPath, JSON.stringify(cfg, null, 2), "utf8");
+        mcporterUpdated++;
+      } catch (err) {
+        console.warn("[installGenuiSkill] failed to update", mcpPath, err);
+      }
+    }
+
+    if (mcporterUpdated > 0) {
+      console.log("[installGenuiSkill] updated mcporter.json in", mcporterUpdated, "workspace(s)");
+    }
+
+    return {
+      ok: true,
+      path: targetDir,
+      files: copiedFiles,
+      output: `Installed genui skill to: ${targetDir} (${copiedFiles.length} files, ${mcporterUpdated} mcporter config(s) updated)`,
+    };
+  } catch (err) {
+    console.error("[installGenuiSkill] error:", err);
+    return { ok: false, error: String(err) };
+  }
+}
+
+/**
  * Create the skills router
  * Note: The main skill installation endpoint is now at /setup/api/deploy/amiko-skill
  * This router is kept for potential future skill management endpoints

@@ -101,6 +101,15 @@ export function writeAmikoConfigAndMcporter(params) {
 
     const platformUrlNormalized = (resolvedPlatformUrl || "").replace(/\/+$/, "");
 
+    // Genui MCP server (stdio, no auth needed)
+    const genuiServerPath = path.join(path.dirname(workspaceDir), "skills", "genui", "server.mjs");
+    if (fs.existsSync(genuiServerPath)) {
+      mcporterConfig.mcpServers.genui = {
+        command: "node",
+        args: [genuiServerPath],
+      };
+    }
+
     if (amikoTwinId && amikoTwinToken && platformUrlNormalized) {
       const composioUrl = `${platformUrlNormalized}/api/agents/${amikoTwinId}/mcp`;
       mcporterConfig.mcpServers.composio = {
@@ -116,6 +125,11 @@ export function writeAmikoConfigAndMcporter(params) {
         ok: true,
         output: `Saved Amiko config to ${cfgPath} and mcporter config to ${mcporterConfigPath}`,
       };
+    }
+
+    // Even without composio credentials, write mcporter config if genui was added
+    if (mcporterConfig.mcpServers.genui) {
+      fs.writeFileSync(mcporterConfigPath, JSON.stringify(mcporterConfig, null, 2), "utf8");
     }
 
     // If we don't have enough info for Composio MCP, still consider .amiko.json write a success.

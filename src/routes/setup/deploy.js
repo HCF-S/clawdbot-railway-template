@@ -1,5 +1,5 @@
 import express from "express";
-import { installAmikoSkill, installComposioSkill } from "./skills.js";
+import { installAmikoSkill, installComposioSkill, installGenuiSkill } from "./skills.js";
 import { installSysConfig } from "./init.js";
 import { syncAmikoData, pullMemories } from "./amiko.js";
 import { resolveWorkspaceForAgent } from "./amiko-config.js";
@@ -55,6 +55,29 @@ export function createDeployRouter(handlers) {
       }
     } catch (err) {
       console.error("[/setup/api/deploy/composio-skill] error:", err);
+      return res.status(500).json({ ok: false, error: `Internal error: ${String(err)}` });
+    }
+  });
+
+  /**
+   * POST /setup/api/deploy/genui-skill
+   * Deploy/update the genui display-tools skill
+   */
+  router.post("/deploy/genui-skill", requireApiToken, async (_req, res) => {
+    try {
+      const result = await installGenuiSkill(handlers);
+      if (result.ok) {
+        return res.json({
+          ok: true,
+          message: "Genui skill deployed successfully",
+          path: result.path,
+          files: result.files,
+        });
+      } else {
+        return res.status(500).json({ ok: false, error: result.error });
+      }
+    } catch (err) {
+      console.error("[/setup/api/deploy/genui-skill] error:", err);
       return res.status(500).json({ ok: false, error: `Internal error: ${String(err)}` });
     }
   });
@@ -144,6 +167,7 @@ export function createDeployRouter(handlers) {
         amikoData: null,
         amikoSkill: null,
         composioSkill: null,
+        genuiSkill: null,
         sys: null,
         memories: null,
       };
@@ -186,7 +210,20 @@ export function createDeployRouter(handlers) {
         output += `[deploy/composio-skill] Error: ${err}\n`;
       }
 
-      // 4. Install SYS config
+      // 4. Install Genui skill
+      output += "\n[deploy] Installing Genui skill...\n";
+      try {
+        const genuiResult = await installGenuiSkill(handlers);
+        results.genuiSkill = genuiResult;
+        output += genuiResult.ok
+          ? `[deploy/genui-skill] ${genuiResult.output}\n`
+          : `[deploy/genui-skill] Error: ${genuiResult.error}\n`;
+      } catch (err) {
+        results.genuiSkill = { ok: false, error: String(err) };
+        output += `[deploy/genui-skill] Error: ${err}\n`;
+      }
+
+      // 5. Install SYS config
       output += "\n[deploy] Setting up system persistence...\n";
       try {
         const sysResult = await installSysConfig(handlers);
@@ -199,7 +236,7 @@ export function createDeployRouter(handlers) {
         output += `[deploy/sys] Error: ${err}\n`;
       }
 
-      // 5. Optionally sync memories
+      // 6. Optionally sync memories
       if (includeMemories) {
         output += "\n[deploy] Syncing memories (optional)...\n";
         try {
