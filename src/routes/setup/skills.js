@@ -212,11 +212,41 @@ export async function installGenuiSkill(handlers) {
     console.log("[installGenuiSkill] installed to", targetDir);
     console.log("[installGenuiSkill] files:", copiedFiles.join(", "));
 
+    // Add genui to mcporter.json in every workspace that has a config dir
+    const serverPath = path.join(targetDir, "server.mjs");
+    const genuiEntry = { command: "node", args: [serverPath] };
+    let mcporterUpdated = 0;
+
+    for (const entry of fs.readdirSync(STATE_DIR)) {
+      if (!entry.startsWith("workspace")) continue;
+      const configDir = path.join(STATE_DIR, entry, "config");
+      if (!fs.existsSync(configDir)) continue;
+
+      const mcpPath = path.join(configDir, "mcporter.json");
+      try {
+        let cfg = { mcpServers: {} };
+        if (fs.existsSync(mcpPath)) {
+          const parsed = JSON.parse(fs.readFileSync(mcpPath, "utf8"));
+          if (parsed && typeof parsed === "object") cfg = parsed;
+        }
+        if (!cfg.mcpServers || typeof cfg.mcpServers !== "object") cfg.mcpServers = {};
+        cfg.mcpServers.genui = genuiEntry;
+        fs.writeFileSync(mcpPath, JSON.stringify(cfg, null, 2), "utf8");
+        mcporterUpdated++;
+      } catch (err) {
+        console.warn("[installGenuiSkill] failed to update", mcpPath, err);
+      }
+    }
+
+    if (mcporterUpdated > 0) {
+      console.log("[installGenuiSkill] updated mcporter.json in", mcporterUpdated, "workspace(s)");
+    }
+
     return {
       ok: true,
       path: targetDir,
       files: copiedFiles,
-      output: `Installed genui skill to: ${targetDir} (${copiedFiles.length} files)`,
+      output: `Installed genui skill to: ${targetDir} (${copiedFiles.length} files, ${mcporterUpdated} mcporter config(s) updated)`,
     };
   } catch (err) {
     console.error("[installGenuiSkill] error:", err);
