@@ -571,6 +571,9 @@ const ALLOWED_CONSOLE_COMMANDS = new Set([
   "openclaw.doctor",
   "openclaw.logs.tail",
   "openclaw.config.get",
+  "openclaw.mcp.list",
+  "openclaw.mcp.set",
+  "openclaw.mcp.unset",
   "print.envs",
 ]);
 

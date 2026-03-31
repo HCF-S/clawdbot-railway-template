@@ -81,6 +81,25 @@ export function createConsoleRouter(handlers) {
         return res.status(r.code === 0 ? 200 : 500).json({ ok: r.code === 0, output: redactSecrets(r.output) });
       }
 
+      if (cmd === "openclaw.mcp.list") {
+        const r = await runCmd(OPENCLAW_NODE, clawArgs(["mcp", "list"]));
+        return res.status(r.code === 0 ? 200 : 500).json({ ok: r.code === 0, output: redactSecrets(r.output) });
+      }
+      if (cmd === "openclaw.mcp.set") {
+        if (!arg) return res.status(400).json({ ok: false, error: "Missing arg: <name> <json>" });
+        const spaceIdx = arg.indexOf(" ");
+        if (spaceIdx === -1) return res.status(400).json({ ok: false, error: "Usage: <name> <json>" });
+        const name = arg.slice(0, spaceIdx);
+        const json = arg.slice(spaceIdx + 1);
+        const r = await runCmd(OPENCLAW_NODE, clawArgs(["mcp", "set", name, json]));
+        return res.status(r.code === 0 ? 200 : 500).json({ ok: r.code === 0, output: redactSecrets(r.output) });
+      }
+      if (cmd === "openclaw.mcp.unset") {
+        if (!arg) return res.status(400).json({ ok: false, error: "Missing arg: <name>" });
+        const r = await runCmd(OPENCLAW_NODE, clawArgs(["mcp", "unset", arg]));
+        return res.status(r.code === 0 ? 200 : 500).json({ ok: r.code === 0, output: redactSecrets(r.output) });
+      }
+
       if (cmd === "print.envs") {
         const snapshot = {};
         for (const [key, value] of Object.entries(process.env)) {
