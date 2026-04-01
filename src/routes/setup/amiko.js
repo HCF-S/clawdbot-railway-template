@@ -124,9 +124,6 @@ export async function pullTwinData(handlers) {
       identityLines.push("");
       fs.writeFileSync(identityPath, identityLines.join("\n"), "utf8");
       console.log("[pullTwinData] wrote IDENTITY.md");
-
-      fs.rmSync(path.join(WORKSPACE_DIR, "BOOTSTRAP.md"), { force: true });
-      console.log("[pullTwinData] deleted BOOTSTRAP.md");
     }
 
     // Inject AMIKO.md reference into BOOTSTRAP.md or AGENTS.md
