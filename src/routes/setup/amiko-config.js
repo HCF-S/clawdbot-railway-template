@@ -91,10 +91,10 @@ export function resolveWorkspaceForAgent(_handlers, agentId = "main") {
  * Install BOOTSTRAP.md into an agent's workspace.
  * Only writes if the file does not already exist (preserves in-progress bootstraps).
  *
- * @param {{ workspaceDir: string, userName?: string }} opts
+ * @param {{ workspaceDir: string, userName?: string, twinName?: string }} opts
  * @returns {{ ok: boolean, written: boolean, path: string, error?: string }}
  */
-export function installBootstrapMd({ workspaceDir, userName }) {
+export function installBootstrapMd({ workspaceDir, userName, twinName }) {
   const destPath = path.join(workspaceDir, "BOOTSTRAP.md");
   try {
     // Ensure workspace dir exists
@@ -102,7 +102,10 @@ export function installBootstrapMd({ workspaceDir, userName }) {
       fs.mkdirSync(workspaceDir, { recursive: true });
     }
 
-    const content = renderBootstrapMd({ name: userName || "there" });
+    const content = renderBootstrapMd({
+      user: userName || "there",
+      twin_name: twinName || "your Amiko",
+    });
     fs.writeFileSync(destPath, content, "utf8");
     console.log("[bootstrap] Installed BOOTSTRAP.md to:", destPath);
     return { ok: true, written: true, path: destPath };

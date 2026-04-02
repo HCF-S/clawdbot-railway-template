@@ -226,7 +226,13 @@ export function createInitRouter(handlers) {
         try {
           const { WORKSPACE_DIR } = handlers;
           const userName = String(payload.userName ?? "").trim();
-          const bootstrapResult = installBootstrapMd({ workspaceDir: WORKSPACE_DIR, userName });
+          const twinName =
+            String(payload.twinName ?? payload.name ?? payload.agentName ?? "").trim();
+          const bootstrapResult = installBootstrapMd({
+            workspaceDir: WORKSPACE_DIR,
+            userName,
+            twinName,
+          });
           if (bootstrapResult.ok) {
             output += `[bootstrap] Installed BOOTSTRAP.md to ${bootstrapResult.path}\n`;
           } else {

@@ -144,7 +144,12 @@ export function createAgentsRouter(handlers) {
 
         // Install BOOTSTRAP.md for first conversation
         const userName = String(body.userName ?? "").trim();
-        const bootstrapResult = installBootstrapMd({ workspaceDir: workspace, userName });
+        const twinName = String(body.twinName ?? name ?? "").trim();
+        const bootstrapResult = installBootstrapMd({
+          workspaceDir: workspace,
+          userName,
+          twinName,
+        });
         if (!bootstrapResult.ok) {
           console.warn("[add-agent] failed to install BOOTSTRAP.md:", bootstrapResult.error);
         }
