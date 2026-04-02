@@ -149,6 +149,52 @@ curl -X DELETE "https://your-instance/setup/api/files/delete?path=workspace/cust
   -H "x-api-token: YOUR_TOKEN"
 ```
 
+## Plugin Management
+
+Manage OpenClaw plugins (install, uninstall, enable, disable, update) at runtime without redeploying.
+
+| Method | Endpoint | Description | Request body |
+| --- | --- | --- | --- |
+| `GET` | `/setup/api/plugins` | List all discovered plugins with status, version, origin, and capabilities. | — |
+| `GET` | `/setup/api/plugins/:id/info` | Get detailed info for a specific plugin. | — |
+| `POST` | `/setup/api/plugins/install` | Install a plugin from npm spec, local path, or archive (`.zip`/`.tgz`). Gateway auto-restarts after install. | `{ spec: "@scope/pkg@version", pin?: boolean }` |
+| `POST` | `/setup/api/plugins/:id/uninstall` | Uninstall a plugin. Gateway auto-restarts. | — |
+| `POST` | `/setup/api/plugins/:id/enable` | Enable a disabled plugin. Gateway auto-restarts. | — |
+| `POST` | `/setup/api/plugins/:id/disable` | Disable an enabled plugin. Gateway auto-restarts. | — |
+| `POST` | `/setup/api/plugins/update` | Update all npm-installed plugins. Gateway auto-restarts. | — |
+| `POST` | `/setup/api/plugins/:id/update` | Update a specific plugin. Gateway auto-restarts. | — |
+| `POST` | `/setup/api/plugins/doctor` | Diagnose plugin load issues and report warnings. | — |
+
+### Example Usage
+
+```bash
+# List all plugins
+curl -X GET "https://your-instance/setup/api/plugins" \
+  -H "x-api-token: YOUR_TOKEN"
+
+# Install a plugin from npm
+curl -X POST "https://your-instance/setup/api/plugins/install" \
+  -H "x-api-token: YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"spec": "@heyamiko/openclaw-plugin@latest"}'
+
+# Enable a plugin
+curl -X POST "https://your-instance/setup/api/plugins/telegram/enable" \
+  -H "x-api-token: YOUR_TOKEN"
+
+# Disable a plugin
+curl -X POST "https://your-instance/setup/api/plugins/telegram/disable" \
+  -H "x-api-token: YOUR_TOKEN"
+
+# Update all plugins
+curl -X POST "https://your-instance/setup/api/plugins/update" \
+  -H "x-api-token: YOUR_TOKEN"
+
+# Diagnose plugin issues
+curl -X POST "https://your-instance/setup/api/plugins/doctor" \
+  -H "x-api-token: YOUR_TOKEN"
+```
+
 ## Version Management
 
 | Method | Endpoint | Description |
