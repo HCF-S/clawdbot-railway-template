@@ -96,6 +96,21 @@ export function renderAmikoMd(twin, user = null, docs = null) {
 }
 
 /**
+ * Render the BOOTSTRAP.md template
+ * @param {{ user?: string, twin_name?: string }} context
+ * @returns {string} Rendered markdown
+ */
+export function renderBootstrapMd(context = {}) {
+  const user = typeof context.user === "string" && context.user.trim() ? context.user.trim() : "there";
+  const twin_name =
+    typeof context.twin_name === "string" && context.twin_name.trim()
+      ? context.twin_name.trim()
+      : "your Amiko";
+
+  return renderTemplateFile("workspace/BOOTSTRAP.md.tmpl", { user, twin_name });
+}
+
+/**
  * Render the DOC.md template
  * @param {object} doc - Document data from API
  * @returns {string} Rendered markdown

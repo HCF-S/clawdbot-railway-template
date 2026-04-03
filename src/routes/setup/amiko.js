@@ -82,8 +82,8 @@ export async function pullTwinData(handlers) {
 
     const twin = await response.json();
 
-    // Fetch user data
-    const userResponse = await fetch(`${PLATFORM_BASE_URL}/api/auth/me`, {
+    // Fetch current user profile data
+    const userResponse = await fetch(`${PLATFORM_BASE_URL}/api/user/me`, {
       method: "GET",
       headers: {
         authorization: `Bearer ${userToken}`,
@@ -93,7 +93,12 @@ export async function pullTwinData(handlers) {
 
     let user = null;
     if (userResponse.ok) {
-      user = await userResponse.json();
+      const userPayload = await userResponse.json();
+      user = userPayload?.user ?? userPayload ?? null;
+    } else {
+      console.warn("[pullTwinData] failed to fetch /api/user/me", {
+        status: userResponse.status,
+      });
     }
 
     // Write AMIKO.md using template
@@ -168,9 +173,6 @@ Read \`skills/genui/SKILL.md\` for full tool schemas and more examples.
       identityLines.push("");
       fs.writeFileSync(identityPath, identityLines.join("\n"), "utf8");
       console.log("[pullTwinData] wrote IDENTITY.md");
-
-      fs.rmSync(path.join(WORKSPACE_DIR, "BOOTSTRAP.md"), { force: true });
-      console.log("[pullTwinData] deleted BOOTSTRAP.md");
     }
 
     // Inject AMIKO.md reference into BOOTSTRAP.md or AGENTS.md
@@ -596,7 +598,7 @@ export function createTwinRouter(handlers) {
   /**
    * POST /setup/api/amiko/write
    * Writes .amiko.json and config/mcporter.json to the agent's workspace.
-   * Body: { agentId?: string, amikoUserId?: string, amikoTwinId?: string, amikoTwinToken?: string, amikoPlatformUrl?: string }
+   * Body: { agentId?: string, amikoUserId?: string, amikoTwinId?: string, amikoTwinToken?: string, amikoPlatformUrl?: string, amikoChatUrl?: string }
    * Workspace is resolved from openclaw.json per agentId (agents.entries[agentId].workspace or defaults).
    */
   router.post("/amiko/write", requireApiToken, async (req, res) => {
@@ -607,14 +609,17 @@ export function createTwinRouter(handlers) {
       const amikoTwinId = String(body.amikoTwinId ?? "").trim();
       const amikoTwinToken = String(body.amikoTwinToken ?? "").trim();
       const amikoPlatformUrl = String(body.amikoPlatformUrl ?? "").trim() || undefined;
+      const amikoChatUrl = String(body.amikoChatUrl ?? "").trim() || undefined;
 
       const workspaceDir = resolveWorkspaceForAgent(handlers, agentId);
-      const result = writeAmikoConfigAndMcporter({
+      const result = await writeAmikoConfigAndMcporter({
+        handlers,
         workspaceDir,
         amikoUserId,
         amikoTwinId,
         amikoTwinToken,
         amikoPlatformUrl: amikoPlatformUrl || undefined,
+        amikoChatUrl: amikoChatUrl || undefined,
       });
 
       if (result.ok) {

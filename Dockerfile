@@ -1,82 +1,76 @@
-# Build openclaw from source to avoid npm packaging gaps (some dist files are not shipped).
-FROM node:22-bookworm AS openclaw-build
+# syntax=docker/dockerfile:1.7
 
-# Dependencies needed for openclaw build
-RUN apt-get update \
-  && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-    git \
-    ca-certificates \
-    curl \
-    python3 \
-    make \
-    g++ \
-  && rm -rf /var/lib/apt/lists/*
+ARG OPENCLAW_IMAGE=ghcr.io/openclaw/openclaw:2026.3.13-1
+ARG OPENCLAW_NPM_VERSION=2026.3.13
 
-# Install Bun (openclaw build uses it)
-RUN curl -fsSL https://bun.sh/install | bash
-ENV PATH="/root/.bun/bin:${PATH}"
+FROM node:24-bookworm AS amiko-plugin-build
+ARG AMIKO_PLUGIN_REF=main
+ARG OPENCLAW_NPM_VERSION
 
-RUN corepack enable
-
-WORKDIR /openclaw
-
-# Pin to a known-good ref (tag/branch). Override in Railway template settings if needed.
-# Using a released tag avoids build breakage when `main` temporarily references unpublished packages.
-ARG OPENCLAW_GIT_REF=v2026.3.1
-RUN git clone --depth 1 --branch "${OPENCLAW_GIT_REF}" https://github.com/openclaw/openclaw.git .
-
-# Patch: relax version requirements for packages that may reference unpublished versions.
-# Apply to all extension package.json files to handle workspace protocol (workspace:*).
-RUN set -eux; \
-  find ./extensions -name 'package.json' -type f | while read -r f; do \
-    sed -i -E 's/"openclaw"[[:space:]]*:[[:space:]]*">=[^"]+"/"openclaw": "*"/g' "$f"; \
-    sed -i -E 's/"openclaw"[[:space:]]*:[[:space:]]*"workspace:[^"]+"/"openclaw": "*"/g' "$f"; \
-  done
-
-RUN pnpm install --no-frozen-lockfile
-RUN pnpm build
-ENV OPENCLAW_PREFER_PNPM=1
-RUN pnpm ui:install && pnpm ui:build
-
-# Runtime image
-FROM node:22-bookworm
-ENV NODE_ENV=production
-
-RUN apt-get update \
-  && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-    ca-certificates \
-    tini \
-    python3 \
-    python3-venv \
-  && rm -rf /var/lib/apt/lists/*
-
-# `openclaw update` expects pnpm. Provide it in the runtime image.
 RUN corepack enable && corepack prepare pnpm@10.23.0 --activate
+
+WORKDIR /build
+
+RUN AMIKO_PLUGIN_REF="$AMIKO_PLUGIN_REF" node -e ' \
+  const fs = require("node:fs"); \
+  const ref = process.env.AMIKO_PLUGIN_REF; \
+  const url = `https://github.com/HCF-S/openclaw-amiko-plugin/archive/${ref}.tar.gz`; \
+  const out = "/tmp/amiko-plugin.tar.gz"; \
+  (async () => { \
+    for (let attempt = 1; attempt <= 5; attempt += 1) { \
+      try { \
+        const res = await fetch(url); \
+        if (!res.ok) throw new Error(`HTTP ${res.status}`); \
+        const buf = Buffer.from(await res.arrayBuffer()); \
+        fs.writeFileSync(out, buf); \
+        return; \
+      } catch (err) { \
+        if (attempt === 5) throw err; \
+        await new Promise((resolve) => setTimeout(resolve, attempt * 1000)); \
+      } \
+    } \
+  })().catch((err) => { \
+    console.error(`Failed to download ${url}: ${err}`); \
+    process.exit(1); \
+  });'
+
+RUN mkdir -p /build/amiko-plugin \
+  && tar -xzf /tmp/amiko-plugin.tar.gz --strip-components=1 -C /build/amiko-plugin
+
+WORKDIR /build/amiko-plugin
+
+RUN npm pkg set peerDependencies.openclaw="${OPENCLAW_NPM_VERSION}" devDependencies.openclaw="${OPENCLAW_NPM_VERSION}"
+RUN pnpm install --no-frozen-lockfile
+RUN pnpm run build
+RUN rm -rf /build/amiko-plugin/node_modules/openclaw
+
+FROM ${OPENCLAW_IMAGE}
+
+USER root
+
+ENV NODE_ENV=production \
+  OPENCLAW_PUBLIC_PORT=3000 \
+  PORT=3000 \
+  HOME=/data \
+  OPENCLAW_HOME=/data \
+  OPENCLAW_ENTRY=/openclaw/openclaw.mjs
+
+RUN if [ -d /app ] && [ ! -e /openclaw ]; then mv /app /openclaw; fi \
+  && mkdir -p /app /data /home/node \
+  && ln -sfn /data/.openclaw /home/node/.openclaw
 
 WORKDIR /app
 
-# Wrapper deps
 COPY package.json ./
 RUN npm install --omit=dev && npm cache clean --force
-
-# Copy built openclaw
-COPY --from=openclaw-build /openclaw /openclaw
-
-# Provide an openclaw executable
-RUN printf '%s\n' '#!/usr/bin/env bash' 'exec node /openclaw/dist/entry.js "$@"' > /usr/local/bin/openclaw \
-  && chmod +x /usr/local/bin/openclaw
-
-# Install mcporter for composio skill
-RUN npm install -g mcporter@0.7.3
 
 COPY src ./src
 COPY public ./public
 
-# The wrapper listens on this port.
-ENV OPENCLAW_PUBLIC_PORT=3000
-ENV PORT=3000
+COPY --from=amiko-plugin-build /build/amiko-plugin /openclaw/extensions/amiko
+
+RUN npm install -g mcporter@0.7.3 @heyamiko/amiko-cli
+
 EXPOSE 3000
 
-# Ensure PID 1 reaps zombies and forwards signals.
-ENTRYPOINT ["tini", "--"]
 CMD ["node", "src/server.js"]

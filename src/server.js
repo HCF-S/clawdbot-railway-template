@@ -7,7 +7,7 @@ import express from "express";
 import httpProxy from "http-proxy";
 import { createSetupRouter } from "./routes/setup/index.js";
 import { setGatewayControlUiAllowedOrigins } from "./routes/setup/run.js";
-import { installAmikoSkill, installComposioSkill } from "./routes/setup/skills.js";
+// Skills are now bundled in the openclaw-amiko-plugin extension.
 import { installSysConfig } from "./routes/setup/init.js";
 
 // Railway deployments sometimes inject PORT=3000 by default. We want the wrapper to
@@ -19,6 +19,8 @@ const PORT = Number.parseInt(
   process.env.OPENCLAW_PUBLIC_PORT ?? process.env.CLAWDBOT_PUBLIC_PORT ?? process.env.PORT ?? "3000",
   10,
 );
+
+const OPENCLAW_HOME_DIR = process.env.OPENCLAW_HOME?.trim() || "/data";
 
 // State/workspace - hardcoded for this template; no env overrides
 const STATE_DIR = "/data/.openclaw";
@@ -66,11 +68,14 @@ const INTERNAL_GATEWAY_PORT = Number.parseInt(process.env.INTERNAL_GATEWAY_PORT 
 const INTERNAL_GATEWAY_HOST = process.env.INTERNAL_GATEWAY_HOST ?? "127.0.0.1";
 const GATEWAY_TARGET = `http://${INTERNAL_GATEWAY_HOST}:${INTERNAL_GATEWAY_PORT}`;
 
-// Resolve OpenClaw entry: OPENCLAW_ENTRY env, /openclaw (Docker copy), or global npm install.
+// Resolve OpenClaw entry: OPENCLAW_ENTRY env, the containerized OpenClaw app at
+// /openclaw, then fall back to older layouts or global installs.
 function resolveOpenClawEntry() {
   if (process.env.OPENCLAW_ENTRY?.trim()) return process.env.OPENCLAW_ENTRY.trim();
-  if (fs.existsSync("/openclaw/dist/entry.js")) return "/openclaw/dist/entry.js";
   if (fs.existsSync("/openclaw/openclaw.mjs")) return "/openclaw/openclaw.mjs";
+  if (fs.existsSync("/openclaw/dist/entry.js")) return "/openclaw/dist/entry.js";
+  if (fs.existsSync("/app/openclaw.mjs")) return "/app/openclaw.mjs";
+  if (fs.existsSync("/app/dist/entry.js")) return "/app/dist/entry.js";
   // Global install (npm i -g openclaw)
   const globalPaths = [
     "/usr/local/lib/node_modules/openclaw/dist/entry.js",
@@ -173,7 +178,8 @@ async function startGateway() {
     stdio: "inherit",
     env: {
       ...process.env,
-      OPENCLAW_HOME: "/data",
+      HOME: OPENCLAW_HOME_DIR,
+      OPENCLAW_HOME: OPENCLAW_HOME_DIR,
       OPENCLAW_STATE_DIR: STATE_DIR,
       OPENCLAW_WORKSPACE_DIR: WORKSPACE_DIR,
     },
@@ -394,25 +400,7 @@ async function bootstrapWithDummyKey() {
   }
 
   // After initial onboarding, install default skills and SYS config once on container start.
-  try {
-    console.log("[wrapper] installing default Amiko skill after bootstrap...");
-    const amikoResult = await installAmikoSkill(handlers);
-    if (!amikoResult.ok) {
-      console.warn("[wrapper] Amiko skill install warning:", amikoResult.error);
-    }
-  } catch (err) {
-    console.warn("[wrapper] Amiko skill install failed:", err);
-  }
-
-  try {
-    console.log("[wrapper] installing default Composio skill after bootstrap...");
-    const composioResult = await installComposioSkill(handlers);
-    if (!composioResult.ok) {
-      console.warn("[wrapper] Composio skill install warning:", composioResult.error);
-    }
-  } catch (err) {
-    console.warn("[wrapper] Composio skill install failed:", err);
-  }
+  // Note: Amiko + Composio skills are now bundled in the openclaw-amiko-plugin extension.
 
   try {
     console.log("[wrapper] installing SYS config after bootstrap...");
@@ -422,6 +410,14 @@ async function bootstrapWithDummyKey() {
     }
   } catch (err) {
     console.warn("[wrapper] SYS config install failed:", err);
+  }
+
+  // Enable the amiko channel plugin
+  try {
+    const enableAmiko = await runCmd(OPENCLAW_NODE, clawArgs(["plugins", "enable", "amiko"]));
+    console.log(`[wrapper] plugins enable amiko: exit=${enableAmiko.code}`, enableAmiko.output.slice(0, 200));
+  } catch (err) {
+    console.warn("[wrapper] plugins enable amiko failed:", err);
   }
 
   console.log("[wrapper] bootstrap complete (dummy key); call /init with real OpenRouter key to activate");
@@ -494,25 +490,7 @@ async function bootstrapFromEnv() {
   }
 
   // After initial onboarding, install default skills and SYS config once on container start.
-  try {
-    console.log("[wrapper] installing default Amiko skill after bootstrap-from-env...");
-    const amikoResult = await installAmikoSkill(handlers);
-    if (!amikoResult.ok) {
-      console.warn("[wrapper] Amiko skill install warning:", amikoResult.error);
-    }
-  } catch (err) {
-    console.warn("[wrapper] Amiko skill install failed:", err);
-  }
-
-  try {
-    console.log("[wrapper] installing default Composio skill after bootstrap-from-env...");
-    const composioResult = await installComposioSkill(handlers);
-    if (!composioResult.ok) {
-      console.warn("[wrapper] Composio skill install warning:", composioResult.error);
-    }
-  } catch (err) {
-    console.warn("[wrapper] Composio skill install failed:", err);
-  }
+  // Note: Amiko + Composio skills are now bundled in the openclaw-amiko-plugin extension.
 
   try {
     console.log("[wrapper] installing SYS config after bootstrap-from-env...");
@@ -524,6 +502,14 @@ async function bootstrapFromEnv() {
     console.warn("[wrapper] SYS config install failed:", err);
   }
 
+  // Enable the amiko channel plugin
+  try {
+    const enableAmiko = await runCmd(OPENCLAW_NODE, clawArgs(["plugins", "enable", "amiko"]));
+    console.log(`[wrapper] plugins enable amiko: exit=${enableAmiko.code}`, enableAmiko.output.slice(0, 200));
+  } catch (err) {
+    console.warn("[wrapper] plugins enable amiko failed:", err);
+  }
+
   console.log("[wrapper] bootstrap complete; gateway can auto-start");
 }
 
@@ -533,7 +519,8 @@ function runCmd(cmd, args, opts = {}) {
       ...opts,
     env: {
       ...process.env,
-      OPENCLAW_HOME: "/data",
+      HOME: OPENCLAW_HOME_DIR,
+      OPENCLAW_HOME: OPENCLAW_HOME_DIR,
       OPENCLAW_STATE_DIR: STATE_DIR,
       OPENCLAW_WORKSPACE_DIR: WORKSPACE_DIR,
     },
@@ -576,14 +563,18 @@ const ALLOWED_CONSOLE_COMMANDS = new Set([
 
 const app = express();
 app.disable("x-powered-by");
+// Only parse bodies for setup endpoints. Webhooks and plugin-owned routes must
+// stay as untouched streams so they can be proxied to the gateway intact.
 // Amiko import: raw zip body for POST /setup/api/import (run before json so body is preserved)
 app.use((req, res, next) => {
+  if (!req.path.startsWith("/setup")) return next();
   if (req.path === "/setup/api/import" && req.method === "POST") {
     return express.raw({ type: "application/zip", limit: "100mb" })(req, res, next);
   }
   next();
 });
 app.use((req, res, next) => {
+  if (!req.path.startsWith("/setup")) return next();
   if (req.path === "/setup/api/import" && req.method === "POST") return next();
   return express.json({ limit: "1mb" })(req, res, next);
 });

@@ -68,7 +68,7 @@ Push/merge to `main` does **not** trigger auto deploy. To deploy sandbox instanc
 # Stop
 ./start-dev.sh stop
 
-# Rebuild image
+# Rebuild image without Docker layer cache
 ./start-dev.sh build
 ```
 
@@ -92,3 +92,5 @@ docker run --rm -p 3000:3000 \
 - On first setup, `/setup/api/init` runs onboarding, syncs Amiko twin data and documents, and installs skills
 - After setup, the gateway runs at `/` with full WebSocket support
 - All state is written to the Railway Volume so it persists across redeploys and restarts
+
+

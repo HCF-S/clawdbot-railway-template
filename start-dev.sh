@@ -24,17 +24,19 @@ cmd="${1:-start}"
 
 case "${cmd}" in
   start)
-    # Must run from repo root (host dir is mounted at /app; container uses its node_modules)
+    # Must run from repo root (host dir is mounted at /app; OpenClaw runtime lives at /openclaw)
     if [ ! -f src/server.js ] || [ ! -f package.json ]; then
       echo "Error: Run ./start-dev.sh from the clawdbot-railway-template directory."
       exit 1
     fi
     npm install
     docker run --rm --name "${CONTAINER_NAME}" -p "${PORT}:3000" \
+      -e HOME=/data \
       -e PORT=3000 \
       -e SETUP_PASSWORD="${SETUP_PASSWORD}" \
       -e OPENCLAW_GATEWAY_TOKEN="${OPENCLAW_GATEWAY_TOKEN}" \
       -e OPENCLAW_HOME=/data \
+      -e OPENCLAW_ENTRY=/openclaw/openclaw.mjs \
       -v "$(pwd):/app" \
       -v "${DATA_DIR}:/data" \
       -w /app \
@@ -67,7 +69,8 @@ case "${cmd}" in
     ;;
   build)
     docker image rm -f "${IMAGE_NAME}" || true
-    docker build -t "${IMAGE_NAME}" .
+    # Force a fresh rebuild so Docker does not reuse cached git clone layers.
+    docker build --pull --no-cache -t "${IMAGE_NAME}" .
     exit 0
     ;;
   *)
@@ -76,7 +79,7 @@ case "${cmd}" in
     echo "  start  - Run container (default). Amiko IDs go via init, not env."
     echo "  init   - POST /setup/api/init with OPENROUTER_API_KEY, AMIKO_USER_ID, AMIKO_TWIN_ID, AMIKO_TWIN_TOKEN (from .env)"
     echo "  stop   - Stop container"
-    echo "  build  - Rebuild Docker image"
+    echo "  build  - Rebuild Docker image without Docker layer cache"
     exit 1
     ;;
 esac

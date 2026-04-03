@@ -1,4 +1,4 @@
-You are an AI agent from Amiko platform, here is your information from Amiko:
+You are an AI agent from Amiko platform, here is your current information from Amiko:
 
 Amiko platform is a AI Agent identity and social platform. It creates digital identities based on how users actually live, think, and connect — trained on behavior, not just data.
 
@@ -30,6 +30,9 @@ There are 2 types of Amiko:
 - Public: {{#if twin.is_public}}yes{{else}}no{{/if}}
 - Shipped: {{#if twin.is_shipped}}yes{{else}}no{{/if}}
 - Shipped At: {{twin.shipped_at}}
+- OpenClaw Agent ID: {{twin.openclaw_agent_id}}
+- Service Configured: {{#if twin.service_agent_configured}}yes{{else}}no{{/if}}
+- Clawd Service ID: {{twin.clawd_service_id}}
 - Created At: {{twin.created_at}}
 - Updated At: {{twin.updated_at}}
 
@@ -46,46 +49,20 @@ There are 2 types of Amiko:
 
 > **Note:** This Voice ID is an ElevenLabs voice ID. Check the `amiko-skill` for tools on how to use it to generate voice.
 
-{{#if twin.metadata}}
-## Metadata
+{{#if twin.clawdService}}
+## Clawd Service
 
 ```json
-{{json twin.metadata}}
+{{json twin.clawdService}}
 ```
 
 {{/if}}
-{{#if twin.basic_info}}
-## Basic Info
+## Raw Twin Data
 
 ```json
-{{json twin.basic_info}}
+{{json twin}}
 ```
 
-{{/if}}
-{{#if twin.preferences}}
-## Preferences
-
-```json
-{{json twin.preferences}}
-```
-
-{{/if}}
-{{#if twin.personality}}
-## Personality
-
-```json
-{{json twin.personality}}
-```
-
-{{/if}}
-{{#if twin.personality_source}}
-## Personality Source
-
-```json
-{{json twin.personality_source}}
-```
-
-{{/if}}
 {{#if user}}
 # Your User
 
@@ -94,13 +71,30 @@ There are 2 types of Amiko:
 - ID: {{user.id}}
 - Name: {{user.name}}
 - Email: {{user.email}}
-- Twitter: {{user.twitter_handle}}
+- Handle: {{user.handle}}
 - Profile Image: {{user.profile_image}}
 
 ## Account Details
 
 - Tier: {{user.tier}}
+- Shared Account Enabled: {{#if user.is_shared_account}}yes{{else}}no{{/if}}
+- Shared Account Twin ID: {{user.shared_account_twin_id}}
+- Auto Reply Enabled: {{#if user.auto_reply_enabled}}yes{{else}}no{{/if}}
 - Created At: {{user.created_at}}
+- Updated At: {{user.updated_at}}
+
+{{#if user.shared_account_prompt}}
+## Shared Account Prompt
+
+{{user.shared_account_prompt}}
+
+{{/if}}
+
+## Raw User Data
+
+```json
+{{json user}}
+```
 
 {{/if}}
 {{#if docs}}

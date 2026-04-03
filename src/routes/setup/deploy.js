@@ -1,5 +1,5 @@
 import express from "express";
-import { installAmikoSkill, installComposioSkill, installGenuiSkill } from "./skills.js";
+import { installGenuiSkill } from "./skills.js";
 import { installSysConfig } from "./init.js";
 import { syncAmikoData, pullMemories } from "./amiko.js";
 import { resolveWorkspaceForAgent } from "./amiko-config.js";
@@ -13,51 +13,7 @@ export function createDeployRouter(handlers) {
   const { requireApiToken } = handlers;
   const router = express.Router();
 
-  /**
-   * POST /setup/api/deploy/amiko-skill
-   * Deploy/update the amiko-skill to an existing instance
-   */
-  router.post("/deploy/amiko-skill", requireApiToken, async (_req, res) => {
-    try {
-      const result = await installAmikoSkill(handlers);
-      if (result.ok) {
-        return res.json({
-          ok: true,
-          message: "Amiko skill deployed successfully",
-          path: result.path,
-          files: result.files,
-        });
-      } else {
-        return res.status(500).json({ ok: false, error: result.error });
-      }
-    } catch (err) {
-      console.error("[/setup/api/deploy/amiko-skill] error:", err);
-      return res.status(500).json({ ok: false, error: `Internal error: ${String(err)}` });
-    }
-  });
-
-  /**
-   * POST /setup/api/deploy/composio-skill
-   * Deploy/update the composio-skill (SKILL.md + docs). Composio MCP proxy runs on 127.0.0.1:3099 when AMIKO_PLATFORM_URL is set.
-   */
-  router.post("/deploy/composio-skill", requireApiToken, async (_req, res) => {
-    try {
-      const result = await installComposioSkill(handlers);
-      if (result.ok) {
-        return res.json({
-          ok: true,
-          message: "Composio skill deployed successfully",
-          path: result.path,
-          files: result.files,
-        });
-      } else {
-        return res.status(500).json({ ok: false, error: result.error });
-      }
-    } catch (err) {
-      console.error("[/setup/api/deploy/composio-skill] error:", err);
-      return res.status(500).json({ ok: false, error: `Internal error: ${String(err)}` });
-    }
-  });
+  // Note: /deploy/amiko-skill and /deploy/composio-skill removed — both skills are now bundled in openclaw-amiko-plugin extension.
 
   /**
    * POST /setup/api/deploy/genui-skill
@@ -184,31 +140,7 @@ export function createDeployRouter(handlers) {
         output += `[deploy/amiko-data] Error: ${err}\n`;
       }
 
-      // 2. Install Amiko skill
-      output += "\n[deploy] Installing Amiko skill...\n";
-      try {
-        const skillResult = await installAmikoSkill(handlers);
-        results.amikoSkill = skillResult;
-        output += skillResult.ok
-          ? `[deploy/amiko-skill] ${skillResult.output}\n`
-          : `[deploy/amiko-skill] Error: ${skillResult.error}\n`;
-      } catch (err) {
-        results.amikoSkill = { ok: false, error: String(err) };
-        output += `[deploy/amiko-skill] Error: ${err}\n`;
-      }
-
-      // 3. Install Composio skill
-      output += "\n[deploy] Installing Composio skill...\n";
-      try {
-        const composioResult = await installComposioSkill(handlers);
-        results.composioSkill = composioResult;
-        output += composioResult.ok
-          ? `[deploy/composio-skill] ${composioResult.output}\n`
-          : `[deploy/composio-skill] Error: ${composioResult.error}\n`;
-      } catch (err) {
-        results.composioSkill = { ok: false, error: String(err) };
-        output += `[deploy/composio-skill] Error: ${err}\n`;
-      }
+      // 2-3. Amiko + Composio skills — now bundled in openclaw-amiko-plugin extension (skipped)
 
       // 4. Install Genui skill
       output += "\n[deploy] Installing Genui skill...\n";
