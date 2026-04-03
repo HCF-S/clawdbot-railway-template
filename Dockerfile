@@ -69,7 +69,7 @@ COPY public ./public
 
 COPY --from=amiko-plugin-build /build/amiko-plugin /openclaw/extensions/amiko
 
-RUN npm install -g mcporter@0.7.3
+RUN npm install -g mcporter@0.7.3 @heyamiko/amiko-cli
 
 EXPOSE 3000
 
