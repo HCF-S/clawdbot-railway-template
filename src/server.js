@@ -420,6 +420,17 @@ async function bootstrapWithDummyKey() {
     console.warn("[wrapper] plugins enable amiko failed:", err);
   }
 
+  // Configure tools policy
+  for (const [key, val] of [
+    ["tools.profile", "full"],
+    ["tools.allow", '["*"]'],
+    ["tools.exec.host", "gateway"],
+    ["tools.exec.security", "full"],
+    ["tools.exec.ask", "off"],
+  ]) {
+    await runCmd(OPENCLAW_NODE, clawArgs(["config", "set", key, val]));
+  }
+
   console.log("[wrapper] bootstrap complete (dummy key); call /init with real OpenRouter key to activate");
 }
 
@@ -508,6 +519,17 @@ async function bootstrapFromEnv() {
     console.log(`[wrapper] plugins enable amiko: exit=${enableAmiko.code}`, enableAmiko.output.slice(0, 200));
   } catch (err) {
     console.warn("[wrapper] plugins enable amiko failed:", err);
+  }
+
+  // Configure tools policy
+  for (const [key, val] of [
+    ["tools.profile", "full"],
+    ["tools.allow", '["*"]'],
+    ["tools.exec.host", "gateway"],
+    ["tools.exec.security", "full"],
+    ["tools.exec.ask", "off"],
+  ]) {
+    await runCmd(OPENCLAW_NODE, clawArgs(["config", "set", key, val]));
   }
 
   console.log("[wrapper] bootstrap complete; gateway can auto-start");
