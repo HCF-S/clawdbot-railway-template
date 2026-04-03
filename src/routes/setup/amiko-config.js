@@ -209,6 +209,15 @@ export async function writeAmikoConfigAndMcporter(params) {
 
     const platformUrlNormalized = (resolvedPlatformUrl || "").replace(/\/+$/, "");
 
+    // Genui MCP server (stdio, no auth needed)
+    const genuiServerPath = path.join(path.dirname(workspaceDir), "skills", "genui", "server.mjs");
+    if (fs.existsSync(genuiServerPath)) {
+      mcporterConfig.mcpServers.genui = {
+        command: "node",
+        args: [genuiServerPath],
+      };
+    }
+
     if (amikoTwinId && amikoTwinToken && platformUrlNormalized) {
       mcporterConfig.mcpServers.composio = {
         url: `${platformUrlNormalized}/api/agents/${amikoTwinId}/mcp`,
@@ -218,6 +227,11 @@ export async function writeAmikoConfigAndMcporter(params) {
       outputs.push(`Saved Amiko config to ${cfgPath} and mcporter config to ${mcporterConfigPath}`);
     } else {
       outputs.push(`Saved Amiko config to ${cfgPath} (mcporter composio entry skipped: missing twinId/token or platform URL)`);
+    }
+
+    // Even without composio credentials, write mcporter config if genui was added
+    if (mcporterConfig.mcpServers.genui) {
+      fs.writeFileSync(mcporterConfigPath, JSON.stringify(mcporterConfig, null, 2), "utf8");
     }
 
     // ── 3. Write channels.amiko config to openclaw.json ───────────────────────

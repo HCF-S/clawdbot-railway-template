@@ -56,6 +56,13 @@ export async function pullTwinData(handlers) {
     return { ok: false, error: "Missing user token" };
   }
 
+  console.log("[pullTwinData] config", {
+    twinId,
+    tokenLen: userToken.length,
+    tokenPrefix: userToken.slice(0, 10) + "...",
+    workspace: WORKSPACE_DIR,
+  });
+
   try {
     const url = `${PLATFORM_BASE_URL}/api/agents/${encodeURIComponent(twinId)}`;
     console.log("[pullTwinData] fetching twin", { twinId, url });
@@ -101,7 +108,49 @@ export async function pullTwinData(handlers) {
     fs.writeFileSync(outPath, markdown, "utf8");
     console.log("[pullTwinData] saved", { path: outPath });
 
-    const personality = typeof twin.description === "string" ? twin.description.trim() : "";
+    // Inject genui display tools section if the skill is installed
+    const genuiSkillMd = path.join(path.dirname(WORKSPACE_DIR), "skills", "genui", "SKILL.md");
+    if (fs.existsSync(genuiSkillMd)) {
+      try {
+        let amikoContent = fs.readFileSync(outPath, "utf8");
+        if (!amikoContent.includes("## Display Tools (Generative UI)")) {
+          amikoContent = amikoContent.trimEnd() + `
+
+---
+
+## Display Tools (Generative UI)
+
+You have **display tools** via \`mcporter call genui.<tool>\`. These render rich cards in the chat UI instead of plain text. **Always prefer display tools over markdown/text when presenting structured data.**
+
+### Available Tools
+
+| Tool | When to use |
+|------|-------------|
+| \`genui.show_weather\` | Presenting weather info |
+| \`genui.show_profile\` | Showing a user/twin/friend profile |
+| \`genui.create_poll\` | Creating or displaying a poll |
+| \`genui.preview_link\` | Sharing a URL with a rich preview |
+| \`genui.show_table\` | Presenting tabular data |
+
+### How to call
+
+Use \`key:value\` syntax. Quote strings with spaces using double quotes, wrap JSON arrays/objects in single quotes:
+
+\`\`\`bash
+mcporter call genui.show_weather location:"Tokyo, Japan" temperature:17 condition:"Patchy rain" unit:C humidity:81 wind:"27 km/h SSW" forecast:'[{"day":"Tue","high":18,"low":16,"condition":"Patchy rain"},{"day":"Wed","high":17,"low":14,"condition":"Light rain"}]'
+\`\`\`
+
+Read \`skills/genui/SKILL.md\` for full tool schemas and more examples.
+`;
+          fs.writeFileSync(outPath, amikoContent, "utf8");
+          console.log("[pullTwinData] injected genui section into AMIKO.md");
+        }
+      } catch (err) {
+        console.warn("[pullTwinData] failed to inject genui section:", err);
+      }
+    }
+
+    const personality = typeof twin.personality === "string" ? twin.personality.trim() : "";
     const name = typeof twin.name === "string" ? twin.name.trim() : "";
     if (personality) {
       const soulPath = path.join(WORKSPACE_DIR, "SOUL.md");

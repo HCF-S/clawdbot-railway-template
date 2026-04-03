@@ -97,17 +97,30 @@ export function createImportRouter(handlers) {
     }
   });
 
+  function copyDirRecursive(src, dest) {
+    fs.mkdirSync(dest, { recursive: true });
+    for (const entry of fs.readdirSync(src, { withFileTypes: true })) {
+      const srcPath = path.join(src, entry.name);
+      const destPath = path.join(dest, entry.name);
+      if (entry.isDirectory()) {
+        copyDirRecursive(srcPath, destPath);
+      } else {
+        fs.copyFileSync(srcPath, destPath);
+      }
+    }
+  }
+
   /**
    * POST /api/import
-   * Amiko import: accept ZIP with workspace/ and sessions/, extract to the target agent's dirs.
+   * Amiko import: accept ZIP or tar.gz with workspace/ and sessions/, extract to the target agent's dirs.
    * Query: agentId (optional) - OpenClaw agent id (default "main"). For reused instances use the twin's openclaw_agent_id.
-   * Requires x-api-token. Body: raw application/zip.
+   * Requires x-api-token. Body: raw application/zip or application/gzip.
    */
   router.post("/api/import", requireApiToken, async (req, res) => {
     try {
       const buf = req.body;
       if (!buf || !Buffer.isBuffer(buf) || buf.length === 0) {
-        return res.status(400).json({ ok: false, error: "Empty or invalid body (expect application/zip)" });
+        return res.status(400).json({ ok: false, error: "Empty or invalid body (expect application/zip or application/gzip)" });
       }
       if (buf.length > MAX_ZIP_BYTES) {
         return res.status(413).json({ ok: false, error: "Payload too large" });
@@ -116,34 +129,66 @@ export function createImportRouter(handlers) {
       const agentId = (req.query.agentId || req.get("x-openclaw-agent-id") || "main").trim() || "main";
       const { workspaceDir, sessionsDir } = resolveAgentDirs(agentId);
 
-      const zip = new AdmZip(buf);
-      const entries = zip.getEntries();
-
       fs.mkdirSync(workspaceDir, { recursive: true });
       fs.mkdirSync(sessionsDir, { recursive: true });
 
-      for (const entry of entries) {
-        const name = entry.entryName.replace(/\\/g, "/");
-        if (name.includes("..")) continue;
-        if (name.startsWith("workspace/")) {
-          const rel = name.slice("workspace/".length);
-          if (!rel) continue;
-          const full = path.join(workspaceDir, rel);
-          if (entry.isDirectory) {
-            fs.mkdirSync(full, { recursive: true });
-          } else {
-            fs.mkdirSync(path.dirname(full), { recursive: true });
-            fs.writeFileSync(full, entry.getData());
-          }
-        } else if (name.startsWith("sessions/")) {
-          const rel = name.slice("sessions/".length);
-          if (!rel) continue;
-          const full = path.join(sessionsDir, rel);
-          if (entry.isDirectory) {
-            fs.mkdirSync(full, { recursive: true });
-          } else {
-            fs.mkdirSync(path.dirname(full), { recursive: true });
-            fs.writeFileSync(full, entry.getData());
+      const isGzip = buf.length >= 2 && buf[0] === 0x1f && buf[1] === 0x8b;
+
+      if (isGzip) {
+        const tmpDir = path.join(os.tmpdir(), `openclaw-import-${Date.now()}`);
+        const tmpFile = tmpDir + ".tar.gz";
+        fs.mkdirSync(tmpDir, { recursive: true });
+        fs.writeFileSync(tmpFile, buf);
+
+        await tar.x({
+          file: tmpFile,
+          cwd: tmpDir,
+          gzip: true,
+          strict: true,
+          onwarn: () => {},
+          filter: (p) => looksSafeTarPath(p),
+        });
+
+        try { fs.rmSync(tmpFile, { force: true }); } catch {}
+
+        const tmpWorkspace = path.join(tmpDir, "workspace");
+        if (fs.existsSync(tmpWorkspace)) {
+          copyDirRecursive(tmpWorkspace, workspaceDir);
+        }
+
+        const tmpSessions = path.join(tmpDir, "sessions");
+        if (fs.existsSync(tmpSessions)) {
+          copyDirRecursive(tmpSessions, sessionsDir);
+        }
+
+        try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {}
+      } else {
+        const zip = new AdmZip(buf);
+        const entries = zip.getEntries();
+
+        for (const entry of entries) {
+          const name = entry.entryName.replace(/\\/g, "/");
+          if (name.includes("..")) continue;
+          if (name.startsWith("workspace/")) {
+            const rel = name.slice("workspace/".length);
+            if (!rel) continue;
+            const full = path.join(workspaceDir, rel);
+            if (entry.isDirectory) {
+              fs.mkdirSync(full, { recursive: true });
+            } else {
+              fs.mkdirSync(path.dirname(full), { recursive: true });
+              fs.writeFileSync(full, entry.getData());
+            }
+          } else if (name.startsWith("sessions/")) {
+            const rel = name.slice("sessions/".length);
+            if (!rel) continue;
+            const full = path.join(sessionsDir, rel);
+            if (entry.isDirectory) {
+              fs.mkdirSync(full, { recursive: true });
+            } else {
+              fs.mkdirSync(path.dirname(full), { recursive: true });
+              fs.writeFileSync(full, entry.getData());
+            }
           }
         }
       }
