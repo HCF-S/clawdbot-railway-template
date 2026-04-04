@@ -15,70 +15,6 @@ function resolveDefaultAmikoChatUrl(platformUrl = "") {
   return platformUrl === DEFAULT_AMIKO_PLATFORM_URL ? DEFAULT_AMIKO_CHAT_URL : "";
 }
 
-function parseConfigValue(raw) {
-  const text = String(raw ?? "").trim();
-  if (!text) return undefined;
-  try {
-    return JSON.parse(text);
-  } catch {
-    return text;
-  }
-}
-
-async function runOpenClaw(handlers, args) {
-  const { runCmd, clawArgs, OPENCLAW_NODE } = handlers || {};
-  if (typeof runCmd !== "function" || typeof clawArgs !== "function" || !OPENCLAW_NODE) {
-    return { ok: false, error: "OpenClaw CLI handlers are required" };
-  }
-
-  const result = await runCmd(OPENCLAW_NODE, clawArgs(args));
-  if (result.code !== 0) {
-    return {
-      ok: false,
-      error: `openclaw ${args.join(" ")} failed (exit=${result.code})\n${result.output || ""}`.trim(),
-    };
-  }
-
-  return { ok: true, output: result.output || "" };
-}
-
-function isMissingPathError(message) {
-  return /not found|missing|undefined|null|does not exist|no value/i.test(String(message || ""));
-}
-
-async function getConfigValue(handlers, path) {
-  const result = await runOpenClaw(handlers, ["config", "get", path]);
-  if (!result.ok) {
-    if (isMissingPathError(result.error)) {
-      return { ok: true, value: undefined };
-    }
-    return { ok: false, error: result.error };
-  }
-  return { ok: true, value: parseConfigValue(result.output) };
-}
-
-async function setConfigJson(handlers, path, value) {
-  return runOpenClaw(handlers, ["config", "set", "--json", path, JSON.stringify(value)]);
-}
-
-async function unsetConfigPath(handlers, path) {
-  return runOpenClaw(handlers, ["config", "unset", path]);
-}
-
-function normalizeAccountMap(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return {};
-  }
-
-  const normalized = {};
-  for (const [rawKey, rawConfig] of Object.entries(value)) {
-    const key = String(rawKey).trim().replace(/^"+|"+$/g, "");
-    if (!key) continue;
-    normalized[key] = rawConfig;
-  }
-  return normalized;
-}
-
 /**
  * Resolve workspace directory for a given agentId.
  */
@@ -261,6 +197,9 @@ export async function writeAmikoConfigAndMcporter(params) {
 /**
  * Write amiko channel config into openclaw.json so the amiko plugin
  * can authenticate with the Amiko platform.
+ *
+ * Directly reads/writes openclaw.json instead of going through the CLI
+ * to avoid parsing issues that could cause one agent's config to overwrite another's.
  */
 async function writeAmikoChannelConfig(params) {
   const {
@@ -277,7 +216,7 @@ async function writeAmikoChannelConfig(params) {
   }
 
   if (!handlers) {
-    return { ok: false, error: "handlers is required to write OpenClaw config via CLI" };
+    return { ok: false, error: "handlers is required for config path resolution" };
   }
 
   try {
@@ -286,52 +225,55 @@ async function writeAmikoChannelConfig(params) {
       amikoChatUrl ||
       resolveDefaultAmikoChatUrl(platformUrl)
     ).replace(/\/+$/, "");
-    const channelBinding = `amiko:${agentId}`;
+
     const accountConfig = {
       twinId: amikoTwinId,
       token: amikoTwinToken,
       platformApiBaseUrl: platformUrl,
       chatApiBaseUrl: chatUrl || platformUrl,
     };
-    const existingAccounts = await getConfigValue(handlers, "channels.amiko.accounts");
-    if (!existingAccounts.ok) return existingAccounts;
-    const accounts = normalizeAccountMap(existingAccounts.value);
-    accounts[agentId] = accountConfig;
 
-    const accountSet = await setConfigJson(handlers, "channels.amiko.accounts", accounts);
-    if (!accountSet.ok) return accountSet;
-
-    const defaultAccount = await getConfigValue(handlers, "channels.amiko.defaultAccount");
-    if (!defaultAccount.ok) return defaultAccount;
-    if (!String(defaultAccount.value ?? "").trim()) {
-      const defaultSet = await runOpenClaw(handlers, ["config", "set", "channels.amiko.defaultAccount", agentId]);
-      if (!defaultSet.ok) return defaultSet;
+    // Directly read/write openclaw.json to safely merge accounts
+    const cfgPath = handlers.configPath ? handlers.configPath() : path.join("/data/.openclaw", "openclaw.json");
+    if (!fs.existsSync(cfgPath)) {
+      return { ok: false, error: `openclaw.json not found at ${cfgPath}` };
     }
 
-    const bindResult = await runOpenClaw(handlers, [
-      "agents",
-      "bind",
-      "--agent",
-      agentId,
-      "--bind",
-      channelBinding,
-    ]);
-    if (!bindResult.ok) return bindResult;
-
-    // Clean up the old nested binding location from earlier template versions.
-    const legacyBindingsPath = `agents.entries.${agentId}.routing.bindings`;
-    const legacyBindings = await getConfigValue(handlers, legacyBindingsPath);
-    if (!legacyBindings.ok) return legacyBindings;
-    if (legacyBindings.value !== undefined) {
-      const unsetLegacy = await unsetConfigPath(handlers, legacyBindingsPath);
-      if (!unsetLegacy.ok && !isMissingPathError(unsetLegacy.error)) {
-        return unsetLegacy;
-      }
+    const cfg = JSON.parse(fs.readFileSync(cfgPath, "utf8"));
+    if (!cfg.channels) cfg.channels = {};
+    if (!cfg.channels.amiko) cfg.channels.amiko = {};
+    if (!cfg.channels.amiko.accounts || typeof cfg.channels.amiko.accounts !== "object") {
+      cfg.channels.amiko.accounts = {};
     }
+
+    // Merge: add/update this agent's account, preserving all others
+    cfg.channels.amiko.accounts[agentId] = accountConfig;
+
+    // Set defaultAccount if not already set
+    if (!cfg.channels.amiko.defaultAccount) {
+      cfg.channels.amiko.defaultAccount = agentId;
+    }
+
+    // Ensure top-level bindings array has a route for this agent
+    if (!Array.isArray(cfg.bindings)) cfg.bindings = [];
+    const channelBinding = `amiko:${agentId}`;
+    const hasBinding = cfg.bindings.some(
+      (b) => b.type === "route" && b.agentId === agentId &&
+        b.match?.channel === "amiko" && b.match?.accountId === agentId,
+    );
+    if (!hasBinding) {
+      cfg.bindings.push({
+        type: "route",
+        agentId,
+        match: { channel: "amiko", accountId: agentId },
+      });
+    }
+
+    fs.writeFileSync(cfgPath, JSON.stringify(cfg, null, 2), "utf8");
 
     return {
       ok: true,
-      output: `Wrote amiko channel config for agent ${agentId} (twin ${amikoTwinId}) via OpenClaw CLI and ensured routing binding ${channelBinding} with agents bind`,
+      output: `Wrote amiko channel config for agent ${agentId} (twin ${amikoTwinId}) — accounts preserved: [${Object.keys(cfg.channels.amiko.accounts).join(", ")}]`,
     };
   } catch (err) {
     return { ok: false, error: String(err) };
