@@ -26,8 +26,8 @@ COPY src ./src
 COPY public ./public
 
 RUN npm install -g mcporter@0.7.3 @heyamiko/amiko-cli @heyamiko/openclaw-amiko @tencent-weixin/openclaw-weixin \
-  && ln -s "$(npm root -g)/@heyamiko/openclaw-amiko" /openclaw/dist/extensions/openclaw-amiko \
-  && ln -s "$(npm root -g)/@tencent-weixin/openclaw-weixin" /openclaw/dist/extensions/openclaw-weixin
+  && cp -rL "$(npm root -g)/@heyamiko/openclaw-amiko" /openclaw/dist/extensions/openclaw-amiko \
+  && cp -rL "$(npm root -g)/@tencent-weixin/openclaw-weixin" /openclaw/dist/extensions/openclaw-weixin
 
 EXPOSE 3000
 
