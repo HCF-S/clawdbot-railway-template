@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.7
 
-ARG OPENCLAW_IMAGE=ghcr.io/openclaw/openclaw:2026.3.13-1
-ARG OPENCLAW_NPM_VERSION=2026.3.13
+ARG OPENCLAW_IMAGE=ghcr.io/openclaw/openclaw:2026.4.2
+ARG OPENCLAW_NPM_VERSION=2026.4.2
 
 FROM node:24-bookworm AS amiko-plugin-build
 ARG AMIKO_PLUGIN_REF=main
