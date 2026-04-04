@@ -670,10 +670,55 @@ app.use(async (req, res) => {
   return proxy.web(req, res, { target: GATEWAY_TARGET });
 });
 
+/**
+ * Pre-flight config migration — runs BEFORE any openclaw CLI call.
+ * Directly edits openclaw.json to ensure channel plugins are enabled,
+ * preventing the "unknown channel id" hard error on startup.
+ */
+function migrateConfigIfNeeded() {
+  const cfgPath = configPath();
+  if (!fs.existsSync(cfgPath)) return;
+
+  try {
+    const raw = fs.readFileSync(cfgPath, "utf8");
+    const cfg = JSON.parse(raw);
+    let changed = false;
+
+    // Ensure plugins.entries exists
+    if (!cfg.plugins) cfg.plugins = {};
+    if (!cfg.plugins.entries) cfg.plugins.entries = {};
+
+    // Migrate old "amiko" plugin id → "openclaw-amiko"
+    if (cfg.plugins.entries.amiko && !cfg.plugins.entries["openclaw-amiko"]) {
+      cfg.plugins.entries["openclaw-amiko"] = cfg.plugins.entries.amiko;
+      delete cfg.plugins.entries.amiko;
+      changed = true;
+      console.log("[migrate] renamed plugins.entries.amiko → openclaw-amiko");
+    }
+
+    // Ensure required channel plugins are enabled
+    for (const pluginId of ["openclaw-amiko", "openclaw-weixin"]) {
+      if (!cfg.plugins.entries[pluginId]?.enabled) {
+        cfg.plugins.entries[pluginId] = { ...(cfg.plugins.entries[pluginId] || {}), enabled: true };
+        changed = true;
+        console.log(`[migrate] enabled plugin ${pluginId}`);
+      }
+    }
+
+    if (changed) {
+      fs.writeFileSync(cfgPath, JSON.stringify(cfg, null, 2), "utf8");
+      console.log("[migrate] openclaw.json updated");
+    }
+  } catch (err) {
+    console.warn("[migrate] config migration failed (non-fatal):", err);
+  }
+}
+
 // On start: if not configured, auto-onboard (with env key if set, else dummy key "test").
 // Then start gateway if configured. /init replaces dummy key with real one when called.
 (async function startServer() {
   ensureOpenClawInstalled();
+  migrateConfigIfNeeded();
   if (!isConfigured()) {
     if (OPENROUTER_API_KEY_ENV) {
       await bootstrapFromEnv();
