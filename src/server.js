@@ -413,7 +413,7 @@ async function bootstrapWithDummyKey() {
   }
 
   // Enable channel plugins
-  for (const plugin of ["amiko", "openclaw-weixin"]) {
+  for (const plugin of ["openclaw-amiko", "openclaw-weixin"]) {
     try {
       const r = await runCmd(OPENCLAW_NODE, clawArgs(["plugins", "enable", plugin]));
       console.log(`[wrapper] plugins enable ${plugin}: exit=${r.code}`, r.output.slice(0, 200));
@@ -516,7 +516,7 @@ async function bootstrapFromEnv() {
   }
 
   // Enable channel plugins
-  for (const plugin of ["amiko", "openclaw-weixin"]) {
+  for (const plugin of ["openclaw-amiko", "openclaw-weixin"]) {
     try {
       const r = await runCmd(OPENCLAW_NODE, clawArgs(["plugins", "enable", plugin]));
       console.log(`[wrapper] plugins enable ${plugin}: exit=${r.code}`, r.output.slice(0, 200));
