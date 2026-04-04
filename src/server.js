@@ -412,12 +412,14 @@ async function bootstrapWithDummyKey() {
     console.warn("[wrapper] SYS config install failed:", err);
   }
 
-  // Enable the amiko channel plugin
-  try {
-    const enableAmiko = await runCmd(OPENCLAW_NODE, clawArgs(["plugins", "enable", "amiko"]));
-    console.log(`[wrapper] plugins enable amiko: exit=${enableAmiko.code}`, enableAmiko.output.slice(0, 200));
-  } catch (err) {
-    console.warn("[wrapper] plugins enable amiko failed:", err);
+  // Enable channel plugins
+  for (const plugin of ["openclaw-amiko", "openclaw-weixin"]) {
+    try {
+      const r = await runCmd(OPENCLAW_NODE, clawArgs(["plugins", "enable", plugin]));
+      console.log(`[wrapper] plugins enable ${plugin}: exit=${r.code}`, r.output.slice(0, 200));
+    } catch (err) {
+      console.warn(`[wrapper] plugins enable ${plugin} failed:`, err);
+    }
   }
 
   // Configure tools policy
@@ -513,12 +515,14 @@ async function bootstrapFromEnv() {
     console.warn("[wrapper] SYS config install failed:", err);
   }
 
-  // Enable the amiko channel plugin
-  try {
-    const enableAmiko = await runCmd(OPENCLAW_NODE, clawArgs(["plugins", "enable", "amiko"]));
-    console.log(`[wrapper] plugins enable amiko: exit=${enableAmiko.code}`, enableAmiko.output.slice(0, 200));
-  } catch (err) {
-    console.warn("[wrapper] plugins enable amiko failed:", err);
+  // Enable channel plugins
+  for (const plugin of ["openclaw-amiko", "openclaw-weixin"]) {
+    try {
+      const r = await runCmd(OPENCLAW_NODE, clawArgs(["plugins", "enable", plugin]));
+      console.log(`[wrapper] plugins enable ${plugin}: exit=${r.code}`, r.output.slice(0, 200));
+    } catch (err) {
+      console.warn(`[wrapper] plugins enable ${plugin} failed:`, err);
+    }
   }
 
   // Configure tools policy
