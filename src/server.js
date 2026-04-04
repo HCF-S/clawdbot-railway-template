@@ -671,6 +671,47 @@ app.use(async (req, res) => {
 });
 
 /**
+ * Ensure channel plugin files are installed into /data/.openclaw/extensions/
+ * so openclaw can discover them at runtime. Copies from global npm modules
+ * if not already present or if the installed version is outdated.
+ */
+function ensurePluginsInstalled() {
+  const userExtDir = path.join(STATE_DIR, "extensions");
+  fs.mkdirSync(userExtDir, { recursive: true });
+
+  const plugins = [
+    { id: "openclaw-amiko", pkg: "@heyamiko/openclaw-amiko" },
+    { id: "openclaw-weixin", pkg: "@tencent-weixin/openclaw-weixin" },
+  ];
+
+  for (const { id, pkg } of plugins) {
+    try {
+      const npmDir = path.join("/usr/local/lib/node_modules", pkg);
+      const dest = path.join(userExtDir, id);
+      if (!fs.existsSync(npmDir)) continue;
+
+      const srcPkg = JSON.parse(fs.readFileSync(path.join(npmDir, "package.json"), "utf8"));
+      let needsCopy = !fs.existsSync(dest);
+      if (!needsCopy) {
+        try {
+          const destPkg = JSON.parse(fs.readFileSync(path.join(dest, "package.json"), "utf8"));
+          needsCopy = destPkg.version !== srcPkg.version;
+        } catch { needsCopy = true; }
+      }
+
+      if (needsCopy) {
+        // Remove old version and copy fresh
+        fs.rmSync(dest, { recursive: true, force: true });
+        childProcess.execSync(`cp -rL ${JSON.stringify(npmDir)} ${JSON.stringify(dest)}`);
+        console.log(`[plugins] installed ${id}@${srcPkg.version} → ${dest}`);
+      }
+    } catch (err) {
+      console.warn(`[plugins] failed to install ${id}:`, err);
+    }
+  }
+}
+
+/**
  * Pre-flight config migration — runs BEFORE any openclaw CLI call.
  * Directly edits openclaw.json to ensure channel plugins are enabled,
  * preventing the "unknown channel id" hard error on startup.
@@ -718,6 +759,7 @@ function migrateConfigIfNeeded() {
 // Then start gateway if configured. /init replaces dummy key with real one when called.
 (async function startServer() {
   ensureOpenClawInstalled();
+  ensurePluginsInstalled();
   migrateConfigIfNeeded();
   if (!isConfigured()) {
     if (OPENROUTER_API_KEY_ENV) {

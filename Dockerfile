@@ -25,9 +25,7 @@ RUN npm install --omit=dev && npm cache clean --force
 COPY src ./src
 COPY public ./public
 
-RUN npm install -g mcporter@0.7.3 @heyamiko/amiko-cli @heyamiko/openclaw-amiko @tencent-weixin/openclaw-weixin \
-  && cp -rL "$(npm root -g)/@heyamiko/openclaw-amiko" /openclaw/dist/extensions/openclaw-amiko \
-  && cp -rL "$(npm root -g)/@tencent-weixin/openclaw-weixin" /openclaw/dist/extensions/openclaw-weixin
+RUN npm install -g mcporter@0.7.3 @heyamiko/amiko-cli @heyamiko/openclaw-amiko @tencent-weixin/openclaw-weixin
 
 EXPOSE 3000
 
