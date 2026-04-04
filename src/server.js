@@ -746,6 +746,20 @@ function migrateConfigIfNeeded() {
       }
     }
 
+    // Ensure plugins.allow includes openclaw-amiko (always) and openclaw-weixin (if enabled)
+    if (!Array.isArray(cfg.plugins.allow)) cfg.plugins.allow = [];
+    const allow = cfg.plugins.allow;
+    if (!allow.includes("openclaw-amiko")) {
+      allow.push("openclaw-amiko");
+      changed = true;
+      console.log("[migrate] added openclaw-amiko to plugins.allow");
+    }
+    if (cfg.plugins.entries["openclaw-weixin"]?.enabled && !allow.includes("openclaw-weixin")) {
+      allow.push("openclaw-weixin");
+      changed = true;
+      console.log("[migrate] added openclaw-weixin to plugins.allow");
+    }
+
     if (changed) {
       fs.writeFileSync(cfgPath, JSON.stringify(cfg, null, 2), "utf8");
       console.log("[migrate] openclaw.json updated");
