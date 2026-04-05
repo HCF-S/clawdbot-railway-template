@@ -7,7 +7,7 @@ import express from "express";
 import httpProxy from "http-proxy";
 import { createSetupRouter } from "./routes/setup/index.js";
 import { setGatewayControlUiAllowedOrigins } from "./routes/setup/run.js";
-import { installAmikoSkill, installComposioSkill } from "./routes/setup/skills.js";
+import { installAmikoSkill, installComposioSkill, installOpenUIClawPlugin } from "./routes/setup/skills.js";
 import { installSysConfig } from "./routes/setup/init.js";
 
 // Railway deployments sometimes inject PORT=3000 by default. We want the wrapper to
@@ -424,6 +424,16 @@ async function bootstrapWithDummyKey() {
     console.warn("[wrapper] SYS config install failed:", err);
   }
 
+  try {
+    console.log("[wrapper] installing OpenUI Claw plugin after bootstrap...");
+    const openUIResult = await installOpenUIClawPlugin({ ...handlers, runCmd, OPENCLAW_NODE, clawArgs });
+    if (!openUIResult.ok) {
+      console.warn("[wrapper] OpenUI Claw plugin install warning:", openUIResult.error);
+    }
+  } catch (err) {
+    console.warn("[wrapper] OpenUI Claw plugin install failed:", err);
+  }
+
   console.log("[wrapper] bootstrap complete (dummy key); call /init with real OpenRouter key to activate");
 }
 
@@ -522,6 +532,16 @@ async function bootstrapFromEnv() {
     }
   } catch (err) {
     console.warn("[wrapper] SYS config install failed:", err);
+  }
+
+  try {
+    console.log("[wrapper] installing OpenUI Claw plugin after bootstrap-from-env...");
+    const openUIResult = await installOpenUIClawPlugin({ ...handlers, runCmd, OPENCLAW_NODE, clawArgs });
+    if (!openUIResult.ok) {
+      console.warn("[wrapper] OpenUI Claw plugin install warning:", openUIResult.error);
+    }
+  } catch (err) {
+    console.warn("[wrapper] OpenUI Claw plugin install failed:", err);
   }
 
   console.log("[wrapper] bootstrap complete; gateway can auto-start");

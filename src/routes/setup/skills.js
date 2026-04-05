@@ -323,6 +323,50 @@ Read \`skills/genui/SKILL.md\` for full tool schemas and more examples.
 }
 
 /**
+ * Install the openui-claw-plugin into STATE_DIR/plugins/openui-claw-plugin.
+ * Unlike skills (plain file copies), plugins are registered via `openclaw plugins install -l`.
+ * Requires runCmd, OPENCLAW_NODE, clawArgs in handlers.
+ */
+export async function installOpenUIClawPlugin(handlers) {
+  const { STATE_DIR, runCmd, OPENCLAW_NODE, clawArgs } = handlers;
+
+  const templateDir = path.join(TEMPLATES_DIR, "openui-claw-plugin");
+
+  if (!fs.existsSync(templateDir)) {
+    return { ok: false, error: `Template not found: ${templateDir}` };
+  }
+
+  const pluginsDir = path.join(STATE_DIR, "plugins");
+  const targetDir = path.join(pluginsDir, "openui-claw-plugin");
+
+  try {
+    fs.mkdirSync(targetDir, { recursive: true });
+
+    // Recursive copy of the entire plugin (includes src/ subdirectory)
+    fs.cpSync(templateDir, targetDir, { recursive: true });
+
+    console.log("[installOpenUIClawPlugin] copied plugin to", targetDir);
+
+    // Register with OpenClaw via CLI
+    const result = await runCmd(OPENCLAW_NODE, clawArgs(["plugins", "install", "-l", targetDir]));
+    if (result.code !== 0) {
+      console.warn("[installOpenUIClawPlugin] CLI install warning:", result.output);
+    } else {
+      console.log("[installOpenUIClawPlugin] CLI install success");
+    }
+
+    return {
+      ok: true,
+      path: targetDir,
+      output: `Installed openui-claw-plugin to: ${targetDir}`,
+    };
+  } catch (err) {
+    console.error("[installOpenUIClawPlugin] error:", err);
+    return { ok: false, error: String(err) };
+  }
+}
+
+/**
  * Create the skills router
  * Note: The main skill installation endpoint is now at /setup/api/deploy/amiko-skill
  * This router is kept for potential future skill management endpoints
