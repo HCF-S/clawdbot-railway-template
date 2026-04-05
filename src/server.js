@@ -688,6 +688,23 @@ app.use(async (req, res) => {
     }
   }
   if (isConfigured()) {
+    // Ensure plugins are installed on every startup (not just first bootstrap).
+    try {
+      const pluginTarget = path.join(STATE_DIR, "plugins", "openui-claw-plugin", "openclaw.plugin.json");
+      if (!fs.existsSync(pluginTarget)) {
+        console.log("[wrapper] openui-claw-plugin not found, installing...");
+        const result = await installOpenUIClawPlugin({
+          STATE_DIR, WORKSPACE_DIR, configPath, isConfigured, restartGateway,
+          runCmd, OPENCLAW_NODE, clawArgs,
+        });
+        if (!result.ok) {
+          console.warn("[wrapper] openui-claw-plugin install warning:", result.error);
+        }
+      }
+    } catch (err) {
+      console.warn("[wrapper] openui-claw-plugin startup install failed:", err);
+    }
+
     try {
       await ensureGatewayRunning();
       console.log("[wrapper] gateway ready before listening");
