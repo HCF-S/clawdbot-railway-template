@@ -158,10 +158,11 @@ export function createPluginsRouter(handlers) {
     }
   });
 
-  // ── POST /plugins/:id/enable — enable + allow + restart gateway ─────
+  // ── POST /plugins/:id/enable — enable + allow + bind + restart ──────
 
   router.post("/plugins/:id/enable", requireApiToken, async (req, res) => {
     const pluginId = req.params.id;
+    const agentId = String(req.body?.agentId ?? "main").trim() || "main";
     try {
       const result = await runPluginCmd(["enable", pluginId]);
       if (result.code !== 0) {
@@ -170,20 +171,49 @@ export function createPluginsRouter(handlers) {
           .json({ ok: false, error: result.output || "Enable failed" });
       }
 
-      // Add to plugins.allow in openclaw.json
+      // Add to plugins.allow and bind channel in openclaw.json
       try {
         const cfgPath = configPath();
         if (fs.existsSync(cfgPath)) {
           const cfg = JSON.parse(fs.readFileSync(cfgPath, "utf8"));
+
+          // plugins.allow
           if (!cfg.plugins) cfg.plugins = {};
           if (!Array.isArray(cfg.plugins.allow)) cfg.plugins.allow = [];
           if (!cfg.plugins.allow.includes(pluginId)) {
             cfg.plugins.allow.push(pluginId);
-            fs.writeFileSync(cfgPath, JSON.stringify(cfg, null, 2), "utf8");
           }
+
+          // Resolve channel ids from the plugin's openclaw.plugin.json
+          const extDir = path.join(EXTENSIONS_DIR, pluginId);
+          const pluginJsonPath = path.join(extDir, "openclaw.plugin.json");
+          let channelIds = [];
+          if (fs.existsSync(pluginJsonPath)) {
+            try {
+              const pluginJson = JSON.parse(fs.readFileSync(pluginJsonPath, "utf8"));
+              channelIds = Array.isArray(pluginJson.channels) ? pluginJson.channels : [];
+            } catch { /* ignore */ }
+          }
+
+          // Add bindings for each channel
+          if (!Array.isArray(cfg.bindings)) cfg.bindings = [];
+          for (const channelId of channelIds) {
+            const hasBinding = cfg.bindings.some(
+              (b) => b.type === "route" && b.match?.channel === channelId,
+            );
+            if (!hasBinding) {
+              cfg.bindings.push({
+                type: "route",
+                agentId,
+                match: { channel: channelId },
+              });
+            }
+          }
+
+          fs.writeFileSync(cfgPath, JSON.stringify(cfg, null, 2), "utf8");
         }
       } catch (err) {
-        console.warn(`[plugins] failed to add ${pluginId} to plugins.allow:`, err);
+        console.warn(`[plugins] failed to update config for ${pluginId}:`, err);
       }
 
       await restartGateway().catch(() => null);
