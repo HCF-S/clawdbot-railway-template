@@ -709,7 +709,6 @@ function ensurePluginsInstalled() {
     }
   }
 
-  // Install bundled template plugins (not from npm — shipped with this repo)
   const templatePlugins = ["openui-claw-plugin"];
   const templatesDir = path.resolve(path.dirname(new URL(import.meta.url).pathname), "templates");
 

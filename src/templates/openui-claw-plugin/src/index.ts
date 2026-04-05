@@ -20,8 +20,6 @@ export default definePluginEntry({
         _event: PluginHookBeforePromptBuildEvent,
         ctx: PluginHookAgentContext,
       ): PluginHookBeforePromptBuildResult | void => {
-        // The Amiko web client appends ":openui-claw" to session keys.
-        // This is the detection mechanism — only inject for these sessions.
         if (!ctx.sessionKey?.endsWith(":openui-claw")) {
           return;
         }
