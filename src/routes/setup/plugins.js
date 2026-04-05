@@ -1,4 +1,9 @@
+import childProcess from "node:child_process";
+import fs from "node:fs";
+import path from "node:path";
 import express from "express";
+
+const EXTENSIONS_DIR = "/data/.openclaw/extensions";
 
 /**
  * Plugin management router.
@@ -7,7 +12,7 @@ import express from "express";
  * so the platform can manage plugins without SSH access.
  */
 export function createPluginsRouter(handlers) {
-  const { requireApiToken, runCmd, clawArgs, OPENCLAW_NODE, restartGateway } =
+  const { requireApiToken, runCmd, clawArgs, OPENCLAW_NODE, restartGateway, configPath } =
     handlers;
   const router = express.Router();
 
@@ -60,10 +65,10 @@ export function createPluginsRouter(handlers) {
     }
   });
 
-  // ── POST /plugins/install — install from npm spec, path, or archive ─
+  // ── POST /plugins/install — npm install -g + copy to extensions ─────
 
   router.post("/plugins/install", requireApiToken, async (req, res) => {
-    const { spec, pin } = req.body || {};
+    const { spec } = req.body || {};
 
     if (!spec || typeof spec !== "string") {
       return res
@@ -72,18 +77,52 @@ export function createPluginsRouter(handlers) {
     }
 
     try {
-      const args = ["install", spec.trim()];
-      if (pin) args.push("--pin");
-
-      const result = await runPluginCmd(args);
-      if (result.code !== 0) {
-        return res
-          .status(500)
-          .json({ ok: false, error: result.output || "Install failed" });
+      // 1. npm install -g
+      const npmResult = childProcess.spawnSync(
+        "npm", ["install", "-g", spec.trim()],
+        { encoding: "utf8", timeout: 120_000 },
+      );
+      if (npmResult.status !== 0) {
+        return res.status(500).json({
+          ok: false,
+          error: `npm install -g ${spec} failed (exit=${npmResult.status})\n${npmResult.stderr || npmResult.stdout || ""}`.trim(),
+        });
       }
 
-      await restartGateway().catch(() => null);
-      return res.json({ ok: true, output: result.output });
+      // 2. Resolve the installed package name and read its openclaw plugin id
+      //    npm install -g @scope/pkg@version → package dir is @scope/pkg
+      const pkgName = spec.trim().replace(/@[^/]*$/, ""); // strip version suffix
+      const npmDir = path.join("/usr/local/lib/node_modules", pkgName);
+      if (!fs.existsSync(path.join(npmDir, "package.json"))) {
+        return res.status(500).json({
+          ok: false,
+          error: `Package installed but not found at ${npmDir}`,
+          npmOutput: (npmResult.stdout || "").slice(0, 500),
+        });
+      }
+
+      const pkg = JSON.parse(fs.readFileSync(path.join(npmDir, "package.json"), "utf8"));
+      const pluginId = pkg.openclaw?.id;
+      if (!pluginId) {
+        return res.status(400).json({
+          ok: false,
+          error: `Package ${pkgName} has no openclaw.id in package.json — not a valid OpenClaw plugin`,
+        });
+      }
+
+      // 3. Copy to extensions dir
+      fs.mkdirSync(EXTENSIONS_DIR, { recursive: true });
+      const dest = path.join(EXTENSIONS_DIR, pluginId);
+      fs.rmSync(dest, { recursive: true, force: true });
+      childProcess.execSync(`cp -rL ${JSON.stringify(npmDir)} ${JSON.stringify(dest)}`);
+
+      return res.json({
+        ok: true,
+        pluginId,
+        version: pkg.version,
+        path: dest,
+        output: `Installed ${pluginId}@${pkg.version} → ${dest}`,
+      });
     } catch (err) {
       return res
         .status(500)
@@ -111,15 +150,32 @@ export function createPluginsRouter(handlers) {
     }
   });
 
-  // ── POST /plugins/:id/enable ────────────────────────────────────────
+  // ── POST /plugins/:id/enable — enable + allow + restart gateway ─────
 
   router.post("/plugins/:id/enable", requireApiToken, async (req, res) => {
+    const pluginId = req.params.id;
     try {
-      const result = await runPluginCmd(["enable", req.params.id]);
+      const result = await runPluginCmd(["enable", pluginId]);
       if (result.code !== 0) {
         return res
           .status(500)
           .json({ ok: false, error: result.output || "Enable failed" });
+      }
+
+      // Add to plugins.allow in openclaw.json
+      try {
+        const cfgPath = configPath();
+        if (fs.existsSync(cfgPath)) {
+          const cfg = JSON.parse(fs.readFileSync(cfgPath, "utf8"));
+          if (!cfg.plugins) cfg.plugins = {};
+          if (!Array.isArray(cfg.plugins.allow)) cfg.plugins.allow = [];
+          if (!cfg.plugins.allow.includes(pluginId)) {
+            cfg.plugins.allow.push(pluginId);
+            fs.writeFileSync(cfgPath, JSON.stringify(cfg, null, 2), "utf8");
+          }
+        }
+      } catch (err) {
+        console.warn(`[plugins] failed to add ${pluginId} to plugins.allow:`, err);
       }
 
       await restartGateway().catch(() => null);

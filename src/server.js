@@ -413,7 +413,7 @@ async function bootstrapWithDummyKey() {
   }
 
   // Enable channel plugins
-  for (const plugin of ["openclaw-amiko", "openclaw-weixin"]) {
+  for (const plugin of ["openclaw-amiko"]) {
     try {
       const r = await runCmd(OPENCLAW_NODE, clawArgs(["plugins", "enable", plugin]));
       console.log(`[wrapper] plugins enable ${plugin}: exit=${r.code}`, r.output.slice(0, 200));
@@ -516,7 +516,7 @@ async function bootstrapFromEnv() {
   }
 
   // Enable channel plugins
-  for (const plugin of ["openclaw-amiko", "openclaw-weixin"]) {
+  for (const plugin of ["openclaw-amiko"]) {
     try {
       const r = await runCmd(OPENCLAW_NODE, clawArgs(["plugins", "enable", plugin]));
       console.log(`[wrapper] plugins enable ${plugin}: exit=${r.code}`, r.output.slice(0, 200));
@@ -681,7 +681,6 @@ function ensurePluginsInstalled() {
 
   const plugins = [
     { id: "openclaw-amiko", pkg: "@heyamiko/openclaw-amiko" },
-    { id: "openclaw-weixin", pkg: "@tencent-weixin/openclaw-weixin" },
   ];
 
   for (const { id, pkg } of plugins) {
@@ -737,27 +736,22 @@ function migrateConfigIfNeeded() {
       console.log("[migrate] renamed plugins.entries.amiko → openclaw-amiko");
     }
 
-    // Ensure required channel plugins are enabled
-    for (const pluginId of ["openclaw-amiko", "openclaw-weixin"]) {
-      if (!cfg.plugins.entries[pluginId]?.enabled) {
-        cfg.plugins.entries[pluginId] = { ...(cfg.plugins.entries[pluginId] || {}), enabled: true };
-        changed = true;
-        console.log(`[migrate] enabled plugin ${pluginId}`);
-      }
+    // Ensure openclaw-amiko is enabled (builtin)
+    if (!cfg.plugins.entries["openclaw-amiko"]?.enabled) {
+      cfg.plugins.entries["openclaw-amiko"] = { ...(cfg.plugins.entries["openclaw-amiko"] || {}), enabled: true };
+      changed = true;
+      console.log("[migrate] enabled plugin openclaw-amiko");
     }
 
-    // Ensure plugins.allow includes openclaw-amiko (always) and openclaw-weixin (if enabled)
+    // Ensure plugins.allow includes openclaw-amiko (always) and any other enabled plugins
     if (!Array.isArray(cfg.plugins.allow)) cfg.plugins.allow = [];
     const allow = cfg.plugins.allow;
-    if (!allow.includes("openclaw-amiko")) {
-      allow.push("openclaw-amiko");
-      changed = true;
-      console.log("[migrate] added openclaw-amiko to plugins.allow");
-    }
-    if (cfg.plugins.entries["openclaw-weixin"]?.enabled && !allow.includes("openclaw-weixin")) {
-      allow.push("openclaw-weixin");
-      changed = true;
-      console.log("[migrate] added openclaw-weixin to plugins.allow");
+    for (const [pluginId, entry] of Object.entries(cfg.plugins.entries)) {
+      if (entry?.enabled && !allow.includes(pluginId)) {
+        allow.push(pluginId);
+        changed = true;
+        console.log(`[migrate] added ${pluginId} to plugins.allow`);
+      }
     }
 
     if (changed) {
