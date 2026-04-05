@@ -102,16 +102,15 @@ export function createPluginsRouter(handlers) {
       }
 
       const pkg = JSON.parse(fs.readFileSync(path.join(npmDir, "package.json"), "utf8"));
-      // Plugin id: package.json openclaw.id > openclaw.plugin.json id
-      let pluginId = pkg.openclaw?.id;
-      if (!pluginId) {
-        const pluginJsonPath = path.join(npmDir, "openclaw.plugin.json");
-        if (fs.existsSync(pluginJsonPath)) {
-          try {
-            pluginId = JSON.parse(fs.readFileSync(pluginJsonPath, "utf8")).id;
-          } catch { /* ignore */ }
-        }
+      // Plugin id: openclaw.plugin.json id > package.json openclaw.id
+      let pluginId;
+      const pluginJsonPath = path.join(npmDir, "openclaw.plugin.json");
+      if (fs.existsSync(pluginJsonPath)) {
+        try {
+          pluginId = JSON.parse(fs.readFileSync(pluginJsonPath, "utf8")).id;
+        } catch { /* ignore */ }
       }
+      if (!pluginId) pluginId = pkg.openclaw?.id;
       if (!pluginId) {
         return res.status(400).json({
           ok: false,
