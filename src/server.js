@@ -413,7 +413,7 @@ async function bootstrapWithDummyKey() {
   }
 
   // Enable channel plugins
-  for (const plugin of ["openclaw-amiko"]) {
+  for (const plugin of ["openclaw-amiko", "openui-claw-plugin"]) {
     try {
       const r = await runCmd(OPENCLAW_NODE, clawArgs(["plugins", "enable", plugin]));
       console.log(`[wrapper] plugins enable ${plugin}: exit=${r.code}`, r.output.slice(0, 200));
@@ -516,7 +516,7 @@ async function bootstrapFromEnv() {
   }
 
   // Enable channel plugins
-  for (const plugin of ["openclaw-amiko"]) {
+  for (const plugin of ["openclaw-amiko", "openui-claw-plugin"]) {
     try {
       const r = await runCmd(OPENCLAW_NODE, clawArgs(["plugins", "enable", plugin]));
       console.log(`[wrapper] plugins enable ${plugin}: exit=${r.code}`, r.output.slice(0, 200));
@@ -708,6 +708,35 @@ function ensurePluginsInstalled() {
       console.warn(`[plugins] failed to install ${id}:`, err);
     }
   }
+
+  // Install bundled template plugins (not from npm — shipped with this repo)
+  const templatePlugins = ["openui-claw-plugin"];
+  const templatesDir = path.resolve(path.dirname(new URL(import.meta.url).pathname), "templates");
+
+  for (const id of templatePlugins) {
+    try {
+      const srcDir = path.join(templatesDir, id);
+      const dest = path.join(userExtDir, id);
+      if (!fs.existsSync(srcDir)) continue;
+
+      const srcPkg = JSON.parse(fs.readFileSync(path.join(srcDir, "package.json"), "utf8"));
+      let needsCopy = !fs.existsSync(dest);
+      if (!needsCopy) {
+        try {
+          const destPkg = JSON.parse(fs.readFileSync(path.join(dest, "package.json"), "utf8"));
+          needsCopy = destPkg.version !== srcPkg.version;
+        } catch { needsCopy = true; }
+      }
+
+      if (needsCopy) {
+        fs.rmSync(dest, { recursive: true, force: true });
+        fs.cpSync(srcDir, dest, { recursive: true });
+        console.log(`[plugins] installed template ${id}@${srcPkg.version} → ${dest}`);
+      }
+    } catch (err) {
+      console.warn(`[plugins] failed to install template ${id}:`, err);
+    }
+  }
 }
 
 /**
@@ -736,11 +765,13 @@ function migrateConfigIfNeeded() {
       console.log("[migrate] renamed plugins.entries.amiko → openclaw-amiko");
     }
 
-    // Ensure openclaw-amiko is enabled (builtin)
-    if (!cfg.plugins.entries["openclaw-amiko"]?.enabled) {
-      cfg.plugins.entries["openclaw-amiko"] = { ...(cfg.plugins.entries["openclaw-amiko"] || {}), enabled: true };
-      changed = true;
-      console.log("[migrate] enabled plugin openclaw-amiko");
+    // Ensure builtin plugins are enabled
+    for (const pluginId of ["openclaw-amiko", "openui-claw-plugin"]) {
+      if (!cfg.plugins.entries[pluginId]?.enabled) {
+        cfg.plugins.entries[pluginId] = { ...(cfg.plugins.entries[pluginId] || {}), enabled: true };
+        changed = true;
+        console.log(`[migrate] enabled plugin ${pluginId}`);
+      }
     }
 
     // Ensure plugins.allow includes openclaw-amiko (always) and any other enabled plugins
