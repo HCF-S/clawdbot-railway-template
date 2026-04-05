@@ -102,11 +102,20 @@ export function createPluginsRouter(handlers) {
       }
 
       const pkg = JSON.parse(fs.readFileSync(path.join(npmDir, "package.json"), "utf8"));
-      const pluginId = pkg.openclaw?.id;
+      // Plugin id: package.json openclaw.id > openclaw.plugin.json id
+      let pluginId = pkg.openclaw?.id;
+      if (!pluginId) {
+        const pluginJsonPath = path.join(npmDir, "openclaw.plugin.json");
+        if (fs.existsSync(pluginJsonPath)) {
+          try {
+            pluginId = JSON.parse(fs.readFileSync(pluginJsonPath, "utf8")).id;
+          } catch { /* ignore */ }
+        }
+      }
       if (!pluginId) {
         return res.status(400).json({
           ok: false,
-          error: `Package ${pkgName} has no openclaw.id in package.json — not a valid OpenClaw plugin`,
+          error: `Package ${pkgName} has no plugin id in package.json or openclaw.plugin.json — not a valid OpenClaw plugin`,
         });
       }
 
