@@ -76,6 +76,9 @@ export async function writeAmikoConfigAndMcporter(params) {
     amikoTwinToken = "",
     amikoPlatformUrl,
     amikoChatUrl,
+    billingBase,
+    platformKey,
+    agentWallets,
   } = params || {};
 
   try {
@@ -117,6 +120,19 @@ export async function writeAmikoConfigAndMcporter(params) {
       AMIKO_PLATFORM_URL: resolvedPlatformUrl || current.AMIKO_PLATFORM_URL || "",
       AMIKO_CHAT_URL: resolvedChatUrl || current.AMIKO_CHAT_URL || "",
     };
+
+    // Persist wallet + billing data for CLI (amiko credits balance, topup, etc.)
+    if (billingBase) next.billingBase = billingBase;
+    else if (current.billingBase) next.billingBase = current.billingBase;
+
+    if (platformKey) next.platformKey = platformKey;
+    else if (current.platformKey) next.platformKey = current.platformKey;
+
+    if (Array.isArray(agentWallets) && agentWallets.length > 0) {
+      next.agentWallets = agentWallets;
+    } else if (Array.isArray(current.agentWallets)) {
+      next.agentWallets = current.agentWallets;
+    }
 
     fs.writeFileSync(cfgPath, JSON.stringify(next, null, 2), {
       encoding: "utf8",
