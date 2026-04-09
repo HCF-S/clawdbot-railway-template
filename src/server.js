@@ -800,7 +800,7 @@ function migrateConfigIfNeeded() {
  */
 function ensureAmikoCli() {
   const npmDir = "/usr/local/lib/node_modules/@heyamiko/amiko-cli";
-  const persistDir = path.join("/data", ".amiko-cli");
+  const persistDir = path.join(OPENCLAW_HOME_DIR, ".amiko-cli");
   const binTarget = "/usr/local/bin/amiko";
 
   const srcDir = fs.existsSync(npmDir) ? npmDir : null;

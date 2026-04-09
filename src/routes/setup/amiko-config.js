@@ -122,14 +122,15 @@ export async function writeAmikoConfigAndMcporter(params) {
     };
 
     // Persist wallet + billing data for CLI (amiko credits balance, topup, etc.)
-    if (billingBase) next.billingBase = billingBase;
+    // undefined = keep existing, any provided value (including empty) overwrites
+    if (billingBase !== undefined) next.billingBase = billingBase;
     else if (current.billingBase) next.billingBase = current.billingBase;
 
-    if (platformKey) next.platformKey = platformKey;
+    if (platformKey !== undefined) next.platformKey = platformKey;
     else if (current.platformKey) next.platformKey = current.platformKey;
 
-    if (Array.isArray(agentWallets) && agentWallets.length > 0) {
-      next.agentWallets = agentWallets;
+    if (agentWallets !== undefined) {
+      next.agentWallets = Array.isArray(agentWallets) ? agentWallets : [];
     } else if (Array.isArray(current.agentWallets)) {
       next.agentWallets = current.agentWallets;
     }
