@@ -793,11 +793,67 @@ function migrateConfigIfNeeded() {
   }
 }
 
+/**
+ * Ensure @heyamiko/amiko-cli is available at /usr/local/bin/amiko.
+ * Copies from the global npm install to /data/.amiko-cli/ (persistent volume)
+ * and symlinks the binary. Survives plugin installs that wipe global packages.
+ */
+function ensureAmikoCli() {
+  const npmDir = "/usr/local/lib/node_modules/@heyamiko/amiko-cli";
+  const persistDir = path.join(OPENCLAW_HOME_DIR, ".amiko-cli");
+  const binTarget = "/usr/local/bin/amiko";
+
+  const srcDir = fs.existsSync(npmDir) ? npmDir : null;
+
+  if (srcDir) {
+    try {
+      const srcPkg = JSON.parse(fs.readFileSync(path.join(srcDir, "package.json"), "utf8"));
+      let needsCopy = !fs.existsSync(persistDir);
+      if (!needsCopy) {
+        try {
+          const destPkg = JSON.parse(fs.readFileSync(path.join(persistDir, "package.json"), "utf8"));
+          needsCopy = destPkg.version !== srcPkg.version;
+        } catch { needsCopy = true; }
+      }
+
+      if (needsCopy) {
+        fs.rmSync(persistDir, { recursive: true, force: true });
+        childProcess.execFileSync("cp", ["-rL", srcDir, persistDir]);
+        console.log(`[amiko-cli] installed ${srcPkg.version} → ${persistDir}`);
+      }
+    } catch (err) {
+      console.warn("[amiko-cli] failed to copy to persistent dir:", err);
+    }
+  }
+
+  const entryPoints = [
+    path.join(persistDir, "dist", "index.js"),
+    path.join(npmDir, "dist", "index.js"),
+  ];
+
+  for (const entry of entryPoints) {
+    if (fs.existsSync(entry)) {
+      try { fs.unlinkSync(binTarget); } catch {}
+      try {
+        fs.symlinkSync(entry, binTarget);
+        fs.chmodSync(binTarget, 0o755);
+        console.log(`[amiko-cli] ${binTarget} → ${entry}`);
+      } catch (err) {
+        console.warn("[amiko-cli] failed to symlink:", err);
+      }
+      return;
+    }
+  }
+
+  console.warn("[amiko-cli] not found — amiko commands will be unavailable");
+}
+
 // On start: if not configured, auto-onboard (with env key if set, else dummy key "test").
 // Then start gateway if configured. /init replaces dummy key with real one when called.
 (async function startServer() {
   ensureOpenClawInstalled();
   ensurePluginsInstalled();
+  ensureAmikoCli();
   migrateConfigIfNeeded();
   if (!isConfigured()) {
     if (OPENROUTER_API_KEY_ENV) {

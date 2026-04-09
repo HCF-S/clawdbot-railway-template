@@ -612,6 +612,10 @@ export function createTwinRouter(handlers) {
       const amikoChatUrl = String(body.amikoChatUrl ?? "").trim() || undefined;
 
       const workspaceDir = resolveWorkspaceForAgent(handlers, agentId);
+      const billingBase = String(body.billingBase ?? "").trim() || undefined;
+      const platformKey = String(body.platformKey ?? "").trim() || undefined;
+      const agentWallets = Array.isArray(body.agentWallets) ? body.agentWallets : undefined;
+
       const result = await writeAmikoConfigAndMcporter({
         handlers,
         workspaceDir,
@@ -620,6 +624,9 @@ export function createTwinRouter(handlers) {
         amikoTwinToken,
         amikoPlatformUrl: amikoPlatformUrl || undefined,
         amikoChatUrl: amikoChatUrl || undefined,
+        billingBase,
+        platformKey,
+        agentWallets,
       });
 
       if (result.ok) {
