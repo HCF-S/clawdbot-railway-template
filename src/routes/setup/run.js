@@ -20,43 +20,6 @@ export function createRunRouter(handlers) {
   return router;
 }
 
-/** Default allowed origins for gateway control UI when env is not set */
-const DEFAULT_CONTROL_UI_ALLOWED_ORIGINS =
-  "https://platform.heyamiko.com,https://amiko-platform.vercel.app,https://amiko-social-test.vercel.app,https://temp-amiko-chat-shared-account-production.up.railway.app,http://localhost:3000,http://localhost,http://127.0.0.1:3000,http://127.0.0.1,http://localhost:8080,http://127.0.0.1:8080,https://amiko-chat.up.railway.app";
-
-/**
- * Build the final allowed origins list, including current Railway URL when applicable.
- * Railway sets RAILWAY_PUBLIC_DOMAIN (e.g. clawdbot-pool-ca4120db-production.up.railway.app).
- */
-function resolveControlUiAllowedOrigins(baseRaw) {
-  const origins = new Set(baseRaw.split(",").map((o) => o.trim()).filter(Boolean));
-  const railwayDomain = process.env.RAILWAY_PUBLIC_DOMAIN?.trim();
-  if (railwayDomain) {
-    origins.add(`https://${railwayDomain}`);
-    origins.add(`http://${railwayDomain}`);
-  }
-  return [...origins];
-}
-
-/**
- * Set gateway.controlUi.allowedOrigins in OpenClaw config.
- * Uses OPENCLAW_CONTROL_UI_ALLOWED_ORIGINS or default (platform.heyamiko.com, localhost:3000).
- * When RAILWAY_PUBLIC_DOMAIN is set, the deployment URL is auto-added.
- * @param {object} handlers - { runCmd, OPENCLAW_NODE, clawArgs }
- * @param {string} [originsOverride] - Optional comma-separated list to use instead of env/default
- * @returns {{ ok: boolean }}
- */
-export async function setGatewayControlUiAllowedOrigins(handlers, originsOverride = null) {
-  const { runCmd, OPENCLAW_NODE, clawArgs } = handlers;
-  const baseRaw = (originsOverride ?? process.env.OPENCLAW_CONTROL_UI_ALLOWED_ORIGINS ?? DEFAULT_CONTROL_UI_ALLOWED_ORIGINS).trim();
-  const origins = resolveControlUiAllowedOrigins(baseRaw);
-  await runCmd(OPENCLAW_NODE, clawArgs(["config", "set", "--json", "gateway.controlUi.dangerouslyDisableDeviceAuth", JSON.stringify(true)]));
-  if (origins.length === 0) return { ok: true };
-  const originsArray = JSON.stringify(origins);
-  await runCmd(OPENCLAW_NODE, clawArgs(["config", "set", "gateway.controlUi.allowedOrigins", originsArray]));
-  return { ok: true };
-}
-
 /**
  * Replace the OpenRouter API key in agents/main/agent/auth-profiles.json.
  * Used when config was created with a dummy key at startup; /init passes the real key.
@@ -178,8 +141,6 @@ export async function runOnboarding(payload, handlers) {
       OPENCLAW_NODE,
       clawArgs(["config", "set", "gateway.trustedProxies", '["127.0.0.1","::1","10.0.0.0/8","172.16.0.0/12","192.168.0.0/16"]']),
     );
-
-    await setGatewayControlUiAllowedOrigins(handlers);
 
     // Configure channels using shared function
     const { configureChannels } = await import("./channels.js");

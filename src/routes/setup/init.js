@@ -1,5 +1,5 @@
 import express from "express";
-import { runOnboarding, replaceOpenRouterKeyInAuthProfiles, setGatewayControlUiAllowedOrigins } from "./run.js";
+import { runOnboarding, replaceOpenRouterKeyInAuthProfiles } from "./run.js";
 import { writeAmikoConfigAndMcporter, installBootstrapMd } from "./amiko-config.js";
 
 export function createInitRouter(handlers) {
@@ -20,9 +20,8 @@ export function createInitRouter(handlers) {
         }
         output = onboardResult.output;
         try {
-          await setGatewayControlUiAllowedOrigins(handlers);
           await restartGateway();
-          output += "[gateway] Allowed origins set and gateway restarted.\n";
+          output += "[gateway] Gateway restarted.\n";
         } catch (err) {
           output += `[gateway] Warning: ${String(err)}\n`;
         }
