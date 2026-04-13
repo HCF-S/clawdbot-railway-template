@@ -65,12 +65,13 @@ case "${cmd}" in
     ;;
   config)
     # POST /setup/api/config/set with default openclaw config entries
-    SERVICE_PUBLIC_URL="${SERVICE_PUBLIC_URL:-}"
+    RAILWAY_PUBLIC_DOMAIN="${RAILWAY_PUBLIC_DOMAIN:-}"
     allowed_origins='["https://platform.heyamiko.com","https://amiko-platform.vercel.app","https://amiko-social-test.vercel.app","http://localhost:3000","http://localhost","http://127.0.0.1:3000","http://127.0.0.1","http://localhost:8080","http://127.0.0.1:8080","https://amiko-chat.up.railway.app"]'
-    if [ -n "${SERVICE_PUBLIC_URL}" ]; then
+    if [ -n "${RAILWAY_PUBLIC_DOMAIN}" ]; then
       allowed_origins=$(node -e "
         const arr = ${allowed_origins};
-        arr.push('${SERVICE_PUBLIC_URL}');
+        arr.push('https://${RAILWAY_PUBLIC_DOMAIN}');
+        arr.push('http://${RAILWAY_PUBLIC_DOMAIN}');
         console.log(JSON.stringify(arr));
       ")
     fi

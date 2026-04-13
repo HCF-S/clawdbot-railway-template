@@ -94,7 +94,7 @@ export function createConfigRouter(handlers) {
         await restartGateway();
       }
 
-      res.json({ ok: true, applied: pairs.map(([k, v]) => ({ key: k, value: v })) });
+      res.json({ ok: true });
     } catch (err) {
       res.status(500).json({ ok: false, error: String(err) });
     }
