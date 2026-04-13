@@ -65,16 +65,12 @@ case "${cmd}" in
     ;;
   config)
     # POST /setup/api/config/set with default openclaw config entries
-    RAILWAY_PUBLIC_DOMAIN="${RAILWAY_PUBLIC_DOMAIN:-}"
-    allowed_origins='["https://platform.heyamiko.com","https://amiko-platform.vercel.app","https://amiko-social-test.vercel.app","http://localhost:3000","http://localhost","http://127.0.0.1:3000","http://127.0.0.1","http://localhost:8080","http://127.0.0.1:8080","https://amiko-chat.up.railway.app"]'
-    if [ -n "${RAILWAY_PUBLIC_DOMAIN}" ]; then
-      allowed_origins=$(node -e "
-        const arr = ${allowed_origins};
-        arr.push('https://${RAILWAY_PUBLIC_DOMAIN}');
-        arr.push('http://${RAILWAY_PUBLIC_DOMAIN}');
-        console.log(JSON.stringify(arr));
-      ")
-    fi
+    allowed_origins=$(node -e "
+      const arr = ['https://platform.heyamiko.com','https://amiko-platform.vercel.app','https://amiko-social-test.vercel.app','http://localhost:3000','http://localhost','http://127.0.0.1:3000','http://127.0.0.1','http://localhost:8080','http://127.0.0.1:8080','https://amiko-chat.up.railway.app'];
+      const port = '${PORT}';
+      if (port && port !== '3000') arr.push('http://localhost:' + port);
+      console.log(JSON.stringify(arr));
+    ")
     body=$(node -e "
       const entries = [
         ['gateway.trustedProxies', ['127.0.0.1', '::1', '10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16']],
