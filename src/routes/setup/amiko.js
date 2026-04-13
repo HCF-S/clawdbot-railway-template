@@ -227,6 +227,38 @@ Read \`skills/genui/SKILL.md\` for full tool schemas and more examples.
       }
     }
 
+    // Inject Amiko CLI instructions into TOOLS.md (the file agents read for tool knowledge)
+    const toolsPath = path.join(WORKSPACE_DIR, "TOOLS.md");
+    try {
+      let toolsContent = fs.existsSync(toolsPath) ? fs.readFileSync(toolsPath, "utf8") : "";
+      if (!toolsContent.includes("## Amiko CLI")) {
+        const cliSection = `
+## Amiko CLI
+
+The amiko CLI is installed globally. Auth and payments are automatic via .amiko.json.
+
+Key commands:
+- amiko credits balance — shows credit balance AND wallet addresses/balances
+- amiko image "<prompt>" — generate an image (5 AMIKO)
+- amiko search "<query>" — search X/Twitter (1 AMIKO)
+- amiko service call POST /v1/music '{"prompt":"...","music_length_ms":30000}' — generate music
+- amiko service call POST /v1/sfx '{"text":"...","duration_seconds":5}' — generate sound effect
+- amiko service list — list all services and prices
+- amiko --help — all commands
+
+Rules:
+- Never retry failed commands (costs tokens)
+- Never suggest amiko login or amiko connect (auth is automatic)
+- Payment tokens: AMIKO, SOL, USDC, USDT on Solana (automatic)
+`;
+        toolsContent = toolsContent.trimEnd() + "\n" + cliSection;
+        fs.writeFileSync(toolsPath, toolsContent, "utf8");
+        console.log("[pullTwinData] injected Amiko CLI into TOOLS.md");
+      }
+    } catch (err) {
+      console.warn("[pullTwinData] failed to inject CLI into TOOLS.md:", err);
+    }
+
     return { ok: true, path: outPath, output: `Saved twin data to: ${outPath}` };
   } catch (err) {
     return { ok: false, error: String(err) };
