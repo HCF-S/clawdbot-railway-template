@@ -133,15 +133,6 @@ export async function runOnboarding(payload, handlers) {
   const ok = onboard.code === 0 && isConfigured();
 
   if (ok) {
-    await runCmd(OPENCLAW_NODE, clawArgs(["config", "set", "gateway.auth.mode", "token"]));
-    await runCmd(OPENCLAW_NODE, clawArgs(["config", "set", "gateway.auth.token", OPENCLAW_GATEWAY_TOKEN]));
-    await runCmd(OPENCLAW_NODE, clawArgs(["config", "set", "gateway.bind", "loopback"]));
-    await runCmd(OPENCLAW_NODE, clawArgs(["config", "set", "gateway.port", String(INTERNAL_GATEWAY_PORT)]));
-    await runCmd(
-      OPENCLAW_NODE,
-      clawArgs(["config", "set", "gateway.trustedProxies", '["127.0.0.1","::1","10.0.0.0/8","172.16.0.0/12","192.168.0.0/16"]']),
-    );
-
     // Configure channels using shared function
     const { configureChannels } = await import("./channels.js");
     const channelOutput = await configureChannels(payload, handlers);
