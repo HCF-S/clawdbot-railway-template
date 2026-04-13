@@ -193,6 +193,7 @@ export async function writeAmikoConfigAndMcporter(params) {
       const channelResult = await writeAmikoChannelConfig({
         handlers,
         agentId,
+        amikoUserId,
         amikoTwinId,
         amikoTwinToken,
         amikoPlatformUrl: resolvedPlatformUrl,
@@ -222,6 +223,7 @@ async function writeAmikoChannelConfig(params) {
   const {
     handlers,
     agentId = "main",
+    amikoUserId = "",
     amikoTwinId = "",
     amikoTwinToken = "",
     amikoPlatformUrl,
@@ -244,6 +246,7 @@ async function writeAmikoChannelConfig(params) {
     ).replace(/\/+$/, "");
 
     const accountConfig = {
+      ...(amikoUserId ? { userId: amikoUserId } : {}),
       twinId: amikoTwinId,
       token: amikoTwinToken,
       platformApiBaseUrl: platformUrl,

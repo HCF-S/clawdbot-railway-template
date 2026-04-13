@@ -1,6 +1,5 @@
 import express from "express";
 import { installGenuiSkill } from "./skills.js";
-import { installSysConfig } from "./init.js";
 import { syncAmikoData, pullMemories } from "./amiko.js";
 import { resolveWorkspaceForAgent } from "./amiko-config.js";
 import { getVersion } from "./version.js";
@@ -34,28 +33,6 @@ export function createDeployRouter(handlers) {
       }
     } catch (err) {
       console.error("[/setup/api/deploy/genui-skill] error:", err);
-      return res.status(500).json({ ok: false, error: `Internal error: ${String(err)}` });
-    }
-  });
-
-  /**
-   * POST /setup/api/deploy/sys
-   * Deploy/update SYS.md and /data/sys structure to an existing instance
-   */
-  router.post("/deploy/sys", requireApiToken, async (_req, res) => {
-    try {
-      const result = await installSysConfig(handlers);
-      if (result.ok) {
-        return res.json({
-          ok: true,
-          message: "System persistence config deployed successfully",
-          output: result.output,
-        });
-      } else {
-        return res.status(500).json({ ok: false, error: result.error });
-      }
-    } catch (err) {
-      console.error("[/setup/api/deploy/sys] error:", err);
       return res.status(500).json({ ok: false, error: `Internal error: ${String(err)}` });
     }
   });
@@ -124,7 +101,6 @@ export function createDeployRouter(handlers) {
         amikoSkill: null,
         composioSkill: null,
         genuiSkill: null,
-        sys: null,
         memories: null,
       };
       let output = "";
@@ -155,20 +131,7 @@ export function createDeployRouter(handlers) {
         output += `[deploy/genui-skill] Error: ${err}\n`;
       }
 
-      // 5. Install SYS config
-      output += "\n[deploy] Setting up system persistence...\n";
-      try {
-        const sysResult = await installSysConfig(handlers);
-        results.sys = sysResult;
-        output += sysResult.ok
-          ? `[deploy/sys] ${sysResult.output}\n`
-          : `[deploy/sys] Error: ${sysResult.error}\n`;
-      } catch (err) {
-        results.sys = { ok: false, error: String(err) };
-        output += `[deploy/sys] Error: ${err}\n`;
-      }
-
-      // 6. Optionally sync memories
+      // 5. Optionally sync memories
       if (includeMemories) {
         output += "\n[deploy] Syncing memories (optional)...\n";
         try {
@@ -188,7 +151,7 @@ export function createDeployRouter(handlers) {
       }
 
       // Check if core components succeeded (memories and composio are optional)
-      const allOk = results.amikoData?.ok && results.amikoSkill?.ok && results.sys?.ok;
+      const allOk = results.amikoData?.ok && results.genuiSkill?.ok;
 
       const version = getVersion();
       if (allOk) {

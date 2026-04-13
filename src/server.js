@@ -6,9 +6,7 @@ import path from "node:path";
 import express from "express";
 import httpProxy from "http-proxy";
 import { createSetupRouter } from "./routes/setup/index.js";
-import { setGatewayControlUiAllowedOrigins } from "./routes/setup/run.js";
 // Skills are now bundled in the openclaw-amiko-plugin extension.
-import { installSysConfig } from "./routes/setup/init.js";
 
 // Railway deployments sometimes inject PORT=3000 by default. We want the wrapper to
 // reliably listen on 8080 unless explicitly overridden.
@@ -375,15 +373,6 @@ async function bootstrapWithDummyKey() {
     return;
   }
 
-  await runCmd(OPENCLAW_NODE, clawArgs(["config", "set", "gateway.auth.mode", "token"]));
-  await runCmd(OPENCLAW_NODE, clawArgs(["config", "set", "gateway.auth.token", OPENCLAW_GATEWAY_TOKEN]));
-  await runCmd(OPENCLAW_NODE, clawArgs(["config", "set", "gateway.bind", "loopback"]));
-  await runCmd(OPENCLAW_NODE, clawArgs(["config", "set", "gateway.port", String(INTERNAL_GATEWAY_PORT)]));
-  await runCmd(
-    OPENCLAW_NODE,
-    clawArgs(["config", "set", "gateway.trustedProxies", '["127.0.0.0/8","172.16.0.0/12","192.168.0.0/16"]']),
-  );
-
   const handlers = {
     WORKSPACE_DIR,
     STATE_DIR,
@@ -392,24 +381,9 @@ async function bootstrapWithDummyKey() {
     restartGateway,
   };
 
-  await setGatewayControlUiAllowedOrigins({ runCmd, OPENCLAW_NODE, clawArgs });
-
   const setModel = await runCmd(OPENCLAW_NODE, clawArgs(["models", "set", "openrouter/auto"]));
   if (setModel.code !== 0) {
     console.warn("[wrapper] bootstrap default model set:", setModel.output);
-  }
-
-  // After initial onboarding, install default skills and SYS config once on container start.
-  // Note: Amiko + Composio skills are now bundled in the openclaw-amiko-plugin extension.
-
-  try {
-    console.log("[wrapper] installing SYS config after bootstrap...");
-    const sysResult = await installSysConfig(handlers);
-    if (!sysResult.ok) {
-      console.warn("[wrapper] SYS config install warning:", sysResult.error);
-    }
-  } catch (err) {
-    console.warn("[wrapper] SYS config install failed:", err);
   }
 
   // Enable channel plugins
@@ -420,17 +394,6 @@ async function bootstrapWithDummyKey() {
     } catch (err) {
       console.warn(`[wrapper] plugins enable ${plugin} failed:`, err);
     }
-  }
-
-  // Configure tools policy
-  for (const [key, val] of [
-    ["tools.profile", "full"],
-    ["tools.allow", '["*"]'],
-    ["tools.exec.host", "gateway"],
-    ["tools.exec.security", "full"],
-    ["tools.exec.ask", "off"],
-  ]) {
-    await runCmd(OPENCLAW_NODE, clawArgs(["config", "set", key, val]));
   }
 
   console.log("[wrapper] bootstrap complete (dummy key); call /init with real OpenRouter key to activate");
@@ -478,15 +441,6 @@ async function bootstrapFromEnv() {
     return;
   }
 
-  await runCmd(OPENCLAW_NODE, clawArgs(["config", "set", "gateway.auth.mode", "token"]));
-  await runCmd(OPENCLAW_NODE, clawArgs(["config", "set", "gateway.auth.token", OPENCLAW_GATEWAY_TOKEN]));
-  await runCmd(OPENCLAW_NODE, clawArgs(["config", "set", "gateway.bind", "loopback"]));
-  await runCmd(OPENCLAW_NODE, clawArgs(["config", "set", "gateway.port", String(INTERNAL_GATEWAY_PORT)]));
-  await runCmd(
-    OPENCLAW_NODE,
-    clawArgs(["config", "set", "gateway.trustedProxies", '["127.0.0.0/8","172.16.0.0/12","192.168.0.0/16"]']),
-  );
-
   const handlers = {
     WORKSPACE_DIR,
     STATE_DIR,
@@ -495,24 +449,9 @@ async function bootstrapFromEnv() {
     restartGateway,
   };
 
-  await setGatewayControlUiAllowedOrigins({ runCmd, OPENCLAW_NODE, clawArgs });
-
   const setModel = await runCmd(OPENCLAW_NODE, clawArgs(["models", "set", "openrouter/auto"]));
   if (setModel.code !== 0) {
     console.warn("[wrapper] bootstrap default model set:", setModel.output);
-  }
-
-  // After initial onboarding, install default skills and SYS config once on container start.
-  // Note: Amiko + Composio skills are now bundled in the openclaw-amiko-plugin extension.
-
-  try {
-    console.log("[wrapper] installing SYS config after bootstrap-from-env...");
-    const sysResult = await installSysConfig(handlers);
-    if (!sysResult.ok) {
-      console.warn("[wrapper] SYS config install warning:", sysResult.error);
-    }
-  } catch (err) {
-    console.warn("[wrapper] SYS config install failed:", err);
   }
 
   // Enable channel plugins
@@ -523,17 +462,6 @@ async function bootstrapFromEnv() {
     } catch (err) {
       console.warn(`[wrapper] plugins enable ${plugin} failed:`, err);
     }
-  }
-
-  // Configure tools policy
-  for (const [key, val] of [
-    ["tools.profile", "full"],
-    ["tools.allow", '["*"]'],
-    ["tools.exec.host", "gateway"],
-    ["tools.exec.security", "full"],
-    ["tools.exec.ask", "off"],
-  ]) {
-    await runCmd(OPENCLAW_NODE, clawArgs(["config", "set", key, val]));
   }
 
   console.log("[wrapper] bootstrap complete; gateway can auto-start");

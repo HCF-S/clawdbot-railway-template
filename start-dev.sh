@@ -63,6 +63,49 @@ case "${cmd}" in
       -d "${body}"
     echo ""
     ;;
+  config)
+    # POST /setup/api/config/set with default openclaw config entries
+    SERVICE_PUBLIC_URL="${SERVICE_PUBLIC_URL:-}"
+    allowed_origins='["https://platform.heyamiko.com","https://amiko-platform.vercel.app","https://amiko-social-test.vercel.app","http://localhost:3000","http://localhost","http://127.0.0.1:3000","http://127.0.0.1","http://localhost:8080","http://127.0.0.1:8080","https://amiko-chat.up.railway.app"]'
+    if [ -n "${SERVICE_PUBLIC_URL}" ]; then
+      allowed_origins=$(node -e "
+        const arr = ${allowed_origins};
+        arr.push('${SERVICE_PUBLIC_URL}');
+        console.log(JSON.stringify(arr));
+      ")
+    fi
+    body=$(node -e "
+      const entries = [
+        ['gateway.trustedProxies', ['127.0.0.1', '::1', '10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16']],
+        ['gateway.controlUi.dangerouslyDisableDeviceAuth', true],
+        ['gateway.controlUi.allowedOrigins', ${allowed_origins}],
+        ['tools.profile', 'full'],
+        ['tools.allow', ['*']],
+        ['tools.exec.host', 'gateway'],
+        ['tools.exec.security', 'full'],
+        ['tools.exec.ask', 'off'],
+        ['tools.sessions.visibility', 'agent'],
+        ['tools.message.allowCrossContextSend', true],
+        ['tools.message.crossContext.allowAcrossProviders', true],
+        ['agents.defaults.compaction.mode', 'safeguard'],
+        ['agents.defaults.maxConcurrent', 4],
+        ['agents.defaults.subagents.maxConcurrent', 8],
+        ['messages.ackReactionScope', 'group-mentions'],
+        ['commands.native', 'auto'],
+        ['commands.nativeSkills', 'auto'],
+        ['commands.restart', true],
+        ['commands.ownerDisplay', 'raw'],
+        ['plugins.allow', ['openclaw-amiko', 'telegram', 'signal', 'slack', 'openclaw-weixin', 'openui-claw-plugin']],
+      ];
+      console.log(JSON.stringify({ entries }));
+    ")
+    echo "[config] POST http://127.0.0.1:${PORT}/setup/api/config/set"
+    curl -s -X POST "http://127.0.0.1:${PORT}/setup/api/config/set" \
+      -H "Content-Type: application/json" \
+      -H "x-api-token: ${SETUP_PASSWORD}" \
+      -d "${body}"
+    echo ""
+    ;;
   stop)
     docker stop "${CONTAINER_NAME}"
     exit 0
@@ -74,10 +117,11 @@ case "${cmd}" in
     exit 0
     ;;
   *)
-    echo "Usage: ./start-dev.sh [start|stop|build|init]"
+    echo "Usage: ./start-dev.sh [start|stop|build|init|config]"
     echo ""
     echo "  start  - Run container (default). Amiko IDs go via init, not env."
     echo "  init   - POST /setup/api/init with OPENROUTER_API_KEY, AMIKO_USER_ID, AMIKO_TWIN_ID, AMIKO_TWIN_TOKEN (from .env)"
+    echo "  config - POST /setup/api/config/set with default openclaw config entries"
     echo "  stop   - Stop container"
     echo "  build  - Rebuild Docker image without Docker layer cache"
     exit 1
