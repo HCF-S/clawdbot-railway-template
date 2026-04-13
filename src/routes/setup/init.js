@@ -19,12 +19,6 @@ export function createInitRouter(handlers) {
           return res.status(500).json(onboardResult);
         }
         output = onboardResult.output;
-        try {
-          await restartGateway();
-          output += "[gateway] Gateway restarted.\n";
-        } catch (err) {
-          output += `[gateway] Warning: ${String(err)}\n`;
-        }
       } else {
         // Already configured (e.g. auto-onboard with dummy key at startup): replace dummy key with real one
         const realKey = String(payload.authSecret ?? "").trim();
