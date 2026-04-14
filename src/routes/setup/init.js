@@ -88,7 +88,9 @@ export function createInitRouter(handlers) {
           output += `[bootstrap] WARNING: Failed to install BOOTSTRAP.md: ${String(err)}\n`;
         }
 
-        const thinkingResult = ensureThinkingDefaultConfigured();
+        const thinkingResult = ensureThinkingDefaultConfigured({
+          upgradeOff: true,
+        });
         if (!thinkingResult.ok) {
           output += `[default thinking] WARNING: ${thinkingResult.error}\n`;
         } else if (thinkingResult.changed) {

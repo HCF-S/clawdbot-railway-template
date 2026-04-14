@@ -146,7 +146,9 @@ export async function runOnboarding(payload, handlers) {
       extra += `\n[default model] ${defaultModel} (exit=${setModel.code})\n${setModel.output || "(no output)"}`;
     }
 
-    const thinkingResult = ensureThinkingDefaultConfigured();
+    const thinkingResult = ensureThinkingDefaultConfigured({
+      upgradeOff: true,
+    });
     if (!thinkingResult.ok) {
       extra += `\n[default thinking] WARNING: ${thinkingResult.error}`;
     } else if (thinkingResult.changed) {

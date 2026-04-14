@@ -123,7 +123,8 @@ function isConfigured() {
 
 const DEFAULT_THINKING_LEVEL = "medium";
 
-function ensureThinkingDefaultConfigured() {
+function ensureThinkingDefaultConfigured(options = {}) {
+  const { upgradeOff = false } = options;
   const cfgPath = configPath();
   if (!fs.existsSync(cfgPath)) {
     return { ok: false, changed: false, error: `openclaw.json not found at ${cfgPath}` };
@@ -159,11 +160,15 @@ function ensureThinkingDefaultConfigured() {
     cfg.agents.defaults = {};
   }
 
-  if (Object.prototype.hasOwnProperty.call(cfg.agents.defaults, "thinkingDefault")) {
+  const currentThinkingDefault = cfg.agents.defaults.thinkingDefault;
+  if (
+    Object.prototype.hasOwnProperty.call(cfg.agents.defaults, "thinkingDefault") &&
+    !(upgradeOff && currentThinkingDefault === "off")
+  ) {
     return {
       ok: true,
       changed: false,
-      value: cfg.agents.defaults.thinkingDefault,
+      value: currentThinkingDefault,
     };
   }
 
@@ -454,7 +459,9 @@ async function bootstrapWithDummyKey() {
     console.warn("[wrapper] bootstrap default model set:", setModel.output);
   }
 
-  const thinkingDefault = handlers.ensureThinkingDefaultConfigured();
+  const thinkingDefault = handlers.ensureThinkingDefaultConfigured({
+    upgradeOff: true,
+  });
   if (!thinkingDefault.ok) {
     console.warn("[wrapper] bootstrap thinking default set failed:", thinkingDefault.error);
   } else if (thinkingDefault.changed) {
@@ -532,7 +539,9 @@ async function bootstrapFromEnv() {
     console.warn("[wrapper] bootstrap default model set:", setModel.output);
   }
 
-  const thinkingDefault = handlers.ensureThinkingDefaultConfigured();
+  const thinkingDefault = handlers.ensureThinkingDefaultConfigured({
+    upgradeOff: true,
+  });
   if (!thinkingDefault.ok) {
     console.warn("[wrapper] bootstrap thinking default set failed:", thinkingDefault.error);
   } else if (thinkingDefault.changed) {
