@@ -25,7 +25,9 @@ RUN npm install --omit=dev && npm cache clean --force
 COPY src ./src
 COPY public ./public
 
-RUN npm install -g mcporter@0.7.3 @heyamiko/amiko-cli @heyamiko/openclaw-amiko
+# Cache-bust: update this date to force fresh npm install
+ARG NPM_CACHE_BUST=2026-04-10
+RUN npm install -g mcporter@0.7.3 @heyamiko/amiko-cli@latest @heyamiko/openclaw-amiko@latest
 
 EXPOSE 3000
 

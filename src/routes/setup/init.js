@@ -203,6 +203,10 @@ export function createInitRouter(handlers) {
         if (amikoUserId || amikoTwinId || amikoTwinToken) {
           try {
             const { WORKSPACE_DIR } = handlers;
+            const billingBase = String(payload.billingBase ?? "").trim() || undefined;
+            const platformKey = String(payload.platformKey ?? "").trim() || undefined;
+            const agentWallets = Array.isArray(payload.agentWallets) ? payload.agentWallets : undefined;
+
             const result = await writeAmikoConfigAndMcporter({
               handlers,
               workspaceDir: WORKSPACE_DIR,
@@ -211,6 +215,9 @@ export function createInitRouter(handlers) {
               amikoTwinToken,
               amikoPlatformUrl: amikoPlatformUrl || undefined,
               amikoChatUrl: amikoChatUrl || undefined,
+              billingBase,
+              platformKey,
+              agentWallets,
             });
             if (result.ok) {
               output += `[amiko] ${result.output}\n`;
