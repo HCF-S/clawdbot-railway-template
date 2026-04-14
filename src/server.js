@@ -121,6 +121,61 @@ function isConfigured() {
   }
 }
 
+const DEFAULT_THINKING_LEVEL = "medium";
+
+function ensureThinkingDefaultConfigured() {
+  const cfgPath = configPath();
+  if (!fs.existsSync(cfgPath)) {
+    return { ok: false, changed: false, error: `openclaw.json not found at ${cfgPath}` };
+  }
+
+  let cfg;
+  try {
+    cfg = JSON.parse(fs.readFileSync(cfgPath, "utf8"));
+  } catch (err) {
+    return {
+      ok: false,
+      changed: false,
+      error: `Invalid JSON in ${cfgPath}: ${String(err)}`,
+    };
+  }
+
+  if (!cfg || typeof cfg !== "object" || Array.isArray(cfg)) {
+    return {
+      ok: false,
+      changed: false,
+      error: `Invalid config shape in ${cfgPath}: expected object`,
+    };
+  }
+
+  if (!cfg.agents || typeof cfg.agents !== "object") {
+    cfg.agents = {};
+  }
+  if (!cfg.agents.defaults || typeof cfg.agents.defaults !== "object") {
+    cfg.agents.defaults = {};
+  }
+
+  if (Object.prototype.hasOwnProperty.call(cfg.agents.defaults, "thinkingDefault")) {
+    return {
+      ok: true,
+      changed: false,
+      value: cfg.agents.defaults.thinkingDefault,
+    };
+  }
+
+  cfg.agents.defaults.thinkingDefault = DEFAULT_THINKING_LEVEL;
+  fs.writeFileSync(cfgPath, JSON.stringify(cfg, null, 2), {
+    encoding: "utf8",
+    mode: 0o600,
+  });
+
+  return {
+    ok: true,
+    changed: true,
+    value: DEFAULT_THINKING_LEVEL,
+  };
+}
+
 const gatewayProcRef = { current: null };
 let gatewayStarting = null;
 
@@ -379,11 +434,21 @@ async function bootstrapWithDummyKey() {
     configPath,
     isConfigured,
     restartGateway,
+    ensureThinkingDefaultConfigured,
   };
 
   const setModel = await runCmd(OPENCLAW_NODE, clawArgs(["models", "set", "openrouter/auto"]));
   if (setModel.code !== 0) {
     console.warn("[wrapper] bootstrap default model set:", setModel.output);
+  }
+
+  const thinkingDefault = handlers.ensureThinkingDefaultConfigured();
+  if (!thinkingDefault.ok) {
+    console.warn("[wrapper] bootstrap thinking default set failed:", thinkingDefault.error);
+  } else if (thinkingDefault.changed) {
+    console.log(
+      `[wrapper] bootstrap default thinking set: ${String(thinkingDefault.value)}`,
+    );
   }
 
   // Enable channel plugins
@@ -447,11 +512,21 @@ async function bootstrapFromEnv() {
     configPath,
     isConfigured,
     restartGateway,
+    ensureThinkingDefaultConfigured,
   };
 
   const setModel = await runCmd(OPENCLAW_NODE, clawArgs(["models", "set", "openrouter/auto"]));
   if (setModel.code !== 0) {
     console.warn("[wrapper] bootstrap default model set:", setModel.output);
+  }
+
+  const thinkingDefault = handlers.ensureThinkingDefaultConfigured();
+  if (!thinkingDefault.ok) {
+    console.warn("[wrapper] bootstrap thinking default set failed:", thinkingDefault.error);
+  } else if (thinkingDefault.changed) {
+    console.log(
+      `[wrapper] bootstrap default thinking set: ${String(thinkingDefault.value)}`,
+    );
   }
 
   // Enable channel plugins
@@ -557,6 +632,7 @@ app.use(
     STATE_DIR,
     WORKSPACE_DIR,
     configPath,
+    ensureThinkingDefaultConfigured,
     redactSecrets,
     ALLOWED_CONSOLE_COMMANDS,
     gatewayProcRef,
@@ -783,6 +859,12 @@ function ensureAmikoCli() {
   ensurePluginsInstalled();
   ensureAmikoCli();
   migrateConfigIfNeeded();
+  const thinkingDefault = ensureThinkingDefaultConfigured();
+  if (!thinkingDefault.ok && isConfigured()) {
+    console.warn("[migrate] failed to ensure thinking default:", thinkingDefault.error);
+  } else if (thinkingDefault.changed) {
+    console.log(`[migrate] set agents.defaults.thinkingDefault=${thinkingDefault.value}`);
+  }
   if (!isConfigured()) {
     if (OPENROUTER_API_KEY_ENV) {
       await bootstrapFromEnv();

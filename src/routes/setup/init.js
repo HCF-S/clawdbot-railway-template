@@ -9,7 +9,14 @@ export function createInitRouter(handlers) {
   router.post("/init", requireApiToken, async (req, res) => {
     try {
       const payload = req.body || {};
-      const { isConfigured, restartGateway, runCmd, clawArgs, OPENCLAW_NODE } = handlers;
+      const {
+        isConfigured,
+        restartGateway,
+        runCmd,
+        clawArgs,
+        OPENCLAW_NODE,
+        ensureThinkingDefaultConfigured,
+      } = handlers;
       let output = "";
 
       if (!isConfigured()) {
@@ -81,10 +88,17 @@ export function createInitRouter(handlers) {
           output += `[bootstrap] WARNING: Failed to install BOOTSTRAP.md: ${String(err)}\n`;
         }
 
-        // Restart gateway after key/model changes
-        if (realKey || payload.model) {
+        const thinkingResult = ensureThinkingDefaultConfigured();
+        if (!thinkingResult.ok) {
+          output += `[default thinking] WARNING: ${thinkingResult.error}\n`;
+        } else if (thinkingResult.changed) {
+          output += `[default thinking] ${String(thinkingResult.value)}\n`;
+        }
+
+        // Restart gateway after key/model/default-config changes
+        if (realKey || payload.model || thinkingResult.changed) {
           await restartGateway();
-          output += "[gateway] Restarted to pick up new OpenRouter key/model.\n";
+          output += "[gateway] Restarted to pick up new OpenRouter key/model/config.\n";
 
           const model = String(payload.model ?? "").trim();
           if (model) {
