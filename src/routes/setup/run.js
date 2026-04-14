@@ -54,6 +54,7 @@ export async function runOnboarding(payload, handlers) {
   const {
     isConfigured,
     ensureGatewayRunning,
+    ensureThinkingDefaultConfigured,
     runCmd,
     clawArgs,
     OPENCLAW_NODE,
@@ -143,6 +144,13 @@ export async function runOnboarding(payload, handlers) {
     if (defaultModel && (!previousProvider || previousProvider !== defaultProvider)) {
       const setModel = await runCmd(OPENCLAW_NODE, clawArgs(["models", "set", defaultModel]));
       extra += `\n[default model] ${defaultModel} (exit=${setModel.code})\n${setModel.output || "(no output)"}`;
+    }
+
+    const thinkingResult = ensureThinkingDefaultConfigured();
+    if (!thinkingResult.ok) {
+      extra += `\n[default thinking] WARNING: ${thinkingResult.error}`;
+    } else if (thinkingResult.changed) {
+      extra += `\n[default thinking] ${String(thinkingResult.value)}`;
     }
 
     await restartGateway();

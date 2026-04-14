@@ -149,6 +149,37 @@ async function main() {
     }
     console.log("[e2e] /init ok");
 
+    console.log("[e2e] Verifying default thinking level in openclaw.json ...");
+    const configRes = await fetch(`${baseUrl}/setup/api/config/raw`, {
+      method: "GET",
+      headers: {
+        "x-api-token": process.env.SETUP_PASSWORD || "",
+      },
+    });
+    if (!configRes.ok) {
+      const text = await configRes.text().catch(() => "");
+      cleanup();
+      throw new Error(`/setup/api/config/raw failed: ${configRes.status} ${configRes.statusText} ${text}`);
+    }
+
+    const configBody = await configRes.json().catch(() => ({}));
+    let configJson;
+    try {
+      configJson = JSON.parse(configBody.content || "{}");
+    } catch (err) {
+      cleanup();
+      throw new Error(`Failed to parse openclaw.json from config/raw: ${String(err)}`);
+    }
+
+    const thinkingDefault = configJson?.agents?.defaults?.thinkingDefault;
+    if (thinkingDefault !== "medium") {
+      cleanup();
+      throw new Error(
+        `Expected agents.defaults.thinkingDefault to be \"medium\", got ${JSON.stringify(thinkingDefault)}`,
+      );
+    }
+    console.log("[e2e] Default thinking level ok:", thinkingDefault);
+
     console.log("[e2e] Checking OpenClaw status via /setup/api/status ...");
     const statusRes = await fetch(`${baseUrl}/setup/api/status`, {
       method: "GET",
@@ -185,4 +216,3 @@ async function main() {
 }
 
 await main();
-
