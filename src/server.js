@@ -148,10 +148,14 @@ function ensureThinkingDefaultConfigured() {
     };
   }
 
-  if (!cfg.agents || typeof cfg.agents !== "object") {
+  if (!cfg.agents || typeof cfg.agents !== "object" || Array.isArray(cfg.agents)) {
     cfg.agents = {};
   }
-  if (!cfg.agents.defaults || typeof cfg.agents.defaults !== "object") {
+  if (
+    !cfg.agents.defaults ||
+    typeof cfg.agents.defaults !== "object" ||
+    Array.isArray(cfg.agents.defaults)
+  ) {
     cfg.agents.defaults = {};
   }
 
@@ -164,10 +168,18 @@ function ensureThinkingDefaultConfigured() {
   }
 
   cfg.agents.defaults.thinkingDefault = DEFAULT_THINKING_LEVEL;
-  fs.writeFileSync(cfgPath, JSON.stringify(cfg, null, 2), {
-    encoding: "utf8",
-    mode: 0o600,
-  });
+  try {
+    fs.writeFileSync(cfgPath, JSON.stringify(cfg, null, 2), {
+      encoding: "utf8",
+      mode: 0o600,
+    });
+  } catch (err) {
+    return {
+      ok: false,
+      changed: false,
+      error: `Failed to write ${cfgPath}: ${String(err)}`,
+    };
+  }
 
   return {
     ok: true,
