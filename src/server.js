@@ -846,6 +846,35 @@ function ensureAmikoCli() {
   }
 
   console.warn("[amiko-cli] not found — amiko commands will be unavailable");
+  return;
+}
+
+// After ensureAmikoCli finds and symlinks the binary, also copy the bundled
+// SKILL.md into the OpenClaw managed skills directory so the agent discovers
+// CLI commands through the standard skill system. This stays in sync with
+// the installed CLI version — no separate plugin publish needed.
+function syncAmikoCLISkill() {
+  const candidates = [
+    path.join(OPENCLAW_HOME_DIR, ".amiko-cli", "skills", "SKILL.md"),
+    "/usr/local/lib/node_modules/@heyamiko/amiko-cli/skills/SKILL.md",
+  ];
+
+  const src = candidates.find((p) => fs.existsSync(p));
+  if (!src) return;
+
+  // Write to both workspace (highest priority, reliable discovery) and managed (backup)
+  const dests = [
+    path.join(OPENCLAW_HOME_DIR, "workspace", "skills", "amiko-cli"),
+    path.join(OPENCLAW_HOME_DIR, "skills", "amiko-cli"),
+  ];
+
+  for (const destDir of dests) {
+    try {
+      fs.mkdirSync(destDir, { recursive: true });
+      fs.copyFileSync(src, path.join(destDir, "SKILL.md"));
+    } catch {}
+  }
+  console.log(`[amiko-cli] skill synced to workspace + managed dirs`);
 }
 
 // On start: if not configured, auto-onboard (with env key if set, else dummy key "test").
@@ -854,6 +883,7 @@ function ensureAmikoCli() {
   ensureOpenClawInstalled();
   ensurePluginsInstalled();
   ensureAmikoCli();
+  syncAmikoCLISkill();
   migrateConfigIfNeeded();
   if (!isConfigured()) {
     if (OPENROUTER_API_KEY_ENV) {
