@@ -126,6 +126,40 @@ function isConfigured() {
 const gatewayProcRef = { current: null };
 let gatewayStarting = null;
 
+// Idle gateway shutdown — kills the gateway child process after a period of inactivity
+// to reclaim ~500MB RAM per instance. The gateway restarts automatically on the next request.
+const IDLE_TIMEOUT_MS = Number.parseInt(
+  process.env.GATEWAY_IDLE_TIMEOUT_MS ?? String(24 * 60 * 60 * 1000), // default 24 hours
+  10,
+);
+const IDLE_SHUTDOWN_ENABLED = IDLE_TIMEOUT_MS > 0;
+let lastGatewayActivity = Date.now();
+let idleCheckInterval = null;
+
+function touchGatewayActivity() {
+  lastGatewayActivity = Date.now();
+}
+
+function startIdleWatcher() {
+  if (!IDLE_SHUTDOWN_ENABLED || idleCheckInterval) return;
+  idleCheckInterval = setInterval(() => {
+    if (!gatewayProcRef.current) return;
+    const idleMs = Date.now() - lastGatewayActivity;
+    if (idleMs >= IDLE_TIMEOUT_MS) {
+      console.log(
+        `[idle] gateway idle for ${Math.round(idleMs / 1000)}s, shutting down to save memory`,
+      );
+      try {
+        gatewayProcRef.current.kill("SIGTERM");
+      } catch {
+        // ignore
+      }
+      gatewayProcRef.current = null;
+    }
+  }, 60_000); // check every 60s
+  idleCheckInterval.unref();
+}
+
 function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
 }
@@ -206,6 +240,7 @@ async function ensureGatewayRunning() {
       if (!ready) {
         throw new Error("Gateway did not become ready in time");
       }
+      touchGatewayActivity();
     })().finally(() => {
       gatewayStarting = null;
     });
@@ -660,6 +695,7 @@ app.use(async (req, res) => {
   }
 
   if (isConfigured()) {
+    touchGatewayActivity();
     try {
       await ensureGatewayRunning();
     } catch (err) {
@@ -925,7 +961,13 @@ function syncAmikoCLISkill() {
     console.log(`[wrapper] workspace dir: ${WORKSPACE_DIR}`);
     console.log(`[wrapper] gateway token: ${OPENCLAW_GATEWAY_TOKEN ? "(set)" : "(missing)"}`);
     console.log(`[wrapper] gateway target: ${GATEWAY_TARGET}`);
+    if (IDLE_SHUTDOWN_ENABLED) {
+      console.log(`[wrapper] idle gateway shutdown: enabled (${IDLE_TIMEOUT_MS / 1000}s)`);
+    } else {
+      console.log("[wrapper] idle gateway shutdown: disabled");
+    }
   });
+  startIdleWatcher();
   server.on("upgrade", onUpgrade);
   process.on("SIGTERM", onSigTerm);
 })();
@@ -935,6 +977,7 @@ async function onUpgrade(req, socket, head) {
     socket.destroy();
     return;
   }
+  touchGatewayActivity();
   try {
     await ensureGatewayRunning();
   } catch {
