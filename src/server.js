@@ -864,17 +864,23 @@ function syncAmikoCLISkill() {
 
   // Write to both workspace (highest priority, reliable discovery) and managed (backup)
   const dests = [
-    path.join(OPENCLAW_HOME_DIR, "workspace", "skills", "amiko-cli"),
-    path.join(OPENCLAW_HOME_DIR, "skills", "amiko-cli"),
+    path.join(WORKSPACE_DIR, "skills", "amiko-cli"),
+    path.join(STATE_DIR, "skills", "amiko-cli"),
   ];
 
+  let synced = false;
   for (const destDir of dests) {
     try {
       fs.mkdirSync(destDir, { recursive: true });
       fs.copyFileSync(src, path.join(destDir, "SKILL.md"));
-    } catch {}
+      synced = true;
+    } catch (err) {
+      console.warn(`[amiko-cli] failed to sync skill to ${destDir}:`, err.message);
+    }
   }
-  console.log(`[amiko-cli] skill synced to workspace + managed dirs`);
+  if (synced) {
+    console.log(`[amiko-cli] skill synced to workspace + managed dirs`);
+  }
 }
 
 // On start: if not configured, auto-onboard (with env key if set, else dummy key "test").
