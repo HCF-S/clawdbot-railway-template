@@ -46,9 +46,14 @@ export function createInitRouter(handlers) {
         }
 
         // Persist Amiko config to main agent's workspace (per-agent .amiko.json + mcporter.json)
-        if (amikoUserId || amikoTwinId || amikoTwinToken) {
+        const billingBase = String(payload.billingBase ?? "").trim() || undefined;
+        const platformKey = String(payload.platformKey ?? "").trim() || undefined;
+        const agentWallets = Array.isArray(payload.agentWallets) ? payload.agentWallets : undefined;
+
+        if (amikoUserId || amikoTwinId || amikoTwinToken || billingBase || platformKey || agentWallets) {
           try {
             const { WORKSPACE_DIR } = handlers;
+
             const result = await writeAmikoConfigAndMcporter({
               handlers,
               workspaceDir: WORKSPACE_DIR,
@@ -57,6 +62,9 @@ export function createInitRouter(handlers) {
               amikoTwinToken,
               amikoPlatformUrl: amikoPlatformUrl || undefined,
               amikoChatUrl: amikoChatUrl || undefined,
+              billingBase,
+              platformKey,
+              agentWallets,
             });
             if (result.ok) {
               output += `[amiko] ${result.output}\n`;
