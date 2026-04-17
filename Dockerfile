@@ -26,7 +26,7 @@ COPY src ./src
 COPY public ./public
 
 # Cache-bust: update this date to force fresh npm install
-ARG NPM_CACHE_BUST=2026-04-10
+ARG NPM_CACHE_BUST=2026-04-17
 RUN echo "cache-bust: ${NPM_CACHE_BUST}" && npm install -g mcporter@0.7.3 @heyamiko/amiko-cli@latest @heyamiko/openclaw-amiko@latest
 
 EXPOSE 3000
