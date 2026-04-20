@@ -1,6 +1,7 @@
 import childProcess from "node:child_process";
 import crypto from "node:crypto";
 import fs from "node:fs";
+import net from "node:net";
 import path from "node:path";
 
 import express from "express";
@@ -319,16 +320,48 @@ async function ensureGatewayRunning() {
   return { ok: true };
 }
 
+async function waitForPortFree(port, host, timeoutMs = 5_000) {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    const inUse = await new Promise((resolve) => {
+      const sock = net.createConnection({ port, host }, () => {
+        sock.destroy();
+        resolve(true);
+      });
+      sock.on("error", () => resolve(false));
+    });
+    if (!inUse) return true;
+    await sleep(200);
+  }
+  return false;
+}
+
 async function restartGateway() {
   if (gatewayProcRef.current) {
+    const proc = gatewayProcRef.current;
+    const exited = new Promise((resolve) => {
+      proc.on("exit", resolve);
+      setTimeout(() => resolve("timeout"), 5_000);
+    });
     try {
-      gatewayProcRef.current.kill("SIGTERM");
+      proc.kill("SIGTERM");
     } catch {
-      // ignore
+      // already dead
     }
-    // Give it a moment to exit and release the port.
-    await sleep(750);
+    const result = await exited;
+    if (result === "timeout") {
+      try {
+        proc.kill("SIGKILL");
+      } catch {
+        // already dead
+      }
+    }
     gatewayProcRef.current = null;
+
+    const portFree = await waitForPortFree(INTERNAL_GATEWAY_PORT, INTERNAL_GATEWAY_HOST, 5_000);
+    if (!portFree) {
+      throw new Error(`Port ${INTERNAL_GATEWAY_PORT} still in use after old gateway exited`);
+    }
   }
   return ensureGatewayRunning();
 }
