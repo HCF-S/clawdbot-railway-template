@@ -35,8 +35,8 @@ jobs:
           file: ./Dockerfile
           push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
           tags: |
-            ghcr.io/hcf-s/clawdbot:latest
-            ghcr.io/hcf-s/clawdbot:${{ github.sha }}
+            ghcr.io/hcf-studios/clawdbot:latest
+            ghcr.io/hcf-studios/clawdbot:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
